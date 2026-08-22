@@ -11,30 +11,28 @@ This package exposes the language-native representation of the stable Vinary Tre
 | Binding | Go |
 | Languages/runtime | Go 1.25+ with cgo |
 | Support tier | Tier 2 |
-| Distribution | Go module `github.com/vinary-tree/liblevenshtein-rust/vinary-tree-interop/bindings/go` |
+| Distribution | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` at tag `bindings/go/v4.0.0-rc.1` |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
-| Canonical facade source | [`vinary-tree-interop/bindings/go`](../../../vinary-tree-interop/bindings/go) |
+| Canonical facade source | [`vinary-tree-interop/bindings/go`](.) |
 
 The support tier controls release gating, not semantic quality: every tier has
 the same snapshot, ownership, status, and ABI compatibility laws. Consult the
 [binding architecture](../../docs/abi-reference.md) before implementing a custom provider
-and the [family hub](../../../docs/bindings/README.md) when combining independently packaged projects.
+and the [family hub](../../README.md) when combining independently packaged projects.
 
-![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../../docs/diagrams/bindings/interface-negotiation-activity.svg)
+![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../docs/diagrams/interface-negotiation-activity.svg)
 
-## Executable example and verification
+## Package surface and verification
 
-The repository's canonical executable example is
-[`bindings/go/liblevenshtein_test.go`](../../../bindings/go/liblevenshtein_test.go). It exercises the same public package a user
-installs and is run by the binding CI with:
+[`resource.go`](resource.go) is the complete public package. The CI gate
+compiles it through the `/v4` module path with cgo enabled:
 
 ```sh
-go test ./bindings/go
+go -C bindings/go test ./...
 ```
 
-Examples deliberately construct or receive resources through public project
-packages. They never import private Rust modules, depend on object layout, or
-reach behind the stable C/resource ABIs.
+Project-specific constructors live in their own modules; this neutral module
+only models and validates the shared resource handoff.
 
 ## Public API and data model
 
@@ -56,7 +54,7 @@ For the exhaustive native function contract—including exact preconditions,
 returnable statuses, complexity, and thread-safety—use the
 [family resource ABI reference](../../docs/abi-reference.md). The facade
 source linked above is the authoritative idiomatic symbol inventory; its
-exhaustive coverage is governed by [`bindings/api.json`](../../../bindings/api.json) and the generated interop constants.
+exhaustive coverage is pinned by the [canonical C header](../../include/vinary_tree_interop.h) and the Rust layout and discriminant tests.
 
 ## Ownership, snapshots, and resource handoff
 

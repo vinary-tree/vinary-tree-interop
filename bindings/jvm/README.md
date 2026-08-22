@@ -40,28 +40,32 @@ expose only managed copies.
 | Support tier | Tier 1 |
 | Distribution | Maven coordinate `io.vinarytree:vinary-tree-interop` |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
-| Canonical facade source | [`vinary-tree-interop/bindings/jvm`](../../../vinary-tree-interop/bindings/jvm) |
+| Canonical facade source | [`vinary-tree-interop/bindings/jvm`](.) |
+
+The checked-in Gradle wrapper selects Java 22 by default because that is the
+minimum release containing the stable Foreign Function and Memory API. Release
+CI also compiles with Java 25 through `-PjavaToolchain=25`; Gradle's
+`options.release = 22` gate preserves Java 22 bytecode and API compatibility.
 
 The support tier controls release gating, not semantic quality: every tier has
 the same snapshot, ownership, status, and ABI compatibility laws. Consult the
 [binding architecture](../../docs/abi-reference.md) before implementing a custom provider
-and the [family hub](../../../docs/bindings/README.md) when combining independently packaged projects.
+and the [family hub](../../README.md) when combining independently packaged projects.
 
-![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../../docs/diagrams/bindings/interface-negotiation-activity.svg)
+![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../docs/diagrams/interface-negotiation-activity.svg)
 
-## Executable example and verification
+## Package surface and verification
 
-The repository's canonical executable example is
-[`bindings/jvm/src/smoke/java/io/vinarytree/liblevenshtein/ResourceSnapshotSmoke.java`](../../../bindings/jvm/src/smoke/java/io/vinarytree/liblevenshtein/ResourceSnapshotSmoke.java). It exercises the same public package a user
-installs and is run by the binding CI with:
+The public Java sources live under [`src/main/java/io/vinarytree/interop`](src/main/java/io/vinarytree/interop).
+The wrapper compiles their FFM layouts, collection facades, and generated
+Javadoc against the Java 22 API contract:
 
 ```sh
-./gradlew -p bindings/jvm test
+bindings/jvm/gradlew --no-daemon -p bindings/jvm test javadoc
 ```
 
-Examples deliberately construct or receive resources through public project
-packages. They never import private Rust modules, depend on object layout, or
-reach behind the stable C/resource ABIs.
+Project-specific constructors live in their own Maven artifacts; this neutral
+artifact only models and validates the shared resource handoff.
 
 ## Public API and data model
 
@@ -83,7 +87,7 @@ For the exhaustive native function contract—including exact preconditions,
 returnable statuses, complexity, and thread-safety—use the
 [family resource ABI reference](../../docs/abi-reference.md). The facade
 source linked above is the authoritative idiomatic symbol inventory; its
-exhaustive coverage is governed by [`bindings/api.json`](../../../bindings/api.json) and the generated interop constants.
+exhaustive coverage is pinned by the [canonical C header](../../include/vinary_tree_interop.h) and the Rust layout and discriminant tests.
 
 ## Ownership, snapshots, and resource handoff
 

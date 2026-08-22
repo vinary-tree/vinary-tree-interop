@@ -13,28 +13,31 @@ This package exposes the language-native representation of the stable Vinary Tre
 | Support tier | Tier 2 |
 | Distribution | fpm package `vinary-tree-interop` |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
-| Canonical facade source | [`vinary-tree-interop/bindings/fortran`](../../../vinary-tree-interop/bindings/fortran) |
+| Canonical facade source | [`vinary-tree-interop/bindings/fortran`](.) |
+
+fpm's version parser cannot encode a release candidate. During the
+`4.0.0-rc.1` train this manifest therefore builds as a `4.0.0` source
+candidate, but release automation prohibits publishing it to the fpm registry
+until the final `4.0.0` release.
 
 The support tier controls release gating, not semantic quality: every tier has
 the same snapshot, ownership, status, and ABI compatibility laws. Consult the
 [binding architecture](../../docs/abi-reference.md) before implementing a custom provider
-and the [family hub](../../../docs/bindings/README.md) when combining independently packaged projects.
+and the [family hub](../../README.md) when combining independently packaged projects.
 
-![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../../docs/diagrams/bindings/interface-negotiation-activity.svg)
+![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../docs/diagrams/interface-negotiation-activity.svg)
 
-## Executable example and verification
+## Package surface and verification
 
-The repository's canonical executable example is
-[`bindings/fortran/test/test_distance.f90`](../../../bindings/fortran/test/test_distance.f90). It exercises the same public package a user
-installs and is run by the binding CI with:
+[`src/vinary_tree_interop.f90`](src/vinary_tree_interop.f90) is the public fpm
+module. Compile its ISO C binding declarations with:
 
 ```sh
-fpm test --profile release --package vinary-tree-liblevenshtein
+fpm test -C bindings/fortran
 ```
 
-Examples deliberately construct or receive resources through public project
-packages. They never import private Rust modules, depend on object layout, or
-reach behind the stable C/resource ABIs.
+Project-specific constructors live in their own fpm packages; this neutral
+module only models the shared resource handoff.
 
 ## Public API and data model
 
@@ -56,7 +59,7 @@ For the exhaustive native function contract—including exact preconditions,
 returnable statuses, complexity, and thread-safety—use the
 [family resource ABI reference](../../docs/abi-reference.md). The facade
 source linked above is the authoritative idiomatic symbol inventory; its
-exhaustive coverage is governed by [`bindings/api.json`](../../../bindings/api.json) and the generated interop constants.
+exhaustive coverage is pinned by the [canonical C header](../../include/vinary_tree_interop.h) and the Rust layout and discriminant tests.
 
 ## Ownership, snapshots, and resource handoff
 

@@ -1,15 +1,16 @@
 [package]
 name = "vinary-tree-interop"
-version = "0.1.0"
+version = "4.0.0-rc.1"
 edition = "2021"
 rust-version = "1.95"
 authors = ["Dylon Edwards <dylon.devo@gmail.com>"]
 license = "Apache-2.0"
-repository = "https://github.com/vinary-tree/liblevenshtein-rust"
+repository = "https://github.com/vinary-tree/vinary-tree-interop"
 description = "Stable resource ABI shared by modular vinary-tree language bindings"
 keywords = ["ffi", "bindings", "abi", "vinary-tree"]
 categories = ["api-bindings", "development-tools::ffi"]
 readme = "README.md"
+include = ["src/**", "tests/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE"]
 
 [lib]
 name = "vinary_tree_interop"

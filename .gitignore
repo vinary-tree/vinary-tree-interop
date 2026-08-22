@@ -1,0 +1,11 @@
+/target/
+/.build/
+/.gradle/
+**/.gradle/
+/dist/
+/bindings/**/build/
+/bindings/**/bin/
+/bindings/**/obj/
+/bindings/ocaml/_build/
+*.egg-info/
+__pycache__/

@@ -1,12 +1,12 @@
 project:
   name: vinary-tree-interop
-  version: 0.1.0
+  version: 4.0.0-rc.1
   description: Shared retained-resource layouts for modular Vinary Tree JVM bindings
   authors:
     - Dylon Edwards
   license: Apache-2.0
   links:
-    homepage: https://github.com/vinary-tree/liblevenshtein-rust/tree/main/vinary-tree-interop
+    homepage: https://github.com/vinary-tree/vinary-tree-interop
   java:
     groupId: io.vinarytree
     artifactId: vinary-tree-interop

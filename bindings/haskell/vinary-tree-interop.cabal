@@ -1,6 +1,7 @@
 cabal-version: 3.0
 name: vinary-tree-interop
-version: 0.1.0
+version: 4.0.0
+x-release-candidate: rc.1
 synopsis: Stable resources for modular vinary-tree Haskell bindings
 description: Stable retained-resource values shared by modular Vinary Tree bindings.
 category: FFI

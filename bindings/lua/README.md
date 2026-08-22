@@ -13,28 +13,28 @@ This package exposes the language-native representation of the stable Vinary Tre
 | Support tier | Tier 3 |
 | Distribution | C adapter header bundled by dependent LuaRocks packages |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
-| Canonical facade source | [`vinary-tree-interop/bindings/lua`](../../../vinary-tree-interop/bindings/lua) |
+| Canonical facade source | [`vinary-tree-interop/bindings/lua`](.) |
 
 The support tier controls release gating, not semantic quality: every tier has
 the same snapshot, ownership, status, and ABI compatibility laws. Consult the
 [binding architecture](../../docs/abi-reference.md) before implementing a custom provider
-and the [family hub](../../../docs/bindings/README.md) when combining independently packaged projects.
+and the [family hub](../../README.md) when combining independently packaged projects.
 
-![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../../docs/diagrams/bindings/interface-negotiation-activity.svg)
+![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../docs/diagrams/interface-negotiation-activity.svg)
 
-## Executable example and verification
+## Package surface and verification
 
-The repository's canonical executable example is
-[`bindings/lua/tests/snapshot.lua`](../../../bindings/lua/tests/snapshot.lua). It exercises the same public package a user
-installs and is run by the binding CI with:
+[`vinary_tree_lua.h`](vinary_tree_lua.h) defines the Lua adapter contract on
+top of the canonical C resource header. Verify its C syntax from the repository
+root with:
 
 ```sh
-lua bindings/lua/tests/snapshot.lua
+cc -std=c17 -Wall -Wextra -Werror -Iinclude -Ibindings/lua \
+  -x c -fsyntax-only bindings/lua/vinary_tree_lua.h
 ```
 
-Examples deliberately construct or receive resources through public project
-packages. They never import private Rust modules, depend on object layout, or
-reach behind the stable C/resource ABIs.
+Project-specific constructors live in their own Lua modules; this neutral
+header only models the shared resource handoff.
 
 ## Public API and data model
 
@@ -56,7 +56,7 @@ For the exhaustive native function contract—including exact preconditions,
 returnable statuses, complexity, and thread-safety—use the
 [family resource ABI reference](../../docs/abi-reference.md). The facade
 source linked above is the authoritative idiomatic symbol inventory; its
-exhaustive coverage is governed by [`bindings/api.json`](../../../bindings/api.json) and the generated interop constants.
+exhaustive coverage is pinned by the [canonical C header](../../include/vinary_tree_interop.h) and the Rust layout and discriminant tests.
 
 ## Ownership, snapshots, and resource handoff
 

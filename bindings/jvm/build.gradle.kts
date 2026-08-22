@@ -7,11 +7,11 @@ plugins {
 }
 
 group = "io.vinarytree"
-version = "0.1.0"
+version = "4.0.0-rc.1"
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(
-        providers.gradleProperty("javaToolchain").orElse("25").get().toInt()
+        providers.gradleProperty("javaToolchain").orElse("22").get().toInt()
     )
     withSourcesJar()
     withJavadocJar()
@@ -41,7 +41,7 @@ publishing {
             pom {
                 name = "vinary-tree interop ABI"
                 description = "Shared retained-resource layouts for modular vinary-tree JVM bindings"
-                url = "https://github.com/vinary-tree/liblevenshtein-rust/tree/main/vinary-tree-interop"
+                url = "https://github.com/vinary-tree/vinary-tree-interop"
                 licenses {
                     license {
                         name = "Apache License 2.0"
@@ -56,9 +56,9 @@ publishing {
                     }
                 }
                 scm {
-                    connection = "scm:git:https://github.com/vinary-tree/liblevenshtein-rust.git"
-                    developerConnection = "scm:git:ssh://git@github.com/vinary-tree/liblevenshtein-rust.git"
-                    url = "https://github.com/vinary-tree/liblevenshtein-rust/tree/main/vinary-tree-interop"
+                    connection = "scm:git:https://github.com/vinary-tree/vinary-tree-interop.git"
+                    developerConnection = "scm:git:ssh://git@github.com/vinary-tree/vinary-tree-interop.git"
+                    url = "https://github.com/vinary-tree/vinary-tree-interop"
                 }
             }
         }

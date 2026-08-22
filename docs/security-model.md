@@ -37,7 +37,7 @@ What the model defends, in priority order:
 
 ## 2. Trust zones
 
-![Component diagram of the trust zones: host application and language facade in the host-trusted zone, the four project C ABIs as hardened gates, the interop struct exchange plane, and the foreign provider zone behind the red trust boundary, with the containment duty annotated at each crossing.](../../docs/diagrams/bindings/trust-zones.svg)
+![Component diagram of the trust zones: host application and language facade in the host-trusted zone, the four project C ABIs as hardened gates, the interop struct exchange plane, and the foreign provider zone behind the red trust boundary, with the containment duty annotated at each crossing.](../docs/diagrams/trust-zones.svg)
 
 One host process, one address space, five zones:
 

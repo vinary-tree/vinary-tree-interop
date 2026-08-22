@@ -1,0 +1,81 @@
+name: Verify shared interop ABI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Rust, C, C++, JavaScript, Python, and Go contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: dtolnay/rust-toolchain@1.95
+        with: { components: rustfmt, clippy }
+      - uses: actions/setup-node@v6
+        with: { node-version: "24", package-manager-cache: false }
+      - uses: actions/setup-go@v6
+        with: { go-version: "1.26.x" }
+      - run: ./scripts/verify.sh
+
+  jvm:
+    name: JVM FFM package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "25" }
+      - uses: gradle/actions/setup-gradle@v5
+      - run: >-
+          bindings/jvm/gradlew --no-daemon -p bindings/jvm
+          -PjavaToolchain=25 test javadoc
+
+  dotnet:
+    name: .NET package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: actions/setup-dotnet@v5
+        with: { dotnet-version: 10.0.x }
+      - run: >-
+          dotnet build bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj
+          --configuration Release -p:NuGetAudit=false -m:1
+
+  native-languages:
+    name: ${{ matrix.language }} package
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [fortran, haskell, ocaml, swift]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: fortran-lang/setup-fpm@v10
+        if: matrix.language == 'fortran'
+      - uses: haskell-actions/setup@v2
+        if: matrix.language == 'haskell'
+        with: { ghc-version: "9.14.1", cabal-version: latest }
+      - uses: ocaml/setup-ocaml@v3
+        if: matrix.language == 'ocaml'
+        with: { ocaml-compiler: "5.4.0" }
+      - uses: swift-actions/setup-swift@v3
+        if: matrix.language == 'swift'
+        with: { swift-version: "6.2" }
+      - run: fpm test -C bindings/fortran
+        if: matrix.language == 'fortran'
+      - run: cabal check
+        if: matrix.language == 'haskell'
+        working-directory: bindings/haskell
+      - run: dune build --root bindings/ocaml @install @runtest
+        if: matrix.language == 'ocaml'
+      - run: swift build
+        if: matrix.language == 'swift'

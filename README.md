@@ -46,7 +46,7 @@ pins, in the [ABI reference](docs/abi-reference.md)):
   entries recommended) keeps boundary crossings to
   $`\lceil \deg(v) / 256 \rceil`$ per node expansion.
 
-![Class model of the published ABI: the two-word VtResource, its base VtResourceVTable, the dictionary and scalar-WFST interface vtables discovered through query_interface, the caller-owned page payload types, and the shared status/domain enums.](../docs/diagrams/bindings/vt-structs-class.svg)
+![Class model of the published ABI: the two-word VtResource, its base VtResourceVTable, the dictionary and scalar-WFST interface vtables discovered through query_interface, the caller-owned page payload types, and the shared status/domain enums.](docs/diagrams/vt-structs-class.svg)
 
 ## Interface catalog
 
@@ -75,7 +75,7 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 | [liblevenshtein](https://github.com/vinary-tree/liblevenshtein-rust) | **consumes** | — | Validates compact graphs at snapshot acquisition and routes every applicable automaton through the shared captured-graph traversal seam; falls back to fused or paged callbacks for older providers. |
 | [duallity](https://github.com/vinary-tree/duallity) | **consumes base dictionary** | **produces** | Builds Levenshtein/fuzzy WFSTs *from* consumed dictionary resources. |
 | [lling-llang](https://github.com/vinary-tree/lling-llang) | — | **produces + consumes** | Publishes vector WFSTs and lazily composes consumed ones. |
-| umbrella JS runtime ([`bindings/javascript-runtime`](../bindings/javascript-runtime)) | hosts | hosts | Depends on all four projects plus this crate; the one sanctioned all-of-family surface (Node, WASI, browser). |
+| [shared JavaScript runtime](https://github.com/vinary-tree/javascript-runtime) | hosts | hosts | Depends on all four projects plus this crate; the one sanctioned all-of-family surface for Node, WASI, and browsers. |
 
 ## Documentation
 
@@ -128,7 +128,7 @@ CI runs them on every push (`cargo test --locked -p vinary-tree-interop`):
 
 | Fact | Value |
 |---|---|
-| Version | 0.1.0 |
+| Version | 4.0.0-rc.1 |
 | Rust | edition 2021, `rust-version` 1.95, `#![no_std]` |
 | Dependencies | none |
 | License | Apache-2.0 |
@@ -147,11 +147,11 @@ The generated [`dictionary_entries_v1.tsv`](conformance/dictionary_entries_v1.ts
 | Python 3.10+ | `PyPI package `vinary-tree-interop`` | [`bindings/python/README.md`](bindings/python/README.md) |
 | Java 22+, Kotlin, and Scala | `Maven coordinate `io.vinarytree:vinary-tree-interop`` | [`bindings/jvm/README.md`](bindings/jvm/README.md) |
 | JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
-| Go 1.25+ with cgo | `Go module `github.com/vinary-tree/liblevenshtein-rust/vinary-tree-interop/bindings/go`` | [`bindings/go/README.md`](bindings/go/README.md) |
+| Go 1.25+ with cgo | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` | [`bindings/go/README.md`](bindings/go/README.md) |
 | Swift 6+ through Swift Package Manager | `SwiftPM product `VinaryTreeInterop`` | [`bindings/swift/README.md`](bindings/swift/README.md) |
-| Fortran 2018 through fpm | `fpm package `vinary-tree-interop`` | [`bindings/fortran/README.md`](bindings/fortran/README.md) |
+| Fortran 2018 through fpm | fpm package `vinary-tree-interop` (final-version candidate during RC) | [`bindings/fortran/README.md`](bindings/fortran/README.md) |
 | OCaml 5 through dune/opam | `opam package `vinary-tree-interop`` | [`bindings/ocaml/README.md`](bindings/ocaml/README.md) |
-| GHC through Cabal | `Hackage package `vinary-tree-interop`` | [`bindings/haskell/README.md`](bindings/haskell/README.md) |
+| GHC through Cabal | Hackage package `vinary-tree-interop` (final-version candidate during RC) | [`bindings/haskell/README.md`](bindings/haskell/README.md) |
 | Lua 5.4+ | `C adapter header bundled by dependent LuaRocks packages` | [`bindings/lua/README.md`](bindings/lua/README.md) |
 
 The adapters are intentionally policy-free. Concrete dictionary and automaton APIs live in their project packages; these guides explain only resource representation, discovery, ownership, and safe handoff.

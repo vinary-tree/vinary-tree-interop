@@ -55,7 +55,7 @@ Every symbol and acronym used below, defined before use:
 The published surface at a glance (fields, laws, and relations; every box is a
 type quoted below):
 
-![Class model of the published ABI: the two-word VtResource, its base VtResourceVTable, the dictionary and scalar-WFST interface vtables discovered through query_interface, the caller-owned page payload types, and the shared status/domain enums, annotated with the two-word and struct-size laws.](../../docs/diagrams/bindings/vt-structs-class.svg)
+![Class model of the published ABI: the two-word VtResource, its base VtResourceVTable, the dictionary and scalar-WFST interface vtables discovered through query_interface, the caller-owned page payload types, and the shared status/domain enums, annotated with the two-word and struct-size laws.](../docs/diagrams/vt-structs-class.svg)
 
 ---
 
@@ -298,7 +298,7 @@ HRESULTs, and any global allocator contract.
 The full negotiation, both failure branches, and the balancing release on
 every path:
 
-![Activity diagram of interface negotiation: copy the two words, validate the base vtable, retain, call query_interface with its NullPointer and Unsupported branches, on success use the provider-owned vtable that stays valid while retained, and release exactly once on every path.](../../docs/diagrams/bindings/interface-negotiation-activity.svg)
+![Activity diagram of interface negotiation: copy the two words, validate the base vtable, retain, call query_interface with its NullPointer and Unsupported branches, on success use the provider-owned vtable that stays valid while retained, and release exactly once on every path.](../docs/diagrams/interface-negotiation-activity.svg)
 
 ### 5.3 The refcount laws
 
@@ -1468,7 +1468,7 @@ VtResource static_dictionary_new(void) {
 ```
 
 A consumer exercises it exactly as the
-[negotiation diagram](../../docs/diagrams/bindings/interface-negotiation-activity.svg)
+[negotiation diagram](../docs/diagrams/interface-negotiation-activity.svg)
 prescribes: `static_dictionary_new()` hands over the first owned retain;
 `query_interface(&VT_DICTIONARY_INTERFACE_ID, 1, &vt)` yields
 `DICTIONARY_VTABLE`; `snapshot` mints a second owned handle (here the same

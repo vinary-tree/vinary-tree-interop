@@ -8,7 +8,7 @@ values, new flag bits, new interfaces — and is discovered at runtime;
 anything else *forks the identity* it changes, and old and new identities
 coexist through `query_interface` until the old one is unconsumed.
 
-![State diagram of ABI evolution: the published v1 surface grows through additive states (trailing vtable operations, appended enum values, claimed flag bits, new optional interfaces) that keep the same identity, or forks across the breaking boundary into a new interface ID or a coordinated VT_ABI_VERSION flag day, coexisting with v1 through negotiation.](../../docs/diagrams/bindings/abi-evolution-timeline.svg)
+![State diagram of ABI evolution: the published v1 surface grows through additive states (trailing vtable operations, appended enum values, claimed flag bits, new optional interfaces) that keep the same identity, or forks across the breaking boundary into a new interface ID or a coordinated VT_ABI_VERSION flag day, coexisting with v1 through negotiation.](../docs/diagrams/abi-evolution-timeline.svg)
 
 ---
 
@@ -22,8 +22,8 @@ gates — and, as importantly, what it does **not**.
 |---|---|---|---|---|
 | `VT_ABI_VERSION` | 1 | The **base resource protocol**: the layout and meaning of `VtResource` and `VtResourceVTable` — two words, retain/release semantics, the `query_interface` signature. | Written by every provider into `VtResourceVTable.abi_version`; the reference consumer checks **exact equality** (`validate_base` in liblevenshtein `src/bindings.rs` rejects any value other than 1). A bump is therefore a coordinated, family-wide flag day: every producer and consumer rebuilds together. | Interface contracts, project C surfaces, package versions. |
 | Interface versions (`VT_DICTIONARY_INTERFACE_VERSION`, `VT_DICTIONARY_VISIT_INTERFACE_VERSION`, `VT_DICTIONARY_GRAPH_INTERFACE_VERSION`, `VT_DICTIONARY_ENTRIES_INTERFACE_VERSION`, `VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION`, `VT_WFST_INTERFACE_VERSION`) | 1 / 1 / 1 / 1 / 1 / 1 | **One interface's contract** under one 16-byte identifier: its vtable's guaranteed prefix and operation semantics. | Negotiated per resource: the consumer passes its `minimum_version` to `query_interface`; the provider answers `Unsupported` if it cannot honor it. Consumers validate the discovered vtable with a **minimum** check (`interface_version >=`), never equality. The identifier string itself (`…v1`, `….1`) carries the *fork* counter for breaking revisions. | The base protocol; sibling interfaces; anything outside the named interface. |
-| Project API revision (llev 2 · ldict 4 · lling 1 · duallity 1) | see left | Each project's **own C surface** above the interop layer: an additive counter bumped when the project adds `llev_*` / `ldict_*` / `lling_*` / `duallity_*` functions. Declared as `apiRevision` in each repo's `bindings/api.json` and surfaced at runtime where the project exposes it (e.g. `LDICT_API_REVISION` = 4 in libdictenstein `src/ffi.rs`, returned by `ldict_api_revision()`). | Facade preflight checks in the language bindings: a facade built against revision $`n`$ refuses a library reporting less than $`n`$. | The interop structs — a project may add fifty functions without touching this crate. |
-| Package semver (interop 0.1.0 · llev 0.10.0 · ldict 0.2.1 · lling 0.2.0 · duallity 0.3.0) | see left | **Distribution only**: crates.io / npm / PyPI / Maven coordinates and the version pins between packages. | Package managers and each repo's `bindings/related-projects.json` pins. | Any byte of the ABI. A patch release must not change layouts; conversely an additive interface version may ship in a minor package release. |
+| Project API revision (llev 2 · ldict 5 · lling 1 · duallity 1) | see left | Each project's **own C surface** above the interop layer: an additive counter bumped when the project adds `llev_*` / `ldict_*` / `lling_*` / `duallity_*` functions. Declared as `apiRevision` in each repository's `bindings/api.json` and surfaced at runtime where the project exposes it (for example, `LDICT_API_REVISION` in libdictenstein). | Facade preflight checks in the language bindings: a facade built against revision $`n`$ refuses a library reporting less than $`n`$. | The interop structs — a project may add fifty functions without touching this crate. |
+| Package semver (family release candidate `4.0.0-rc.1`) | see left | **Distribution only**: crates.io, npm, PyPI, Maven, and the other registry coordinates and version pins between packages. | Package managers and each repository's release manifest enforce the registry-normalized form. | Any byte of the ABI. A patch release must not change layouts; conversely an additive interface version may ship in a minor package release. |
 
 The separation is what makes mixed deployments work: a Python wheel built
 against llev apiRevision 1 + ABI 1 loads a newer `liblevenshtein` shared
@@ -285,16 +285,16 @@ not quoted from memory.
 | `vt.dict.graph.v1` | interface version 1 | libdictenstein immutable DynamicDawg snapshots in byte, Unicode-scalar, and `u64` domains | liblevenshtein | `VT_DICTIONARY_GRAPH_INTERFACE_VERSION` in `src/lib.rs` / header; POD and vtable layouts pinned by `tests/layout_contract.rs`; hostile graph views rejected by `src/bindings.rs` decode tests |
 | `vt.dict.entry.v1` | interface version 1 | No provider wired in this change; existing providers remain valid and answer `Unsupported` | No project consumer wired in this change | `VT_DICTIONARY_ENTRIES_INTERFACE_VERSION` and the exact ID in `src/lib.rs` / header; Rust/C layouts and discriminants pinned by the interop tests; optional legacy negotiation and a future trailing-vtable prefix pinned by `tests/vtable_evolution.rs` |
 | `vt.scalar-wfst.1` | interface version 1 | lling-llang · duallity | lling-llang (composition) · duallity | `VT_WFST_INTERFACE_VERSION` in `src/lib.rs` / header |
-| liblevenshtein C surface | apiRevision 2 · package 0.10.0 | — | 15 language facades | `bindings/api.json` |
-| libdictenstein C surface | apiRevision 4 · package 0.2.1 | — | 13 language facades | `bindings/api.json`; `LDICT_API_REVISION` in `src/ffi.rs` via `ldict_api_revision()` |
-| lling-llang C surface | apiRevision 1 · package 0.2.0 | — | JS + C/C++ facades | `bindings/api.json` |
-| duallity C surface | apiRevision 1 · package 0.3.0 | — | JS + C/C++ facades | `bindings/api.json` |
-| interop crate | package 0.1.0 · Rust 1.95 or newer · `no_std` | — | all of the above + 9 interop mirrors | `Cargo.toml` |
-| umbrella JS runtime | hosts all four projects + interop | — | Node / WASI / browser | `bindings/javascript-runtime/rust/Cargo.toml` |
+| liblevenshtein C surface | apiRevision 2 · package `4.0.0-rc.1` | — | 15 language facades | liblevenshtein's `bindings/api.json` |
+| libdictenstein C surface | apiRevision 5 · package `4.0.0-rc.1` | — | 13 language facades | libdictenstein's `bindings/api.json`; `LDICT_API_REVISION` in `src/ffi.rs` via `ldict_api_revision()` |
+| lling-llang C surface | apiRevision 1 · package `4.0.0-rc.1` | — | JavaScript + C/C++ facades | lling-llang's `bindings/api.json` |
+| duallity C surface | apiRevision 1 · package `4.0.0-rc.1` | — | JavaScript + C/C++ facades | duallity's `bindings/api.json` |
+| interop crate | package `4.0.0-rc.1` · Rust 1.95 or newer · `no_std` | — | all of the above plus the interop mirrors | `Cargo.toml` and `release/version.json` |
+| shared JavaScript runtime | package `4.0.0-rc.1`; hosts all four projects plus interop | — | Node, WASI, and browsers | the standalone `javascript-runtime` repository |
 
-Known pin inconsistencies (release execution is out of scope for this
-program) are ledgered, not fixed here: see finding LLEV-B9 in
-liblevenshtein's `docs/bindings/FINDINGS_LEDGER.md`.
+Release pins are generated from the canonical release manifest and validated
+before packaging. A release is rejected when a consumer names a missing
+coordinate, a moving branch, or a version outside the synchronized train.
 
 ---
 

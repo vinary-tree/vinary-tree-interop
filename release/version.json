@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "component": "vinary-tree-interop",
+  "canonical": "4.0.0-rc.1",
+  "abiVersion": 1,
+  "registries": {
+    "cargo": "4.0.0-rc.1",
+    "cmake": "4.0.0-rc.1",
+    "fpm": "4.0.0",
+    "goTag": "v4.0.0-rc.1",
+    "hackage": "4.0.0",
+    "maven": "4.0.0-rc.1",
+    "npm": "4.0.0-rc.1",
+    "nuget": "4.0.0-rc.1",
+    "opam": "4.0.0~rc1",
+    "pkgConfig": "4.0.0-rc.1",
+    "pypi": "4.0.0rc1",
+    "swiftTag": "4.0.0-rc.1"
+  },
+  "publication": {
+    "distTag": "next",
+    "fpm": false,
+    "fpmReason": "fpm package versions accept only numeric components; validate the 4.0.0 source candidate but defer registry publication until the final release.",
+    "hackage": false,
+    "hackageReason": "Cabal package versions are numeric-only; validate the 4.0.0 source candidate but defer upload until the final release."
+  }
+}

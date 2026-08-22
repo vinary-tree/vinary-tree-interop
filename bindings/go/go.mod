@@ -1,3 +1,3 @@
-module github.com/vinary-tree/liblevenshtein-rust/vinary-tree-interop/bindings/go
+module github.com/vinary-tree/vinary-tree-interop/bindings/go/v4
 
 go 1.25

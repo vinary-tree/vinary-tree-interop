@@ -1,0 +1,9 @@
+[git]
+index_history = true
+
+[index]
+exclude = ["target/**", "dist/**", "bindings/**/build/**", "bindings/**/bin/**", "bindings/**/obj/**"]
+include = ["src/**/*.rs", "tests/**/*.rs", "include/**/*.h", "bindings/**", "docs/**/*.md", "README.md"]
+
+[project]
+name = "vinary-tree-interop"
