@@ -375,6 +375,10 @@ public sealed unsafe class DictionaryEntryEnumerator : IEnumerator<DictionaryEnt
     /// <inheritdoc />
     public bool MoveNext()
     {
+        // IEnumerator is fused after successful exhaustion. CloseCore marks
+        // the native cursor disposed at End, but repeated MoveNext calls must
+        // keep returning false; an explicit early Dispose still throws.
+        if (ended && disposed) return false;
         ObjectDisposedException.ThrowIf(disposed, this);
         if (buffered.Count == 0 && !ended)
         {
