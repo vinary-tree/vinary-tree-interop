@@ -33,7 +33,8 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": true
+    "provenance": true,
+    "tag": "next"
   },
   "scripts": {
     "test": "node --test test.mjs",

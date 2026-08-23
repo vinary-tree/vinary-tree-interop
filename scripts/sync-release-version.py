@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = ROOT / "release/version.json"
 
@@ -18,7 +17,9 @@ def canonical_versions(model: dict[str, object]) -> dict[str, str]:
     canonical = str(model["canonical"])
     match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)-rc\.(\d+)", canonical)
     if match is None:
-        raise ValueError(f"canonical version is not a numbered release candidate: {canonical}")
+        raise ValueError(
+            f"canonical version is not a numbered release candidate: {canonical}"
+        )
     major, minor, patch, candidate = match.groups()
     base = f"{major}.{minor}.{patch}"
     return {
@@ -46,10 +47,11 @@ def replace(path: str, pattern: str, replacement: str, expected: int = 1) -> Non
     target.write_text(updated, encoding="utf-8")
 
 
-def write_versions(expected: dict[str, str]) -> None:
+def write_versions(expected: dict[str, str], dist_tag: str) -> None:
     package_path = ROOT / "bindings/javascript/package.json"
     package = json.loads(package_path.read_text(encoding="utf-8"))
     package["version"] = expected["npm"]
+    package.setdefault("publishConfig", {})["tag"] = dist_tag
     package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
     lock_path = ROOT / "bindings/javascript/package-lock.json"
@@ -72,17 +74,17 @@ def write_versions(expected: dict[str, str]) -> None:
     replace(
         "bindings/jvm/jreleaser.yml",
         r"^  version: \S+$",
-        f'  version: {expected["maven"]}',
+        f"  version: {expected['maven']}",
     )
     replace(
         "bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj",
         r"^    <Version>[^<]+</Version>$",
-        f'    <Version>{expected["nuget"]}</Version>',
+        f"    <Version>{expected['nuget']}</Version>",
     )
     replace(
         "bindings/haskell/vinary-tree-interop.cabal",
         r"^version: \S+$",
-        f'version: {expected["hackage"]}',
+        f"version: {expected['hackage']}",
     )
     candidate = expected["opam"].split("~", 1)[1].replace("rc", "rc.")
     replace(
@@ -98,7 +100,7 @@ def write_versions(expected: dict[str, str]) -> None:
     replace(
         "bindings/ocaml/dune-project",
         r"^\(version [^)]+\)$",
-        f'(version {expected["opam"]})',
+        f"(version {expected['opam']})",
     )
     major = expected["goTag"].split(".", 1)[0].removeprefix("v")
     replace(
@@ -114,9 +116,11 @@ def write_versions(expected: dict[str, str]) -> None:
     replace(
         "pkgconfig/vinary-tree-interop.pc",
         r"^Version: \S+$",
-        f'Version: {expected["pkgConfig"]}',
+        f"Version: {expected['pkgConfig']}",
     )
-    replace("README.md", r"^\| Version \| [^|]+\|$", f'| Version | {expected["cargo"]} |')
+    replace(
+        "README.md", r"^\| Version \| [^|]+\|$", f"| Version | {expected['cargo']} |"
+    )
 
 
 def actual_versions() -> dict[str, str]:
@@ -147,9 +151,7 @@ def actual_versions() -> dict[str, str]:
             r"^x-release-candidate: (\S+)$",
         ),
         "maven": capture("bindings/jvm/build.gradle.kts", r'^version = "([^"]+)"$'),
-        "mavenJReleaser": capture(
-            "bindings/jvm/jreleaser.yml", r"^  version: (\S+)$"
-        ),
+        "mavenJReleaser": capture("bindings/jvm/jreleaser.yml", r"^  version: (\S+)$"),
         "npm": str(package["version"]),
         "npmLock": str(lock["version"]),
         "npmLockRoot": str(lock["packages"][""]["version"]),
@@ -159,9 +161,7 @@ def actual_versions() -> dict[str, str]:
         ),
         "opam": capture("bindings/ocaml/dune-project", r"^\(version ([^)]+)\)$"),
         "pkgConfig": capture("pkgconfig/vinary-tree-interop.pc", r"^Version: (\S+)$"),
-        "pypi": capture(
-            "bindings/python/pyproject.toml", r'^version = "([^"]+)"$'
-        ),
+        "pypi": capture("bindings/python/pyproject.toml", r'^version = "([^"]+)"$'),
         "readme": capture("README.md", r"^\| Version \| ([^| ]+) \|$"),
     }
 
@@ -170,13 +170,23 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
     failures: list[str] = []
     declared = model.get("registries")
     if declared != expected:
-        failures.append(f"release/version.json registries differ: expected {expected}, got {declared}")
+        failures.append(
+            f"release/version.json registries differ: expected {expected}, got {declared}"
+        )
     if model.get("publication", {}).get("hackage") is not False:  # type: ignore[union-attr]
-        failures.append("Hackage publication must remain disabled for a release candidate")
+        failures.append(
+            "Hackage publication must remain disabled for a release candidate"
+        )
     if model.get("publication", {}).get("fpm") is not False:  # type: ignore[union-attr]
         failures.append("fpm publication must remain disabled for a release candidate")
 
     actual = actual_versions()
+    package = json.loads((ROOT / "bindings/javascript/package.json").read_text())
+    publication = model.get("publication", {})
+    if not isinstance(publication, dict) or publication.get("distTag") != "next":
+        failures.append("npm release candidates must use the next dist-tag")
+    if package.get("publishConfig", {}).get("tag") != "next":
+        failures.append("npm package publishConfig must protect latest with tag=next")
     checks = {
         "cargo": expected["cargo"],
         "cmake": expected["cmake"],
@@ -203,12 +213,19 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--write", action="store_true", help="rewrite manifest versions")
+    parser.add_argument(
+        "--write", action="store_true", help="rewrite manifest versions"
+    )
     args = parser.parse_args()
     model = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
     expected = canonical_versions(model)
+    publication = model.get("publication", {})
+    if not isinstance(publication, dict) or not isinstance(
+        publication.get("distTag"), str
+    ):
+        raise TypeError("release/version.json requires string publication.distTag")
     if args.write:
-        write_versions(expected)
+        write_versions(expected, publication["distTag"])
     failures = validate(expected, model)
     if failures:
         for failure in failures:
