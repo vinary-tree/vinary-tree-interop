@@ -20,6 +20,8 @@ cp bindings/ocaml/dune "$source/"
 cp bindings/ocaml/dune-project "$source/"
 cp bindings/ocaml/vinary_tree_interop.ml "$source/"
 cp bindings/ocaml/vinary_tree_interop.mli "$source/"
+cp bindings/ocaml/vinary_tree_interop.h "$source/"
+cp bindings/ocaml/vinary_tree_ocaml.h "$source/"
 cp bindings/ocaml/vinary-tree-interop.opam.template \
   "$source/vinary-tree-interop.opam"
 cp README.md "$source/README.md"

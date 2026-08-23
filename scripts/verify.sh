@@ -8,6 +8,7 @@ cargo clippy --all-targets -- -D warnings
 
 cc -std=c17 -Wall -Wextra -Werror -Iinclude -x c -fsyntax-only include/vinary_tree_interop.h
 c++ -std=c++23 -Wall -Wextra -Werror -Iinclude -x c++ -fsyntax-only include/vinary_tree_interop.h
+cmp include/vinary_tree_interop.h bindings/ocaml/vinary_tree_interop.h
 cc -std=c17 -Wall -Wextra -Werror -Iinclude -Ibindings/lua \
   -x c -fsyntax-only bindings/lua/vinary_tree_lua.h
 
