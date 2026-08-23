@@ -246,6 +246,11 @@ public final class DictionaryEntryIterator
         }
     }
 
+    /** Return whether this cursor has released its native traversal resource. */
+    public boolean isClosed() {
+        return state.isClosed();
+    }
+
     private void refill() {
         MemorySegment batch = state.batch();
         batch.fill((byte) 0);
