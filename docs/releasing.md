@@ -32,7 +32,13 @@ candidate identity remains in `release/version.json` and the release tag.
 
 The release tag is `v4.0.0-rc.1`. Go uses the additional immutable submodule
 tag `bindings/go/v4.0.0-rc.1`. npm publishes the release candidate with the
-`next` distribution tag. No release-candidate workflow changes `latest`.
+`next` distribution tag. npm assigned `latest` to the inert `0.0.0`
+coordinate-reservation artifact despite its explicit `bootstrap` tag. After
+the OIDC-published RC passes installed-artifact smoke tests, retarget
+`@vinary-tree/interop@latest` to `4.0.0-rc.1`, remove the `bootstrap`
+dist-tag, and deprecate `0.0.0` as a reservation-only artifact. This scoped
+repair is distinct from promoting the legacy unscoped `liblevenshtein`
+package, whose `latest` pointer remains `2.0.4` during the RC.
 
 ## Failure and rollback
 

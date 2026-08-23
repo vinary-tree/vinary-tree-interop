@@ -67,15 +67,18 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         if: matrix.language == 'ocaml'
         with: { ocaml-compiler: "5.4.0" }
-      - uses: swift-actions/setup-swift@v3
+      - name: Install the declared OCaml build dependencies
+        if: matrix.language == 'ocaml'
+        run: opam install ./bindings/ocaml --deps-only --with-test
+      - name: Report the GitHub runner's Swift toolchain
         if: matrix.language == 'swift'
-        with: { swift-version: "6.2" }
+        run: swift --version
       - run: fpm test -C bindings/fortran
         if: matrix.language == 'fortran'
       - run: cabal check
         if: matrix.language == 'haskell'
         working-directory: bindings/haskell
-      - run: dune build --root bindings/ocaml @install @runtest
+      - run: opam exec -- dune build --root bindings/ocaml @install @runtest
         if: matrix.language == 'ocaml'
       - run: swift build
         if: matrix.language == 'swift'
