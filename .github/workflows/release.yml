@@ -318,3 +318,44 @@ jobs:
           files: assets/**
           prerelease: true
           generate_release_notes: true
+
+  publish-opam-repository:
+    name: Submit package to opam-repository
+    needs: [contract, opam-package, github-release]
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-24.04
+    environment: opam-interop
+    steps:
+      - uses: actions/download-artifact@v7
+        with: { name: opam-package, path: dist }
+      - name: Create the opam-repository pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.OPAM_GITHUB_TOKEN }}
+          VERSION: ${{ needs.contract.outputs.canonical }}
+        run: |
+          account=$(gh api user --jq .login)
+          if ! gh repo view "$account/opam-repository" >/dev/null 2>&1; then
+            gh repo fork ocaml/opam-repository --clone=false
+          fi
+          for attempt in 1 2 3 4 5 6; do
+            if gh repo view "$account/opam-repository" >/dev/null 2>&1; then break; fi
+            if [ "$attempt" -eq 6 ]; then exit 1; fi
+            sleep 5
+          done
+          gh repo clone "$account/opam-repository" opam-repository
+          git -C opam-repository fetch https://github.com/ocaml/opam-repository.git master
+          branch="vinary-tree-interop-$VERSION-$GITHUB_RUN_ID"
+          git -C opam-repository checkout -b "$branch" FETCH_HEAD
+          package="opam-repository/packages/vinary-tree-interop/vinary-tree-interop.$VERSION"
+          mkdir -p "$package"
+          cp dist/opam "$package/opam"
+          git -C opam-repository config user.name "Vinary Tree release automation"
+          git -C opam-repository config user.email "dylon.devo@gmail.com"
+          git -C opam-repository add "packages/vinary-tree-interop/vinary-tree-interop.$VERSION/opam"
+          git -C opam-repository commit -m "Package vinary-tree-interop $VERSION"
+          git -C opam-repository push origin "$branch"
+          gh pr create --repo ocaml/opam-repository \
+            --base master --head "$account:$branch" \
+            --title "Package vinary-tree-interop $VERSION" \
+            --body "Automated submission of the tested Vinary Tree interop bindings."
