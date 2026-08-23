@@ -30,6 +30,31 @@ candidate identity remains in `release/version.json` and the release tag.
    the explicitly embargoed Hackage and fpm candidates.
 5. Install from the public coordinate and rerun its smoke test.
 
+### Exact-tag dispatch protocol
+
+Pushing `v4.0.0-rc.1` runs validation, stages all candidates, and creates the
+checksummed GitHub prerelease. It does **not** publish to a package registry.
+Registry publication is a second, manual operation against that immutable tag;
+the required `registry` choice enables exactly one protected uploader.
+
+```bash
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.1 \
+  -f registry=validate-only
+
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.1 \
+  -f registry=npm
+```
+
+A branch dispatch fails the contract job. `validate-only` cannot enter any
+registry environment; `npm`, `crates-io`, `pypi`, `maven-central`, `nuget`,
+`go-module`, and `opam` each authorize only their namesake job. This
+separation permits the RC's npm lane to ship without accidentally publishing
+the still-unconfigured ecosystem lanes.
+
 The release tag is `v4.0.0-rc.1`. Go uses the additional immutable submodule
 tag `bindings/go/v4.0.0-rc.1`. npm publishes the release candidate with the
 `next` distribution tag. npm assigned `latest` to the inert `0.0.0`

@@ -5,11 +5,20 @@ on:
     tags: ["v*.*.*"]
   workflow_dispatch:
     inputs:
-      publish:
-        description: Publish already validated artifacts to registries
+      registry:
+        description: Publish one registry from an immutable release tag
         required: true
-        type: boolean
-        default: false
+        type: choice
+        default: validate-only
+        options:
+          - validate-only
+          - npm
+          - crates-io
+          - pypi
+          - maven-central
+          - nuget
+          - go-module
+          - opam
 
 permissions:
   contents: read
@@ -35,9 +44,11 @@ jobs:
         run: |
           python3 scripts/sync-release-version.py
           canonical=$(python3 -c 'import json; print(json.load(open("release/version.json"))["canonical"])')
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            test "$GITHUB_REF_NAME" = "v$canonical"
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            echo "::error::Manual releases must be dispatched against an immutable tag." >&2
+            exit 1
           fi
+          test "$GITHUB_REF_NAME" = "v$canonical"
           echo "canonical=$canonical" >> "$GITHUB_OUTPUT"
       - run: ./scripts/verify.sh
 
@@ -205,7 +216,7 @@ jobs:
   publish-crates-io:
     name: Publish crates.io
     needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate]
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'crates-io'
     runs-on: ubuntu-24.04
     environment: crates-io-interop
     steps:
@@ -218,7 +229,7 @@ jobs:
   publish-pypi:
     name: Publish PyPI
     needs: [contract, python-package]
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'pypi'
     runs-on: ubuntu-24.04
     environment: pypi-interop
     permissions: { id-token: write }
@@ -231,7 +242,7 @@ jobs:
   publish-npm:
     name: Publish npm under next
     needs: [contract, npm-package]
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'npm'
     runs-on: ubuntu-24.04
     environment: npm
     permissions: { id-token: write }
@@ -245,7 +256,7 @@ jobs:
   publish-maven-central:
     name: Publish Maven Central
     needs: [contract, jvm-package]
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'maven-central'
     runs-on: ubuntu-24.04
     environment: maven-central-interop
     steps:
@@ -268,7 +279,7 @@ jobs:
   publish-nuget:
     name: Publish NuGet
     needs: [contract, nuget-package]
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'nuget'
     runs-on: ubuntu-24.04
     environment: nuget-interop
     steps:
@@ -284,7 +295,7 @@ jobs:
   go-module-tag:
     name: Create Go v4 module tag
     needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate]
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'go-module'
     runs-on: ubuntu-24.04
     environment: go-module-interop
     permissions: { contents: write }
@@ -304,7 +315,10 @@ jobs:
   github-release:
     name: Publish checksummed GitHub release
     needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate]
-    if: github.event_name == 'push' || inputs.publish
+    if: >-
+      github.ref_type == 'tag' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.registry == 'validate-only'))
     runs-on: ubuntu-24.04
     permissions: { contents: write }
     steps:
@@ -316,13 +330,13 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: assets/**
-          prerelease: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
 
   publish-opam-repository:
     name: Submit package to opam-repository
-    needs: [contract, opam-package, github-release]
-    if: github.event_name == 'push' || inputs.publish
+    needs: [contract, opam-package]
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'opam'
     runs-on: ubuntu-24.04
     environment: opam-interop
     steps:
