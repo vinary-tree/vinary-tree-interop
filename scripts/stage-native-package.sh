@@ -22,5 +22,8 @@ cp cmake/vinary-tree-interopConfig.cmake cmake/vinary-tree-interopConfigVersion.
 cp pkgconfig/vinary-tree-interop.pc "$prefix/lib/pkgconfig/"
 cp README.md "$prefix/README.md"
 cp LICENSE "$prefix/LICENSE"
-tar -czf "$output/$package.tar.gz" -C "$output" "$package"
+(
+  cd "$output"
+  tar -czf "$package.tar.gz" "$package"
+)
 printf '%s\n' "$prefix"
