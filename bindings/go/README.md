@@ -11,7 +11,7 @@ This package exposes the language-native representation of the stable Vinary Tre
 | Binding | Go |
 | Languages/runtime | Go 1.25+ with cgo |
 | Support tier | Tier 2 |
-| Distribution | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` at tag `bindings/go/v4.0.0-rc.2` |
+| Distribution | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` at tag `bindings/go/v4.0.0-rc.3` |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
 | Canonical facade source | [`vinary-tree-interop/bindings/go`](.) |
 

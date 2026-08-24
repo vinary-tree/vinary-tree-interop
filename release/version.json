@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "component": "vinary-tree-interop",
-  "canonical": "4.0.0-rc.2",
+  "canonical": "4.0.0-rc.3",
   "abiVersion": 1,
   "registries": {
-    "cargo": "4.0.0-rc.2",
-    "cmake": "4.0.0-rc.2",
+    "cargo": "4.0.0-rc.3",
+    "cmake": "4.0.0-rc.3",
     "fpm": "4.0.0",
-    "goTag": "v4.0.0-rc.2",
+    "goTag": "v4.0.0-rc.3",
     "hackage": "4.0.0",
-    "maven": "4.0.0-rc.2",
-    "npm": "4.0.0-rc.2",
-    "nuget": "4.0.0-rc.2",
-    "opam": "4.0.0~rc2",
-    "pkgConfig": "4.0.0-rc.2",
-    "pypi": "4.0.0rc2",
-    "swiftTag": "4.0.0-rc.2"
+    "maven": "4.0.0-rc.3",
+    "npm": "4.0.0-rc.3",
+    "nuget": "4.0.0-rc.3",
+    "opam": "4.0.0~rc3",
+    "pkgConfig": "4.0.0-rc.3",
+    "pypi": "4.0.0rc3",
+    "swiftTag": "4.0.0-rc.3"
   },
   "publication": {
     "distTag": "next",

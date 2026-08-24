@@ -59,6 +59,7 @@ def rewrite_candidate_tokens(patterns: tuple[str, ...], canonical: str) -> None:
         (rf"{escaped}rc\d+-\d+", f"{base}rc{candidate}-1"),
         (rf"{escaped}rc\d+", f"{base}rc{candidate}"),
         (rf"{escaped}-rc\.\d+", canonical),
+        (r"x-release-candidate: rc\.\d+", f"x-release-candidate: rc.{candidate}"),
     )
     for pattern in patterns:
         for target in ROOT.glob(pattern):
@@ -191,6 +192,9 @@ def actual_versions() -> dict[str, str]:
         "pkgConfig": capture("pkgconfig/vinary-tree-interop.pc", r"^Version: (\S+)$"),
         "pypi": capture("bindings/python/pyproject.toml", r'^version = "([^"]+)"$'),
         "readme": capture("README.md", r"^\| Version \| ([^| ]+) \|$"),
+        "releaseDocsCandidate": capture(
+            "docs/releasing.md", r"Haskell manifest records `x-release-candidate: (rc\.\d+)`"
+        ),
     }
 
 
@@ -232,6 +236,7 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "pkgConfig": expected["pkgConfig"],
         "pypi": expected["pypi"],
         "readme": expected["cargo"],
+        "releaseDocsCandidate": "rc." + expected["opam"].rsplit("rc", 1)[1],
     }
     for name, wanted in checks.items():
         if actual[name] != wanted:
