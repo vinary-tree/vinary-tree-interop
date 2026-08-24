@@ -1,6 +1,6 @@
 {
   "name": "@vinary-tree/interop",
-  "version": "4.0.0-rc.1",
+  "version": "4.0.0-rc.2",
   "description": "Shared resource contracts for modular Vinary Tree JavaScript bindings",
   "author": {
     "name": "Dylon Edwards",

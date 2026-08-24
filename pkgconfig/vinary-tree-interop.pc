@@ -3,5 +3,5 @@ includedir=${prefix}/include
 
 Name: vinary-tree-interop
 Description: Stable retained-resource ABI for modular Vinary Tree libraries
-Version: 4.0.0-rc.1
+Version: 4.0.0-rc.2
 Cflags: -I${includedir}

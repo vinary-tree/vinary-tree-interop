@@ -1,6 +1,6 @@
 project:
   name: vinary-tree-interop
-  version: 4.0.0-rc.1
+  version: 4.0.0-rc.2
   description: Shared retained-resource layouts for modular Vinary Tree JVM bindings
   authors:
     - Dylon Edwards

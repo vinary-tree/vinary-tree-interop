@@ -12,7 +12,7 @@ versions; the same command without `--write` rejects drift. Package version 4
 does not change `VT_ABI_VERSION`, which remains governed by
 [ABI evolution](abi-evolution.md).
 
-The `4.0.0-rc.1` train uses `4.0.0rc1` on PyPI, `4.0.0~rc1` in opam, and a
+The `4.0.0-rc.2` train uses `4.0.0rc2` on PyPI, `4.0.0~rc2` in opam, and a
 `/v4` Go module path. Cabal and fpm accept numeric package versions only, so CI
 builds their `4.0.0` source candidates but the release workflow cannot upload
 either candidate to Hackage or the fpm registry until the final `4.0.0`
@@ -32,7 +32,7 @@ candidate identity remains in `release/version.json` and the release tag.
 
 ### Exact-tag dispatch protocol
 
-Pushing `v4.0.0-rc.1` runs validation, stages all candidates, and creates the
+Pushing `v4.0.0-rc.2` runs validation, stages all candidates, and creates the
 checksummed GitHub prerelease. It does **not** publish to a package registry.
 Registry publication is a second, manual operation against that immutable tag;
 the required `registry` choice enables exactly one protected uploader.
@@ -40,12 +40,12 @@ the required `registry` choice enables exactly one protected uploader.
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.1 \
+  --ref v4.0.0-rc.2 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.1 \
+  --ref v4.0.0-rc.2 \
   -f registry=npm
 ```
 
@@ -55,12 +55,12 @@ registry environment; `npm`, `crates-io`, `pypi`, `maven-central`, `nuget`,
 separation permits the RC's npm lane to ship without accidentally publishing
 the still-unconfigured ecosystem lanes.
 
-The release tag is `v4.0.0-rc.1`. Go uses the additional immutable submodule
-tag `bindings/go/v4.0.0-rc.1`. npm publishes the release candidate with the
+The release tag is `v4.0.0-rc.2`. Go uses the additional immutable submodule
+tag `bindings/go/v4.0.0-rc.2`. npm publishes the release candidate with the
 `next` distribution tag. npm assigned `latest` to the inert `0.0.0`
 coordinate-reservation artifact despite its explicit `bootstrap` tag. After
 the OIDC-published RC passes installed-artifact smoke tests, retarget
-`@vinary-tree/interop@latest` to `4.0.0-rc.1`, remove the `bootstrap`
+`@vinary-tree/interop@latest` to `4.0.0-rc.2`, remove the `bootstrap`
 dist-tag, and deprecate `0.0.0` as a reservation-only artifact. This scoped
 repair is distinct from promoting the legacy unscoped `liblevenshtein`
 package, whose `latest` pointer remains `2.0.4` during the RC.
@@ -70,6 +70,6 @@ package, whose `latest` pointer remains `2.0.4` during the RC.
 Published versions and Git tags are never moved or overwritten. If a registry
 accepts an artifact and a later lane fails, repair the lane and issue the next
 release candidate. npm rollback changes only a distribution tag; it never
-deletes `4.0.0-rc.1`. ABI incompatibility requires a new interface identifier
+deletes `4.0.0-rc.2`. ABI incompatibility requires a new interface identifier
 or coordinated ABI version according to the evolution policy, not a package
 republish.

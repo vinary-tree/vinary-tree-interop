@@ -11,6 +11,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_FILE = ROOT / "release/version.json"
+GENERATED_TREE_PARTS = frozenset(
+    {".git", ".venv", "_build", "build", "dist", "node_modules", "target", "venv"}
+)
 
 
 def canonical_versions(model: dict[str, object]) -> dict[str, str]:
@@ -45,6 +48,27 @@ def replace(path: str, pattern: str, replacement: str, expected: int = 1) -> Non
     if count != expected:
         raise ValueError(f"{path}: expected {expected} version fields, found {count}")
     target.write_text(updated, encoding="utf-8")
+
+
+def rewrite_candidate_tokens(patterns: tuple[str, ...], canonical: str) -> None:
+    base, candidate = canonical.split("-rc.", 1)
+    escaped = re.escape(base)
+    replacements = (
+        (rf"{escaped}\.rc\.\d+", f"{base}.rc.{candidate}"),
+        (rf"{escaped}~rc\d+", f"{base}~rc{candidate}"),
+        (rf"{escaped}rc\d+-\d+", f"{base}rc{candidate}-1"),
+        (rf"{escaped}rc\d+", f"{base}rc{candidate}"),
+        (rf"{escaped}-rc\.\d+", canonical),
+    )
+    for pattern in patterns:
+        for target in ROOT.glob(pattern):
+            relative = target.relative_to(ROOT)
+            if not target.is_file() or GENERATED_TREE_PARTS.intersection(relative.parts):
+                continue
+            source = target.read_text(encoding="utf-8")
+            for version_pattern, replacement in replacements:
+                source = re.sub(version_pattern, replacement, source)
+            target.write_text(source, encoding="utf-8")
 
 
 def write_versions(expected: dict[str, str], dist_tag: str) -> None:
@@ -120,6 +144,10 @@ def write_versions(expected: dict[str, str], dist_tag: str) -> None:
     )
     replace(
         "README.md", r"^\| Version \| [^|]+\|$", f"| Version | {expected['cargo']} |"
+    )
+    rewrite_candidate_tokens(
+        ("bindings/**/*.md", "bindings/**/*.opam", "docs/**/*.md", "docs/**/*.puml"),
+        expected["cargo"],
     )
 
 

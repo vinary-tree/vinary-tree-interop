@@ -128,7 +128,7 @@ CI runs them on every push (`cargo test --locked -p vinary-tree-interop`):
 
 | Fact | Value |
 |---|---|
-| Version | 4.0.0-rc.1 |
+| Version | 4.0.0-rc.2 |
 | Rust | edition 2021, `rust-version` 1.95, `#![no_std]` |
 | Dependencies | none |
 | License | Apache-2.0 |
