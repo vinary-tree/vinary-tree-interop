@@ -2,6 +2,7 @@
 set -euo pipefail
 
 python3 scripts/sync-release-version.py
+python3 scripts/check-release-ref.py --self-test
 cargo fmt --all -- --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings

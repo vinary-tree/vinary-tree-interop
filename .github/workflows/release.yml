@@ -37,16 +37,16 @@ jobs:
       - uses: actions/setup-go@v6
         with: { go-version: "1.26.x", cache: false }
       - id: version
-        name: Validate canonical version and immutable root tag
+        name: Validate canonical version, immutable source tag, and registry scope
         shell: bash
+        env:
+          REGISTRY: ${{ inputs.registry }}
         run: |
           python3 scripts/sync-release-version.py
-          canonical=$(python3 -c 'import json; print(json.load(open("release/version.json"))["canonical"])')
-          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
-            echo "::error::Manual releases must be dispatched against an immutable tag." >&2
-            exit 1
-          fi
-          test "$GITHUB_REF_NAME" = "v$canonical"
+          canonical=$(python3 scripts/check-release-ref.py \
+            --ref "$GITHUB_REF" \
+            --ref-name "$GITHUB_REF_NAME" \
+            --registry "$REGISTRY")
           echo "canonical=$canonical" >> "$GITHUB_OUTPUT"
       - run: ./scripts/verify.sh
 
@@ -266,10 +266,14 @@ jobs:
         with: { persist-credentials: false, fetch-depth: 0 }
       - uses: actions/download-artifact@v7
         with: { name: maven-package, path: bindings/jvm/build/staging-deploy }
+      - name: Assert the canonical Vinary Tree Maven coordinate
+        run: >-
+          test -d
+          bindings/jvm/build/staging-deploy/io/vinarytree/vinary-tree-interop
       - uses: jreleaser/release-action@v2
         with:
           version: 1.25.0
-          arguments: deploy
+          arguments: deploy --git-root-search --deployer-name sonatype
           working-directory: bindings/jvm
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}

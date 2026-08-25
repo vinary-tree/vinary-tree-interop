@@ -72,7 +72,24 @@ def rewrite_candidate_tokens(patterns: tuple[str, ...], canonical: str) -> None:
             target.write_text(source, encoding="utf-8")
 
 
-def write_versions(expected: dict[str, str], dist_tag: str) -> None:
+def maven_coordinates(model: dict[str, object]) -> tuple[str, str, str]:
+    coordinates = model.get("coordinates")
+    if not isinstance(coordinates, dict):
+        raise TypeError("release/version.json requires coordinates")
+    group = coordinates.get("mavenGroup")
+    artifact = coordinates.get("mavenArtifact")
+    java_package = coordinates.get("javaPackage")
+    if not all(isinstance(value, str) for value in (group, artifact, java_package)):
+        raise TypeError(
+            "release/version.json requires string coordinates.mavenGroup and "
+            "coordinates.mavenArtifact and coordinates.javaPackage"
+        )
+    return group, artifact, java_package
+
+
+def write_versions(
+    expected: dict[str, str], dist_tag: str, maven_group: str, maven_artifact: str
+) -> None:
     package_path = ROOT / "bindings/javascript/package.json"
     package = json.loads(package_path.read_text(encoding="utf-8"))
     package["version"] = expected["npm"]
@@ -102,9 +119,29 @@ def write_versions(expected: dict[str, str], dist_tag: str) -> None:
         f'version = "{expected["maven"]}"',
     )
     replace(
+        "bindings/jvm/build.gradle.kts",
+        r'^group = "[^"]+"$',
+        f'group = "{maven_group}"',
+    )
+    replace(
         "bindings/jvm/jreleaser.yml",
         r"^  version: \S+$",
         f"  version: {expected['maven']}",
+    )
+    replace(
+        "bindings/jvm/jreleaser.yml",
+        r"^      groupId: \S+$",
+        f"      groupId: {maven_group}",
+    )
+    replace(
+        "bindings/jvm/jreleaser.yml",
+        r"^      artifactId: \S+$",
+        f"      artifactId: {maven_artifact}",
+    )
+    replace(
+        "bindings/jvm/jreleaser.yml",
+        r"^        namespace: \S+$",
+        f"        namespace: {maven_group}",
     )
     replace(
         "bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj",
@@ -189,7 +226,19 @@ def actual_versions() -> dict[str, str]:
             r"^x-release-candidate: (\S+)$",
         ),
         "maven": capture("bindings/jvm/build.gradle.kts", r'^version = "([^"]+)"$'),
+        "mavenGroup": capture(
+            "bindings/jvm/build.gradle.kts", r'^group = "([^"]+)"$'
+        ),
         "mavenJReleaser": capture("bindings/jvm/jreleaser.yml", r"^  version: (\S+)$"),
+        "mavenJReleaserGroup": capture(
+            "bindings/jvm/jreleaser.yml", r"^      groupId: (\S+)$"
+        ),
+        "mavenJReleaserArtifact": capture(
+            "bindings/jvm/jreleaser.yml", r"^      artifactId: (\S+)$"
+        ),
+        "mavenNamespace": capture(
+            "bindings/jvm/jreleaser.yml", r"^        namespace: (\S+)$"
+        ),
         "npm": str(package["version"]),
         "npmLock": str(lock["version"]),
         "npmLockRoot": str(lock["packages"][""]["version"]),
@@ -222,6 +271,24 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         failures.append("fpm publication must remain disabled for a release candidate")
 
     actual = actual_versions()
+    maven_group, maven_artifact, java_package = maven_coordinates(model)
+    if maven_group != "io.vinarytree":
+        failures.append("the canonical Maven group must be io.vinarytree")
+    if java_package != "io.vinarytree.interop":
+        failures.append("the canonical Java package must be io.vinarytree.interop")
+    java_root = ROOT / "bindings/jvm/src/main/java" / Path(*java_package.split("."))
+    if not java_root.is_dir():
+        failures.append(f"canonical Java package directory is missing: {java_root}")
+    release_workflow = (ROOT / ".github/workflows/release.yml").read_text(
+        encoding="utf-8"
+    )
+    for marker in (
+        "deploy --git-root-search --deployer-name sonatype",
+        "scripts/check-release-ref.py",
+        '--registry "$REGISTRY"',
+    ):
+        if marker not in release_workflow:
+            failures.append(f"Maven corrective workflow is missing {marker}")
     package = json.loads((ROOT / "bindings/javascript/package.json").read_text())
     publication = model.get("publication", {})
     if not isinstance(publication, dict) or publication.get("distTag") != "next":
@@ -237,7 +304,11 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "hackage": expected["hackage"],
         "hackageCandidate": "rc." + expected["opam"].rsplit("rc", 1)[1],
         "maven": expected["maven"],
+        "mavenGroup": maven_group,
         "mavenJReleaser": expected["maven"],
+        "mavenJReleaserGroup": maven_group,
+        "mavenJReleaserArtifact": maven_artifact,
+        "mavenNamespace": maven_group,
         "npm": expected["npm"],
         "npmLock": expected["npm"],
         "npmLockRoot": expected["npm"],
@@ -262,13 +333,16 @@ def main() -> int:
     args = parser.parse_args()
     model = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
     expected = canonical_versions(model)
+    maven_group, maven_artifact, _java_package = maven_coordinates(model)
     publication = model.get("publication", {})
     if not isinstance(publication, dict) or not isinstance(
         publication.get("distTag"), str
     ):
         raise TypeError("release/version.json requires string publication.distTag")
     if args.write:
-        write_versions(expected, publication["distTag"])
+        write_versions(
+            expected, publication["distTag"], maven_group, maven_artifact
+        )
     failures = validate(expected, model)
     if failures:
         for failure in failures:

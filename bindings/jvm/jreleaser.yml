@@ -7,9 +7,10 @@ project:
   license: Apache-2.0
   links:
     homepage: https://github.com/vinary-tree/vinary-tree-interop
-  java:
-    groupId: io.vinarytree
-    artifactId: vinary-tree-interop
+  languages:
+    java:
+      groupId: io.vinarytree
+      artifactId: vinary-tree-interop
 
 signing:
   pgp:
@@ -24,5 +25,6 @@ deploy:
         url: https://central.sonatype.com/api/v1/publisher
         authorization: BASIC
         applyMavenCentralRules: true
+        namespace: io.vinarytree
         stagingRepositories:
           - build/staging-deploy

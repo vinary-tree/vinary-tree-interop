@@ -145,7 +145,7 @@ The generated [`dictionary_entries_v1.tsv`](conformance/dictionary_entries_v1.ts
 |---|---|---|
 | C/C++ | Native header and CMake/pkg-config package | This README and `docs/abi-reference.md` |
 | Python 3.10+ | `PyPI package `vinary-tree-interop`` | [`bindings/python/README.md`](bindings/python/README.md) |
-| Java 22+, Kotlin, and Scala | `Maven coordinate `io.vinarytree:vinary-tree-interop`` | [`bindings/jvm/README.md`](bindings/jvm/README.md) |
+| Java 22+, Kotlin, and Scala | Maven coordinate `io.vinarytree:vinary-tree-interop` | [`bindings/jvm/README.md`](bindings/jvm/README.md) |
 | JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
 | Go 1.25+ with cgo | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` | [`bindings/go/README.md`](bindings/go/README.md) |
 | Swift 6+ through Swift Package Manager | `SwiftPM product `VinaryTreeInterop`` | [`bindings/swift/README.md`](bindings/swift/README.md) |

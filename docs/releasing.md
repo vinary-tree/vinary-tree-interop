@@ -7,9 +7,13 @@ collection of unrelated builds.
 ## Version authorities
 
 `release/version.json` contains the canonical family release candidate and its
-registry spellings. `scripts/sync-release-version.py --write` derives manifest
-versions; the same command without `--write` rejects drift. Package version 4
-does not change `VT_ABI_VERSION`, which remains governed by
+registry spellings plus the canonical Maven coordinate
+`io.vinarytree:vinary-tree-interop`.
+`scripts/sync-release-version.py --write` derives manifest versions and Maven
+identity; the same command without `--write` rejects drift. The Java package
+remains `io.vinarytree.interop`: Java namespaces and Maven repository
+coordinates are deliberately independent. Package version 4 does not change
+`VT_ABI_VERSION`, which remains governed by
 [ABI evolution](abi-evolution.md).
 
 The synchronizer also owns the `vinary-tree-interop` entry in `Cargo.lock`.
@@ -55,9 +59,43 @@ gh workflow run release.yml \
 
 A branch dispatch fails the contract job. `validate-only` cannot enter any
 registry environment; `npm`, `crates-io`, `pypi`, `maven-central`, `nuget`,
-`go-module`, and `opam` each authorize only their namesake job. This
-separation permits the RC's npm lane to ship without accidentally publishing
-the still-unconfigured ecosystem lanes.
+`go-module`, and `opam` each authorize only their namesake job. This separation
+permits the RC's npm lane to ship without accidentally publishing the
+still-unconfigured ecosystem lanes.
+
+The canonical RC.4 source already published its crate and npm package, but its
+nested JReleaser invocation omitted Git-root discovery and therefore cannot
+publish the still-unpublished Maven coordinate. The append-only corrective
+source tag `v4.0.0-rc.4-release.1` contains release automation, release
+identity validation, and documentation changes only. Its workflow guard
+permits exactly `validate-only` and `maven-central`; it rejects crate, npm,
+PyPI, NuGet, Go, and opam publication so no public RC.4 coordinate can be
+rebuilt or overwritten. The package version remains `4.0.0-rc.4`, and the
+canonical tag remains immutable.
+
+Before dispatching `maven-central`, the Central Portal must show
+`io.vinarytree` as a verified namespace available to the publishing token.
+The lane fails closed by asserting the staged
+`io/vinarytree/vinary-tree-interop` repository path, and JReleaser declares
+`io.vinarytree` explicitly as its deployment namespace. It selects the sole
+named deployer and enables Git-root discovery because its release configuration
+lives below the repository root. Do not substitute one of liblevenshtein's
+historical `com.github.*` groups: this shared contract has no legacy Maven
+coordinate to relocate.
+
+After the corrective validation run succeeds, publish only the Maven artifact:
+
+```bash
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.4-release.1 \
+  -f registry=validate-only
+
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.4-release.1 \
+  -f registry=maven-central
+```
 
 The release tag is `v4.0.0-rc.4`. Go uses the additional immutable submodule
 tag `bindings/go/v4.0.0-rc.4`. npm publishes the release candidate with the

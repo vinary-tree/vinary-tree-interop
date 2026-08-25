@@ -3,6 +3,11 @@
   "component": "vinary-tree-interop",
   "canonical": "4.0.0-rc.4",
   "abiVersion": 1,
+  "coordinates": {
+    "mavenGroup": "io.vinarytree",
+    "mavenArtifact": "vinary-tree-interop",
+    "javaPackage": "io.vinarytree.interop"
+  },
   "registries": {
     "cargo": "4.0.0-rc.4",
     "cmake": "4.0.0-rc.4",
