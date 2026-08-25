@@ -3,6 +3,13 @@ set -euo pipefail
 
 python3 scripts/sync-release-version.py
 python3 scripts/check-release-ref.py --self-test
+git ls-files --eol | awk '
+  $1 == "i/crlf" || $1 == "i/mixed" {
+    print "tracked text is not normalized in the Git object database: " $0 > "/dev/stderr"
+    invalid = 1
+  }
+  END { exit invalid }
+'
 cargo fmt --all -- --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings

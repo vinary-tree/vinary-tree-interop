@@ -109,6 +109,17 @@ stored `CARGO_REGISTRY_TOKEN`. The corrective guard continues to reject the
 crate lane for RC.4 because that immutable crate version is already public;
 the OIDC path first becomes eligible for a later, unused crate version.
 
+Corrective source `v4.0.0-rc.4-release.3` normalizes the Windows Gradle
+launcher in Git's object database. The `.gitattributes` contract continues to
+materialize that launcher with CRLF line endings on every platform, while the
+stored text uses Git's canonical LF representation. This prevents an exact-tag
+clone from appearing locally modified as soon as it is checked out. The
+verification gate rejects every tracked text blob whose index representation
+is CRLF or mixed, so the invariant applies to all present and future text
+files—not only `gradlew.bat`. Use this latest corrective source for remaining
+validation and still-unpublished Maven, NuGet, and opam lanes. Package versions
+remain `4.0.0-rc.4`; already-published registry coordinates are not rebuilt.
+
 Before dispatching `maven-central`, the Central Portal must show
 `io.vinarytree` as a verified namespace available to the publishing token.
 The lane fails closed by asserting the staged
@@ -124,12 +135,12 @@ After the corrective validation run succeeds, publish only the Maven artifact:
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.1 \
+  --ref v4.0.0-rc.4-release.3 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.1 \
+  --ref v4.0.0-rc.4-release.3 \
   -f registry=maven-central
 ```
 
@@ -138,12 +149,12 @@ Validate the second corrective source before its NuGet-only dispatch:
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.2 \
+  --ref v4.0.0-rc.4-release.3 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.2 \
+  --ref v4.0.0-rc.4-release.3 \
   -f registry=nuget
 ```
 
