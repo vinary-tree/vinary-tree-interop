@@ -325,13 +325,25 @@ jobs:
     permissions: { contents: write }
     steps:
       - uses: actions/download-artifact@v7
-        with: { path: assets, merge-multiple: true }
-      - name: Create deterministic checksum manifest
-        working-directory: assets
-        run: find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+        with: { path: staged-assets, merge-multiple: true }
+      - name: Flatten release assets and create a directly verifiable checksum manifest
+        shell: bash
+        run: |
+          mkdir release-assets
+          while IFS= read -r -d '' source; do
+            name=${source##*/}
+            if [[ -e "release-assets/$name" ]]; then
+              echo "::error::release asset basename collision: $name" >&2
+              exit 1
+            fi
+            cp "$source" "release-assets/$name"
+          done < <(find staged-assets -type f -print0 | sort -z)
+          cd release-assets
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | \
+            sort -z | xargs -0 -r sha256sum > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
-          files: assets/**
+          files: release-assets/*
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
 
