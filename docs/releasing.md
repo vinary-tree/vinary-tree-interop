@@ -73,6 +73,24 @@ PyPI, NuGet, Go, and opam publication so no public RC.4 coordinate can be
 rebuilt or overwritten. The package version remains `4.0.0-rc.4`, and the
 canonical tag remains immutable.
 
+NuGet subsequently introduced keyless trusted publishing. Corrective source
+`v4.0.0-rc.4-release.2` replaces the long-lived NuGet API key with
+`NuGet/login@v1`, grants `id-token: write` only to the upload job, and consumes
+the one-use temporary key returned by nuget.org. It additionally authorizes the
+still-unpublished `nuget` lane while continuing to reject crate and npm
+republication. PyPI, Go, and opam remain available from the already-validated
+canonical source; Maven remains available from the already-validated first
+corrective source.
+
+The same corrective source prepares future crates.io publication for keyless
+authentication. Register the `vinary-tree-interop` crate's trusted publisher
+as repository `vinary-tree/vinary-tree-interop`, workflow `release.yml`, and
+environment `crates-io-interop`. The publish job uses
+`rust-lang/crates-io-auth-action@v1` and its short-lived token rather than a
+stored `CARGO_REGISTRY_TOKEN`. The corrective guard continues to reject the
+crate lane for RC.4 because that immutable crate version is already public;
+the OIDC path first becomes eligible for a later, unused crate version.
+
 Before dispatching `maven-central`, the Central Portal must show
 `io.vinarytree` as a verified namespace available to the publishing token.
 The lane fails closed by asserting the staged
@@ -95,6 +113,20 @@ gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
   --ref v4.0.0-rc.4-release.1 \
   -f registry=maven-central
+```
+
+Validate the second corrective source before its NuGet-only dispatch:
+
+```bash
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.4-release.2 \
+  -f registry=validate-only
+
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.4-release.2 \
+  -f registry=nuget
 ```
 
 The release tag is `v4.0.0-rc.4`. Go uses the additional immutable submodule

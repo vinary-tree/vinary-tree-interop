@@ -221,12 +221,16 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'crates-io'
     runs-on: ubuntu-24.04
     environment: crates-io-interop
+    permissions: { contents: read, id-token: write }
     steps:
       - uses: actions/checkout@v6
         with: { persist-credentials: false }
       - uses: dtolnay/rust-toolchain@1.95
+      - name: Authenticate with crates.io
+        id: crates-io-auth
+        uses: rust-lang/crates-io-auth-action@v1
       - run: cargo publish --locked
-        env: { CARGO_REGISTRY_TOKEN: "${{ secrets.CARGO_REGISTRY_TOKEN }}" }
+        env: { CARGO_REGISTRY_TOKEN: "${{ steps.crates-io-auth.outputs.token }}" }
 
   publish-pypi:
     name: Publish PyPI
@@ -288,15 +292,20 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'nuget'
     runs-on: ubuntu-24.04
     environment: nuget-interop
+    permissions: { id-token: write }
     steps:
       - uses: actions/setup-dotnet@v5
         with: { dotnet-version: 10.0.x }
       - uses: actions/download-artifact@v7
         with: { name: nuget-package, path: dist }
+      - name: Exchange GitHub identity for a short-lived NuGet key
+        id: nuget-login
+        uses: NuGet/login@v1
+        with: { user: "${{ vars.NUGET_USER }}" }
       - run: >-
           dotnet nuget push dist/VinaryTree.Interop.*.nupkg
-          --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
-        env: { NUGET_API_KEY: "${{ secrets.NUGET_API_KEY }}" }
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
 
   go-module-tag:
     name: Create Go v4 module tag
