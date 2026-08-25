@@ -16,7 +16,7 @@ This package exposes the language-native representation of the stable Vinary Tre
 | Canonical facade source | [`vinary-tree-interop/bindings/fortran`](.) |
 
 fpm's version parser cannot encode a release candidate. During the
-`4.0.0-rc.3` train this manifest therefore builds as a `4.0.0` source
+`4.0.0-rc.4` train this manifest therefore builds as a `4.0.0` source
 candidate, but release automation prohibits publishing it to the fpm registry
 until the final `4.0.0` release.
 

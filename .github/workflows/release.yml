@@ -31,11 +31,11 @@ jobs:
       - uses: actions/checkout@v6
         with: { persist-credentials: false }
       - uses: dtolnay/rust-toolchain@1.95
-        with: { components: rustfmt, clippy }
+        with: { components: "rustfmt, clippy" }
       - uses: actions/setup-node@v6
         with: { node-version: "24", package-manager-cache: false }
       - uses: actions/setup-go@v6
-        with: { go-version: "1.26.x" }
+        with: { go-version: "1.26.x", cache: false }
       - id: version
         name: Validate canonical version and immutable root tag
         shell: bash

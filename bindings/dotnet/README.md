@@ -19,7 +19,7 @@ static long CountEntries(DictionaryResource dictionary)
 }
 ```
 
-The public package version for this release candidate is `4.0.0-rc.3`. The
+The public package version for this release candidate is `4.0.0-rc.4`. The
 binary resource ABI remains version 1; package major versions and ABI versions
 are deliberately independent.
 

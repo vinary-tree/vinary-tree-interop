@@ -87,6 +87,11 @@ def write_versions(expected: dict[str, str], dist_tag: str) -> None:
 
     replace("Cargo.toml", r'^version = "[^"]+"$', f'version = "{expected["cargo"]}"')
     replace(
+        "Cargo.lock",
+        r'(\[\[package\]\]\nname = "vinary-tree-interop"\nversion = ")[^"]+',
+        rf'\g<1>{expected["cargo"]}',
+    )
+    replace(
         "bindings/python/pyproject.toml",
         r'^version = "[^"]+"$',
         f'version = "{expected["pypi"]}"',
@@ -166,6 +171,10 @@ def actual_versions() -> dict[str, str]:
     go_module = capture("bindings/go/go.mod", r"^module (\S+)$")
     return {
         "cargo": capture("Cargo.toml", r'^version = "([^"]+)"$'),
+        "cargoLock": capture(
+            "Cargo.lock",
+            r'\[\[package\]\]\nname = "vinary-tree-interop"\nversion = "([^"]+)"',
+        ),
         "cmake": capture(
             "cmake/vinary-tree-interopConfigVersion.cmake",
             r'^set\(PACKAGE_VERSION "([^"]+)"\)$',
@@ -221,6 +230,7 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         failures.append("npm package publishConfig must protect latest with tag=next")
     checks = {
         "cargo": expected["cargo"],
+        "cargoLock": expected["cargo"],
         "cmake": expected["cmake"],
         "fpm": expected["fpm"],
         "goMajor": expected["goTag"].split(".", 1)[0].removeprefix("v"),

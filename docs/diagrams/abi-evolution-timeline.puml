@@ -64,7 +64,7 @@ state "Breaking evolution — new identity, coexistence via negotiation" as BRK 
   abi2 : every producer and consumer rebuilds together
 }
 
-[*] -[#33691E]-> V1 : ship (2026, interop crate 4.0.0-rc.3)
+[*] -[#33691E]-> V1 : ship (2026, interop crate 4.0.0-rc.4)
 V1 -[#33691E]-> ADD : compatible change\n(prefix-consumability proven by\nvtable_evolution.rs)
 ADD -[#33691E]-> V1 : republish — same IDs,\nsame VT_ABI_VERSION
 V1 -[#B71C1C,dashed]-> BRK : incompatible change\n(decision table row says "fork")
