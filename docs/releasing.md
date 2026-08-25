@@ -63,6 +63,13 @@ registry environment; `npm`, `crates-io`, `pypi`, `maven-central`, `nuget`,
 permits the RC's npm lane to ship without accidentally publishing the
 still-unconfigured ecosystem lanes.
 
+The `validate-only` graph stages artifacts without registry credentials, but
+its final job writes the checksummed GitHub prerelease. Protect that write with
+the `github-release-interop` environment and a required reviewer. The Go
+subdirectory tag is a separate repository mutation protected by
+`go-module-interop`. Neither environment stores a secret: each gates the
+job-scoped `GITHUB_TOKEN` supplied by GitHub.
+
 The canonical RC.4 source already published its crate and npm package, but its
 nested JReleaser invocation omitted Git-root discovery and therefore cannot
 publish the still-unpublished Maven coordinate. The append-only corrective
@@ -77,10 +84,21 @@ NuGet subsequently introduced keyless trusted publishing. Corrective source
 `v4.0.0-rc.4-release.2` replaces the long-lived NuGet API key with
 `NuGet/login@v1`, grants `id-token: write` only to the upload job, and consumes
 the one-use temporary key returned by nuget.org. It additionally authorizes the
-still-unpublished `nuget` lane while continuing to reject crate and npm
-republication. PyPI, Go, and opam remain available from the already-validated
+still-unpublished `nuget` and `opam` lanes while continuing to reject crate and
+npm republication. PyPI and Go remain available from the already-validated
 canonical source; Maven remains available from the already-validated first
 corrective source.
+
+The opam lane contributes `vinary-tree-interop.4.0.0~rc4` through the fixed
+organization fork `vinary-tree/opam-repository`. Store a short-lived classic
+GitHub token with only `public_repo` as `OPAM_GITHUB_TOKEN` in the protected
+`opam` environment. The uploader uses Git's credential helper, reads the
+opam-native version from `release/version.json`, and opens its pull request
+against `ocaml/opam-repository:master`; it neither infers a personal fork from
+the token owner nor embeds the token in a remote URL. Corrective staging records
+the exact release tag in the archive URL so its checksum matches the asset on
+that same GitHub prerelease. This interop package must be merged and publicly
+resolvable before the libdictenstein and liblevenshtein opam submissions.
 
 The same corrective source prepares future crates.io publication for keyless
 authentication. Register the `vinary-tree-interop` crate's trusted publisher

@@ -23,7 +23,9 @@ REGISTRIES = frozenset(
         "opam",
     }
 )
-CORRECTIVE_REGISTRIES = frozenset({"validate-only", "maven-central", "nuget"})
+CORRECTIVE_REGISTRIES = frozenset(
+    {"validate-only", "maven-central", "nuget", "opam"}
+)
 
 
 def validate(ref: str, ref_name: str, registry: str, canonical: str) -> None:
@@ -44,7 +46,7 @@ def validate(ref: str, ref_name: str, registry: str, canonical: str) -> None:
     if registry not in CORRECTIVE_REGISTRIES:
         raise ValueError(
             "corrective source tags are restricted to validation and the "
-            f"explicitly authorized unpublished Maven/NuGet lanes; got {registry}"
+            f"explicitly authorized unpublished Maven/NuGet/opam lanes; got {registry}"
         )
 
 

@@ -286,9 +286,24 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "deploy --git-root-search --deployer-name sonatype",
         "scripts/check-release-ref.py",
         '--registry "$REGISTRY"',
+        './scripts/stage-ocaml-package.sh dist "$GITHUB_REF_NAME"',
+        "environment: opam",
+        "environment: github-release-interop",
+        'fork="vinary-tree/opam-repository"',
+        "gh auth setup-git",
+        '["registries"]["opam"]',
+        '--head "vinary-tree:$branch"',
+        "secrets.OPAM_GITHUB_TOKEN",
     ):
         if marker not in release_workflow:
-            failures.append(f"Maven corrective workflow is missing {marker}")
+            failures.append(f"release workflow is missing {marker}")
+    for forbidden in (
+        "account=$(gh api user",
+        "gh repo fork ocaml/opam-repository",
+        "environment: opam-interop",
+    ):
+        if forbidden in release_workflow:
+            failures.append(f"release workflow retains forbidden opam logic: {forbidden}")
     package = json.loads((ROOT / "bindings/javascript/package.json").read_text())
     publication = model.get("publication", {})
     if not isinstance(publication, dict) or publication.get("distTag") != "next":
