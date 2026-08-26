@@ -1,26 +1,27 @@
 {
   "schemaVersion": 1,
   "component": "vinary-tree-interop",
-  "canonical": "4.0.0-rc.4",
+  "canonical": "4.0.0-rc.5",
   "abiVersion": 1,
   "coordinates": {
     "mavenGroup": "io.vinarytree",
     "mavenArtifact": "vinary-tree-interop",
-    "javaPackage": "io.vinarytree.interop"
+    "javaPackage": "io.vinarytree.interop",
+    "npmPackage": "@vinary-tree/vinary-tree-interop"
   },
   "registries": {
-    "cargo": "4.0.0-rc.4",
-    "cmake": "4.0.0-rc.4",
+    "cargo": "4.0.0-rc.5",
+    "cmake": "4.0.0-rc.5",
     "fpm": "4.0.0",
-    "goTag": "v4.0.0-rc.4",
+    "goTag": "v4.0.0-rc.5",
     "hackage": "4.0.0",
-    "maven": "4.0.0-rc.4",
-    "npm": "4.0.0-rc.4",
-    "nuget": "4.0.0-rc.4",
-    "opam": "4.0.0~rc4",
-    "pkgConfig": "4.0.0-rc.4",
-    "pypi": "4.0.0rc4",
-    "swiftTag": "4.0.0-rc.4"
+    "maven": "4.0.0-rc.5",
+    "npm": "4.0.0-rc.5",
+    "nuget": "4.0.0-rc.5",
+    "opam": "4.0.0~rc5",
+    "pkgConfig": "4.0.0-rc.5",
+    "pypi": "4.0.0rc5",
+    "swiftTag": "4.0.0-rc.5"
   },
   "publication": {
     "distTag": "next",

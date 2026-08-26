@@ -14,6 +14,7 @@ VERSION_FILE = ROOT / "release/version.json"
 GENERATED_TREE_PARTS = frozenset(
     {".git", ".venv", "_build", "build", "dist", "node_modules", "target", "venv"}
 )
+COORDINATE_MIGRATION_RECORD = Path("docs/npm-coordinate-migration.md")
 
 
 def canonical_versions(model: dict[str, object]) -> dict[str, str]:
@@ -72,33 +73,103 @@ def rewrite_candidate_tokens(patterns: tuple[str, ...], canonical: str) -> None:
             target.write_text(source, encoding="utf-8")
 
 
-def maven_coordinates(model: dict[str, object]) -> tuple[str, str, str]:
+def release_coordinates(model: dict[str, object]) -> tuple[str, str, str, str]:
     coordinates = model.get("coordinates")
     if not isinstance(coordinates, dict):
         raise TypeError("release/version.json requires coordinates")
     group = coordinates.get("mavenGroup")
     artifact = coordinates.get("mavenArtifact")
     java_package = coordinates.get("javaPackage")
-    if not all(isinstance(value, str) for value in (group, artifact, java_package)):
+    npm_package = coordinates.get("npmPackage")
+    if not all(
+        isinstance(value, str)
+        for value in (group, artifact, java_package, npm_package)
+    ):
         raise TypeError(
             "release/version.json requires string coordinates.mavenGroup and "
-            "coordinates.mavenArtifact and coordinates.javaPackage"
+            "coordinates.mavenArtifact and coordinates.javaPackage and "
+            "coordinates.npmPackage"
         )
-    return group, artifact, java_package
+    return group, artifact, java_package, npm_package
+
+
+def forbidden_npm_coordinates() -> tuple[tuple[str, str], ...]:
+    legacy_interop = "/".join(("@vinary-tree", "interop"))
+    legacy_runtime = "/".join(("@vinary-tree", "vinary-tree"))
+    malformed_composition = "/".join(
+        ("@vinary-tree", "javascript-runtime-interop")
+    )
+    return (
+        ("legacy interop coordinate", legacy_interop),
+        ("legacy runtime coordinate", legacy_runtime),
+        ("malformed runtime/interop composition", malformed_composition),
+    )
+
+
+def npm_coordinate_violation(source: str) -> str | None:
+    for label, coordinate in forbidden_npm_coordinates():
+        pattern = re.compile(re.escape(coordinate) + r"(?![A-Za-z0-9._-])")
+        if pattern.search(source) is not None:
+            return label
+    return None
+
+
+def validate_npm_coordinates() -> list[str]:
+    """Reject legacy or accidentally composed public npm identities."""
+
+    failures: list[str] = []
+    canonical_examples = (
+        "@vinary-tree/vinary-tree-interop",
+        "@vinary-tree/javascript-runtime",
+        "@vinary-tree/javascript-runtime/wasm",
+    )
+    for coordinate in canonical_examples:
+        if npm_coordinate_violation(coordinate) is not None:
+            failures.append(f"coordinate gate rejects canonical example: {coordinate}")
+    for label, coordinate in forbidden_npm_coordinates():
+        if npm_coordinate_violation(f'"{coordinate}@4.0.0-rc.4"') != label:
+            failures.append(f"coordinate gate fails to reject {label}")
+    for target in ROOT.rglob("*"):
+        if not target.is_file():
+            continue
+        relative = target.relative_to(ROOT)
+        if relative == COORDINATE_MIGRATION_RECORD:
+            continue
+        if GENERATED_TREE_PARTS.intersection(relative.parts):
+            continue
+        try:
+            source = target.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for label, coordinate in forbidden_npm_coordinates():
+            pattern = re.compile(re.escape(coordinate) + r"(?![A-Za-z0-9._-])")
+            match = pattern.search(source)
+            if match is None:
+                continue
+            line = source.count("\n", 0, match.start()) + 1
+            failures.append(f"{relative}:{line}: {label} is forbidden")
+    return failures
 
 
 def write_versions(
-    expected: dict[str, str], dist_tag: str, maven_group: str, maven_artifact: str
+    expected: dict[str, str],
+    dist_tag: str,
+    maven_group: str,
+    maven_artifact: str,
+    npm_package: str,
 ) -> None:
     package_path = ROOT / "bindings/javascript/package.json"
     package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["name"] = npm_package
     package["version"] = expected["npm"]
     package.setdefault("publishConfig", {})["tag"] = dist_tag
     package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
     lock_path = ROOT / "bindings/javascript/package-lock.json"
     lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["name"] = npm_package
     lock["version"] = expected["npm"]
+    lock["packages"][""]["name"] = npm_package
     lock["packages"][""]["version"] = expected["npm"]
     lock_path.write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
 
@@ -189,7 +260,12 @@ def write_versions(
         "README.md", r"^\| Version \| [^|]+\|$", f"| Version | {expected['cargo']} |"
     )
     rewrite_candidate_tokens(
-        ("bindings/**/*.md", "bindings/**/*.opam", "docs/**/*.md", "docs/**/*.puml"),
+        (
+            "bindings/**/*.md",
+            "bindings/**/*.opam",
+            "docs/abi-evolution.md",
+            "docs/diagrams/abi-evolution-timeline.puml",
+        ),
         expected["cargo"],
     )
 
@@ -239,8 +315,11 @@ def actual_versions() -> dict[str, str]:
         "mavenNamespace": capture(
             "bindings/jvm/jreleaser.yml", r"^        namespace: (\S+)$"
         ),
+        "npmPackage": str(package["name"]),
         "npm": str(package["version"]),
+        "npmLockPackage": str(lock["name"]),
         "npmLock": str(lock["version"]),
+        "npmLockRootPackage": str(lock["packages"][""]["name"]),
         "npmLockRoot": str(lock["packages"][""]["version"]),
         "nuget": capture(
             "bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj",
@@ -271,11 +350,15 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         failures.append("fpm publication must remain disabled for a release candidate")
 
     actual = actual_versions()
-    maven_group, maven_artifact, java_package = maven_coordinates(model)
+    maven_group, maven_artifact, java_package, npm_package = release_coordinates(model)
     if maven_group != "io.vinarytree":
         failures.append("the canonical Maven group must be io.vinarytree")
     if java_package != "io.vinarytree.interop":
         failures.append("the canonical Java package must be io.vinarytree.interop")
+    if npm_package != "@vinary-tree/vinary-tree-interop":
+        failures.append(
+            "the canonical npm package must be @vinary-tree/vinary-tree-interop"
+        )
     java_root = ROOT / "bindings/jvm/src/main/java" / Path(*java_package.split("."))
     if not java_root.is_dir():
         failures.append(f"canonical Java package directory is missing: {java_root}")
@@ -324,8 +407,11 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "mavenJReleaserGroup": maven_group,
         "mavenJReleaserArtifact": maven_artifact,
         "mavenNamespace": maven_group,
+        "npmPackage": npm_package,
         "npm": expected["npm"],
+        "npmLockPackage": npm_package,
         "npmLock": expected["npm"],
+        "npmLockRootPackage": npm_package,
         "npmLockRoot": expected["npm"],
         "nuget": expected["nuget"],
         "opam": expected["opam"],
@@ -337,6 +423,7 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
     for name, wanted in checks.items():
         if actual[name] != wanted:
             failures.append(f"{name}: expected {wanted}, got {actual[name]}")
+    failures.extend(validate_npm_coordinates())
     return failures
 
 
@@ -348,7 +435,7 @@ def main() -> int:
     args = parser.parse_args()
     model = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
     expected = canonical_versions(model)
-    maven_group, maven_artifact, _java_package = maven_coordinates(model)
+    maven_group, maven_artifact, _java_package, npm_package = release_coordinates(model)
     publication = model.get("publication", {})
     if not isinstance(publication, dict) or not isinstance(
         publication.get("distTag"), str
@@ -356,7 +443,11 @@ def main() -> int:
         raise TypeError("release/version.json requires string publication.distTag")
     if args.write:
         write_versions(
-            expected, publication["distTag"], maven_group, maven_artifact
+            expected,
+            publication["distTag"],
+            maven_group,
+            maven_artifact,
+            npm_package,
         )
     failures = validate(expected, model)
     if failures:

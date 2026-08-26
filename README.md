@@ -84,6 +84,7 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 | [docs/abi-reference.md](docs/abi-reference.md) | The annotated, literate walk of the entire header: every declaration quoted and explained, the refcount/paging/two-word/snapshot laws in display math, the seven semirings defined, and a complete minimal C provider that compiles under `-std=c17 -Wall -Wextra -Werror`. |
 | [docs/abi-evolution.md](docs/abi-evolution.md) | The four version counters and their jurisdictions, additive-versus-breaking rules per construct, worked examples (add an op, add a weight domain, retire a flag), the decision table, and the current family compatibility matrix. |
 | [docs/security-model.md](docs/security-model.md) | The family trust model: zones, the panic/exception containment law with file:line evidence, threading-by-claim, the input-validation duty table grounded in confirmed findings, exhaustion vectors, WASI capability policy, and explicit non-goals. |
+| [docs/npm-coordinate-migration.md](docs/npm-coordinate-migration.md) | The RC5 canonical npm identity, immutable RC4 compatibility policy, fail-closed publication sequence, and consumer migration. |
 
 ## Language packages
 
@@ -128,7 +129,7 @@ CI runs them on every push (`cargo test --locked -p vinary-tree-interop`):
 
 | Fact | Value |
 |---|---|
-| Version | 4.0.0-rc.4 |
+| Version | 4.0.0-rc.5 |
 | Rust | edition 2021, `rust-version` 1.95, `#![no_std]` |
 | Dependencies | none |
 | License | Apache-2.0 |
@@ -146,7 +147,7 @@ The generated [`dictionary_entries_v1.tsv`](conformance/dictionary_entries_v1.ts
 | C/C++ | Native header and CMake/pkg-config package | This README and `docs/abi-reference.md` |
 | Python 3.10+ | `PyPI package `vinary-tree-interop`` | [`bindings/python/README.md`](bindings/python/README.md) |
 | Java 22+, Kotlin, and Scala | Maven coordinate `io.vinarytree:vinary-tree-interop` | [`bindings/jvm/README.md`](bindings/jvm/README.md) |
-| JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
+| JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/vinary-tree-interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
 | Go 1.25+ with cgo | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` | [`bindings/go/README.md`](bindings/go/README.md) |
 | Swift 6+ through Swift Package Manager | `SwiftPM product `VinaryTreeInterop`` | [`bindings/swift/README.md`](bindings/swift/README.md) |
 | Fortran 2018 through fpm | fpm package `vinary-tree-interop` (final-version candidate during RC) | [`bindings/fortran/README.md`](bindings/fortran/README.md) |

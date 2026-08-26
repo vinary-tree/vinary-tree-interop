@@ -8,23 +8,27 @@ collection of unrelated builds.
 
 `release/version.json` contains the canonical family release candidate and its
 registry spellings plus the canonical Maven coordinate
-`io.vinarytree:vinary-tree-interop`.
+`io.vinarytree:vinary-tree-interop` and npm coordinate
+`@vinary-tree/vinary-tree-interop`.
 `scripts/sync-release-version.py --write` derives manifest versions and Maven
 identity; the same command without `--write` rejects drift. The Java package
 remains `io.vinarytree.interop`: Java namespaces and Maven repository
 coordinates are deliberately independent. Package version 4 does not change
 `VT_ABI_VERSION`, which remains governed by
 [ABI evolution](abi-evolution.md).
+The [npm coordinate migration](npm-coordinate-migration.md) records why RC5
+starts the canonical scoped package and how the immutable RC4 mistake remains
+discoverable without becoming a supported dependency name.
 
 The synchronizer also owns the `vinary-tree-interop` entry in `Cargo.lock`.
 Both `cargo package --locked` and a byte-for-byte post-build lock check are
 required; a release job never repairs a stale lock after checkout.
 
-The `4.0.0-rc.4` train uses `4.0.0rc4` on PyPI, `4.0.0~rc4` in opam, and a
+The `4.0.0-rc.5` train uses `4.0.0rc5` on PyPI, `4.0.0~rc5` in opam, and a
 `/v4` Go module path. Cabal and fpm accept numeric package versions only, so CI
 builds their `4.0.0` source candidates but the release workflow cannot upload
 either candidate to Hackage or the fpm registry until the final `4.0.0`
-release. The Haskell manifest records `x-release-candidate: rc.4`; the Fortran
+release. The Haskell manifest records `x-release-candidate: rc.5`; the Fortran
 candidate identity remains in `release/version.json` and the release tag.
 
 ## Pipeline
@@ -40,7 +44,7 @@ candidate identity remains in `release/version.json` and the release tag.
 
 ### Exact-tag dispatch protocol
 
-Pushing `v4.0.0-rc.4` creates only the immutable source ref. The release
+Pushing `v4.0.0-rc.5` creates only the immutable source ref. The release
 workflow is deliberately manual: `validate-only` stages every candidate and
 creates the checksummed GitHub prerelease, while a later registry dispatch at
 the same tag enables exactly one protected uploader.
@@ -48,12 +52,12 @@ the same tag enables exactly one protected uploader.
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4 \
+  --ref v4.0.0-rc.5 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4 \
+  --ref v4.0.0-rc.5 \
   -f registry=npm
 ```
 
@@ -69,6 +73,25 @@ the `github-release-interop` environment and a required reviewer. The Go
 subdirectory tag is a separate repository mutation protected by
 `go-module-interop`. Neither environment stores a secret: each gates the
 job-scoped `GITHUB_TOKEN` supplied by GitHub.
+
+For RC5, Go uses the additional immutable annotated submodule tag
+`bindings/go/v4.0.0-rc.5`. After the canonical release commit and package pass
+validation, an authorized maintainer reviews the local tag and requests
+explicit approval for that exact remote ref before pushing it:
+
+```bash
+git tag -a bindings/go/v4.0.0-rc.5 v4.0.0-rc.5 \
+  -m "Release Vinary Tree interop Go module 4.0.0-rc.5"
+git show --no-patch --decorate bindings/go/v4.0.0-rc.5
+git push origin refs/tags/bindings/go/v4.0.0-rc.5
+```
+
+The npm lane publishes `@vinary-tree/vinary-tree-interop@4.0.0-rc.5` with the
+`next` distribution tag. Promote its `latest` tag only after the complete RC5
+train passes public-install smoke tests. The migration guide owns the separate,
+post-verification deprecation of the mistaken RC4 coordinate.
+
+### RC4 append-only release record
 
 The canonical RC.4 source already published its crate and npm package, but its
 nested JReleaser invocation omitted Git-root discovery and therefore cannot
@@ -188,11 +211,11 @@ gh workflow run release.yml \
 npm publishes the release candidate with the `next` distribution tag. npm
 assigned `latest` to the inert `0.0.0`
 coordinate-reservation artifact despite its explicit `bootstrap` tag. After
-the OIDC-published RC passes installed-artifact smoke tests, retarget
-`@vinary-tree/interop@latest` to `4.0.0-rc.4`, remove the `bootstrap`
-dist-tag, and deprecate `0.0.0` as a reservation-only artifact. This scoped
-repair is distinct from promoting the legacy unscoped `liblevenshtein`
-package, whose `latest` pointer remains `2.0.4` during the RC.
+the OIDC-published RC passed installed-artifact smoke tests, its RC4
+distribution tags were repaired. The exact mistaken coordinate and its RC5
+replacement remain recorded in the migration guide. This scoped repair was
+distinct from promoting the legacy unscoped `liblevenshtein` package, whose
+`latest` pointer remained `2.0.4` during the RC.
 
 ## Failure and rollback
 
