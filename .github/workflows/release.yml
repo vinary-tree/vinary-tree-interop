@@ -308,24 +308,30 @@ jobs:
           --source https://api.nuget.org/v3/index.json
 
   go-module-tag:
-    name: Create Go v4 module tag
+    name: Verify Go v4 module tag
     needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate]
     if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'go-module'
     runs-on: ubuntu-24.04
     environment: go-module-interop
-    permissions: { contents: write }
+    permissions: { contents: read }
     steps:
       - uses: actions/checkout@v6
         with: { persist-credentials: false }
-      - name: Create the immutable subdirectory module tag
+      # Protected tag rules deliberately reject GITHUB_TOKEN tag creation.
+      # An authorized maintainer creates the annotated tag after reviewing the
+      # canonical source; this job proves that the immutable ref is annotated
+      # and peels to the exact source commit being released.
+      - name: Verify the immutable subdirectory module tag
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.contract.outputs.canonical }}
         run: |
+          set -euo pipefail
           module_tag="bindings/go/v$VERSION"
-          gh api "repos/$GITHUB_REPOSITORY/git/refs" --method POST \
-            -f "ref=refs/tags/$module_tag" -f "sha=$GITHUB_SHA"
+          git fetch --no-tags origin \
+            "refs/tags/$module_tag:refs/tags/$module_tag"
+          test "$(git cat-file -t "refs/tags/$module_tag")" = tag
+          test "$(git rev-parse "refs/tags/$module_tag^{}")" = "$GITHUB_SHA"
 
   github-release:
     name: Publish checksummed GitHub release

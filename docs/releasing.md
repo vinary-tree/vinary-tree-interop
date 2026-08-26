@@ -158,9 +158,35 @@ gh workflow run release.yml \
   -f registry=nuget
 ```
 
-The release tag is `v4.0.0-rc.4`. Go uses the additional immutable submodule
-tag `bindings/go/v4.0.0-rc.4`. npm publishes the release candidate with the
-`next` distribution tag. npm assigned `latest` to the inert `0.0.0`
+The release tag is `v4.0.0-rc.4`. Go uses the additional immutable, annotated
+submodule tag `bindings/go/v4.0.0-rc.4`. Repository tag protection correctly
+prevents a workflow `GITHUB_TOKEN` from creating that ref. After the canonical
+release commit and package have passed validation, an authorized maintainer
+creates and reviews the local tag, requests explicit approval for the exact
+remote ref, and then pushes only that tag:
+
+```bash
+git tag -a bindings/go/v4.0.0-rc.4 v4.0.0-rc.4 \
+  -m "Release Vinary Tree interop Go module 4.0.0-rc.4"
+git show --no-patch --decorate bindings/go/v4.0.0-rc.4
+git push origin refs/tags/bindings/go/v4.0.0-rc.4
+```
+
+The `go-module` workflow no longer attempts to bypass protection. It fetches
+the public annotated tag and requires its peeled commit to equal the canonical
+workflow source before the Go module is considered published. Dispatch that
+lane from the canonical release tag, not a later packaging-only corrective
+tag:
+
+```bash
+gh workflow run release.yml \
+  --repo vinary-tree/vinary-tree-interop \
+  --ref v4.0.0-rc.4 \
+  -f registry=go-module
+```
+
+npm publishes the release candidate with the `next` distribution tag. npm
+assigned `latest` to the inert `0.0.0`
 coordinate-reservation artifact despite its explicit `bootstrap` tag. After
 the OIDC-published RC passes installed-artifact smoke tests, retarget
 `@vinary-tree/interop@latest` to `4.0.0-rc.4`, remove the `bootstrap`
