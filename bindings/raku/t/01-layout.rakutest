@@ -1,0 +1,28 @@
+use Test;
+use NativeCall;
+use lib 'lib';
+use Vinary::Tree::Interop;
+
+plan 13;
+
+is ABI-VERSION, 1, 'ABI version is pinned';
+is nativesizeof(InterfaceId.new), 16, 'interface identifier is 16 bytes';
+is nativesizeof(RawResource.new), 2 * nativesizeof(Pointer),
+    'resource handle remains two words';
+is nativesizeof(OptionalU64.new), 16, 'optional u64 layout is stable';
+is nativesizeof(DictionaryEdge.new), 16, 'dictionary edge layout is stable';
+is nativesizeof(RawDictionaryEntriesCursor.new), 2 * nativesizeof(Pointer),
+    'entry cursor remains two words';
+is dictionary-interface-id().bytes.list.map(*.chr).join,
+    'vt.dictionary.v1', 'dictionary interface ID is exact';
+is dictionary-visit-interface-id().bytes.list.map(*.chr).join,
+    'vt.dict.visit.v1', 'visit interface ID is exact';
+is dictionary-graph-interface-id().bytes.list.map(*.chr).join,
+    'vt.dict.graph.v1', 'graph interface ID is exact';
+is dictionary-entries-interface-id().bytes.list.map(*.chr).join,
+    'vt.dict.entry.v1', 'entries interface ID is exact';
+is snapshot-identity-interface-id().bytes.list.map(*.chr).join,
+    'vt.snapshot.id.1', 'snapshot interface ID is exact';
+is wfst-interface-id().bytes.list.map(*.chr).join,
+    'vt.scalar-wfst.1', 'WFST interface ID is exact';
+is BatchLimits.new.max-entries, 256, 'bounded batch defaults are explicit';

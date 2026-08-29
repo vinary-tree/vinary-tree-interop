@@ -1,0 +1,38 @@
+use Test;
+use NativeCall;
+use lib 'lib';
+use Vinary::Tree::Interop;
+
+sub test-library(--> Str:D) { %*ENV<VINARY_TREE_INTEROP_TEST_LIB> }
+sub vt_test_sizeof(uint32 --> size_t) is native(&test-library) { * }
+
+my @types = (
+    InterfaceId,
+    RawResource,
+    ResourceVTable,
+    OptionalU64,
+    DictionaryEdge,
+    DictionaryVTable,
+    DictionaryVisitVTable,
+    DictionaryGraphNode,
+    DictionaryGraphEdge,
+    DictionaryGraphView,
+    DictionaryGraphVTable,
+    SnapshotIdentity,
+    SnapshotIdentityVTable,
+    DictionaryEntryDescriptor,
+    BatchLimits,
+    DictionaryEntryBatchView,
+    DictionaryEntriesInfo,
+    RawDictionaryEntriesCursor,
+    DictionaryEntriesVTable,
+    WfstArc,
+    WfstVTable,
+);
+
+plan @types.elems;
+
+for @types.kv -> $index, $type {
+    is nativesizeof($type.new), vt_test_sizeof($index + 1),
+        "{$type.^name} matches the C ABI size";
+}

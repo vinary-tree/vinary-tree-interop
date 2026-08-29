@@ -1,0 +1,39 @@
+@startuml
+skinparam backgroundColor #F8FAFC
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam ArrowColor #334155
+skinparam ArrowThickness 2
+skinparam rectangle {
+  BorderColor #334155
+  RoundCorner 12
+}
+
+rectangle "Native producer\n(libdictenstein, liblevenshtein,\nlling-llang, or duallity)" as producer #DBEAFE
+rectangle "VtResource\ncontext + versioned vtable" as resource #E0E7FF
+rectangle "Julia Resource / Raku Resource\none owned reference" as owner #DCFCE7
+rectangle "Dictionary, entry cursor, graph, or WFST\nindependent retained owner" as facade #FEF3C7
+rectangle "bounded batch lease\nborrowed pointers + generation" as batch #FCE7F3
+rectangle "language-owned values\ncopied entries / arcs / edges" as values #CCFBF1
+
+producer -right-> resource : creates
+resource -right-> owner : adopt (no retain)
+owner -down-> facade : retain
+facade -down-> batch : next_batch
+batch -right-> values : copy before release
+values -left[hidden]-> batch
+batch -up-> facade : release(generation)
+facade -up-> owner : close / finalizer fallback
+owner -left-> resource : release exactly once
+
+note bottom of batch #FFF7ED
+Only one batch may be active per cursor.
+Raw pointers expire when the matching
+generation is released.
+end note
+
+note bottom of owner #F1F5F9
+Deterministic close is the normal path.
+Garbage collection only prevents leaks.
+end note
+@enduml

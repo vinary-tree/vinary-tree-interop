@@ -18,3 +18,7 @@ path = "src/lib.rs"
 
 [features]
 default = []
+
+# Keep this standalone repository from being captured by an unrelated parent
+# workspace when it is checked out beneath another Rust project for validation.
+[workspace]

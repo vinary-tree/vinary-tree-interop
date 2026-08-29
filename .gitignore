@@ -7,5 +7,13 @@
 /bindings/**/bin/
 /bindings/**/obj/
 /bindings/ocaml/_build/
+/bindings/julia/**/target/
+/bindings/julia/**/Manifest.toml
+/bindings/raku/target/
+/bindings/raku/lib/.precomp/
+/.precomp/
+/bindings/raku/*.so
+/bindings/raku/*.dylib
+/bindings/raku/*.dll
 *.egg-info/
 __pycache__/

@@ -88,17 +88,24 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 
 ## Language packages
 
-Nine language-native mirrors of the interop structs and constants live under
-[`bindings/`](bindings/), so non-C ecosystems consume the ABI idiomatically
-without generating from the header at build time:
+Twelve language-native mirrors of the interop structs and constants live under
+[`bindings/`](bindings/), so non-C ecosystems consume the ABI idiomatically:
 
-[Fortran](bindings/fortran) · [Go](bindings/go) · [Haskell](bindings/haskell) ·
-[JavaScript](bindings/javascript) · [JVM](bindings/jvm) · [Lua](bindings/lua) ·
-[OCaml](bindings/ocaml) · [Python](bindings/python) · [Swift](bindings/swift)
+[.NET](bindings/dotnet) · [Fortran](bindings/fortran) · [Go](bindings/go) ·
+[Haskell](bindings/haskell) · [JavaScript](bindings/javascript) ·
+[Julia](bindings/julia/VinaryTreeInterop) · [JVM](bindings/jvm) ·
+[Lua](bindings/lua) · [OCaml](bindings/ocaml) · [Python](bindings/python) ·
+[Raku](bindings/raku) · [Swift](bindings/swift)
 
-Each mirror is layout-checked against the canonical definitions by the
-repository's binding gates (`scripts/generate-bindings.py` and
-`scripts/check-bindings.py` at the repo root).
+The C header is the stable authority. The Raku generator at
+[`scripts/generate-bindings.raku`](scripts/generate-bindings.raku) derives the
+Julia and Raku constants, enum declarations, interface identities, and the
+machine-readable
+[`bindings/generated/abi-capabilities.tsv`](bindings/generated/abi-capabilities.tsv)
+inventory from that header. Its `--check` mode rejects generated drift without
+editing the worktree. Native fixture tests then compare every Julia and Raku
+raw layout to C `sizeof`; the other language packages retain their own compiler
+and host-language conformance gates.
 
 The optional entries-v1 surface is canonical in the Rust crate, C header, and
 generator-owned bundled C-header mirrors. Its generated conformance fixture

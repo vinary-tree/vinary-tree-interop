@@ -192,10 +192,11 @@ interface version, and uses `struct_size` as the call gate.
 4. `tests/vtable_evolution.rs` — the `ExtendedDictionaryVTable` fixture
    becomes the published layout; add a negotiation case for
    `minimum_version = 2` against a v1-only provider (expects `Unsupported`).
-5. The nine language mirrors under [`bindings/`](../bindings/) — append the
-   member to each struct mirror (Fortran, Go, Haskell, JavaScript, JVM, Lua,
-   OCaml, Python, Swift) and regenerate the conformance table via
-   `scripts/generate-bindings.py`.
+5. The language mirrors under [`bindings/`](../bindings/) — append the member
+   to every applicable struct mirror. Regenerate Julia and Raku declarations
+   plus the shared capability inventory with
+   `raku scripts/generate-bindings.raku --write`; then run each package's
+   compiler and native-layout conformance tests.
 6. Docs and formal homes — new op-by-op entry in the
    [ABI reference](abi-reference.md) § 6.4; new row in the layout manifest
    (`docs/verification/ABI_LAYOUT_MANIFEST.tsv` and its `abi_layout.smt2`
