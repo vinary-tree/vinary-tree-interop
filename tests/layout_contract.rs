@@ -27,12 +27,13 @@ use vinary_tree_interop::{
     VtDictionaryEntriesVTable, VtDictionaryEntry, VtDictionaryEntryBatchLimits,
     VtDictionaryEntryBatchView, VtDictionaryGraphEdge, VtDictionaryGraphNode,
     VtDictionaryGraphVTable, VtDictionaryGraphView, VtDictionaryVTable, VtDictionaryVisitVTable,
-    VtInterfaceId, VtOptionalU64, VtResource, VtResourceVTable, VtSnapshotIdentity,
-    VtSnapshotIdentityVTable, VtWfstArc, VtWfstVTable, VT_ABI_VERSION,
+    VtInterfaceId, VtLatticeVTable, VtOptionalU64, VtResource, VtResourceVTable,
+    VtSnapshotIdentity, VtSnapshotIdentityVTable, VtWfstArc, VtWfstVTable, VT_ABI_VERSION,
     VT_DICTIONARY_ENTRIES_INTERFACE_ID, VT_DICTIONARY_ENTRIES_INTERFACE_VERSION,
     VT_DICTIONARY_GRAPH_INTERFACE_ID, VT_DICTIONARY_GRAPH_INTERFACE_VERSION,
     VT_DICTIONARY_INTERFACE_ID, VT_DICTIONARY_INTERFACE_VERSION, VT_DICTIONARY_VISIT_INTERFACE_ID,
-    VT_DICTIONARY_VISIT_INTERFACE_VERSION, VT_RECOMMENDED_ARC_BATCH, VT_RECOMMENDED_EDGE_BATCH,
+    VT_DICTIONARY_VISIT_INTERFACE_VERSION, VT_LATTICE_INTERFACE_ID, VT_LATTICE_INTERFACE_VERSION,
+    VT_RECOMMENDED_ARC_BATCH, VT_RECOMMENDED_EDGE_BATCH, VT_RECOMMENDED_LATTICE_BATCH,
     VT_SNAPSHOT_IDENTITY_INTERFACE_ID, VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION,
     VT_WFST_INTERFACE_ID, VT_WFST_INTERFACE_VERSION,
 };
@@ -531,6 +532,37 @@ fn every_struct_is_packed_in_declaration_order() {
             ("state_arcs", offset_of!(VtWfstVTable, state_arcs), fnp),
         ],
     );
+    assert_packed_in_order(
+        "VtLatticeVTable",
+        size_of::<VtLatticeVTable>(),
+        align_of::<VtLatticeVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtLatticeVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtLatticeVTable, interface_version),
+                4,
+            ),
+            ("reserved", offset_of!(VtLatticeVTable, reserved), 4),
+            ("flags", offset_of!(VtLatticeVTable, flags), 8),
+            ("domain_id", offset_of!(VtLatticeVTable, domain_id), 16),
+            ("join", offset_of!(VtLatticeVTable, join), fnp),
+            ("meet", offset_of!(VtLatticeVTable, meet), fnp),
+            ("equal", offset_of!(VtLatticeVTable, equal), fnp),
+            (
+                "stable_bytes",
+                offset_of!(VtLatticeVTable, stable_bytes),
+                fnp,
+            ),
+            ("diagnostic", offset_of!(VtLatticeVTable, diagnostic), fnp),
+            ("join_many", offset_of!(VtLatticeVTable, join_many), fnp),
+            ("meet_many", offset_of!(VtLatticeVTable, meet_many), fnp),
+        ],
+    );
 }
 
 // ── exact pins: required 64-bit tier ────────────────────────────────────────
@@ -693,6 +725,24 @@ mod exact_64 {
         assert_eq!(offset_of!(VtWfstVTable, state_info), 56);
         assert_eq!(offset_of!(VtWfstVTable, state_arcs), 64);
     }
+
+    #[test]
+    fn vt_lattice_vtable_layout() {
+        assert_eq!(size_of::<VtLatticeVTable>(), 96);
+        assert_eq!(align_of::<VtLatticeVTable>(), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, struct_size), 0);
+        assert_eq!(offset_of!(VtLatticeVTable, interface_version), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, reserved), 12);
+        assert_eq!(offset_of!(VtLatticeVTable, flags), 16);
+        assert_eq!(offset_of!(VtLatticeVTable, domain_id), 24);
+        assert_eq!(offset_of!(VtLatticeVTable, join), 40);
+        assert_eq!(offset_of!(VtLatticeVTable, meet), 48);
+        assert_eq!(offset_of!(VtLatticeVTable, equal), 56);
+        assert_eq!(offset_of!(VtLatticeVTable, stable_bytes), 64);
+        assert_eq!(offset_of!(VtLatticeVTable, diagnostic), 72);
+        assert_eq!(offset_of!(VtLatticeVTable, join_many), 80);
+        assert_eq!(offset_of!(VtLatticeVTable, meet_many), 88);
+    }
 }
 
 // ── exact pins: 32-bit ARM EABI tier (CI linux-armv7-experimental) ──────────
@@ -707,6 +757,24 @@ mod exact_32_arm {
         assert_eq!(align_of::<VtResource>(), 4);
         assert_eq!(offset_of!(VtResource, context), 0);
         assert_eq!(offset_of!(VtResource, vtable), 4);
+    }
+
+    #[test]
+    fn vt_lattice_vtable_layout() {
+        assert_eq!(size_of::<VtLatticeVTable>(), 72);
+        assert_eq!(align_of::<VtLatticeVTable>(), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, struct_size), 0);
+        assert_eq!(offset_of!(VtLatticeVTable, interface_version), 4);
+        assert_eq!(offset_of!(VtLatticeVTable, reserved), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, flags), 16);
+        assert_eq!(offset_of!(VtLatticeVTable, domain_id), 24);
+        assert_eq!(offset_of!(VtLatticeVTable, join), 40);
+        assert_eq!(offset_of!(VtLatticeVTable, meet), 44);
+        assert_eq!(offset_of!(VtLatticeVTable, equal), 48);
+        assert_eq!(offset_of!(VtLatticeVTable, stable_bytes), 52);
+        assert_eq!(offset_of!(VtLatticeVTable, diagnostic), 56);
+        assert_eq!(offset_of!(VtLatticeVTable, join_many), 60);
+        assert_eq!(offset_of!(VtLatticeVTable, meet_many), 64);
     }
 
     #[test]
@@ -988,6 +1056,7 @@ fn interface_identifiers_are_exact_sixteen_byte_strings() {
         b"vt.snapshot.id.1"
     );
     assert_eq!(&VT_WFST_INTERFACE_ID.bytes, b"vt.scalar-wfst.1");
+    assert_eq!(&VT_LATTICE_INTERFACE_ID.bytes, b"vt.lattice.val.1");
     let ids = [
         VT_DICTIONARY_INTERFACE_ID,
         VT_DICTIONARY_VISIT_INTERFACE_ID,
@@ -995,6 +1064,7 @@ fn interface_identifiers_are_exact_sixteen_byte_strings() {
         VT_DICTIONARY_ENTRIES_INTERFACE_ID,
         VT_SNAPSHOT_IDENTITY_INTERFACE_ID,
         VT_WFST_INTERFACE_ID,
+        VT_LATTICE_INTERFACE_ID,
     ];
     for (index, left) in ids.iter().enumerate() {
         for right in &ids[index + 1..] {
@@ -1015,6 +1085,8 @@ fn published_constants_are_pinned() {
     assert_eq!(VT_WFST_INTERFACE_VERSION, 1);
     assert_eq!(VT_RECOMMENDED_EDGE_BATCH, 256);
     assert_eq!(VT_RECOMMENDED_ARC_BATCH, 256);
+    assert_eq!(VT_RECOMMENDED_LATTICE_BATCH, 256);
+    assert_eq!(VT_LATTICE_INTERFACE_VERSION, 1);
 }
 
 // ── the load-bearing Option<extern fn> null niche ───────────────────────────

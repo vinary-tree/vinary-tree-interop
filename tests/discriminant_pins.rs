@@ -15,7 +15,7 @@
 //! the Rust definitions match the manifest.
 
 use vinary_tree_interop::{
-    dictionary_entries_info_flags, dictionary_flags, wfst_flags, VtDictionaryEdge,
+    dictionary_entries_info_flags, dictionary_flags, lattice_flags, wfst_flags, VtDictionaryEdge,
     VtDictionaryEntriesInfo, VtDictionaryEntry, VtDictionaryEntryBatchLimits,
     VtDictionaryEntryBatchView, VtDictionaryEntryOrder, VtOptionalU64, VtStatus, VtUnitDomain,
     VtValueDomain, VtWeightDomain, VtWfstArc,
@@ -247,6 +247,19 @@ fn wfst_flag_bits_are_pinned_and_disjoint() {
         | wfst_flags::LAZY
         | wfst_flags::ACYCLIC;
     assert_eq!(all.count_ones(), 4, "wfst flag bits overlap");
+}
+
+#[test]
+fn lattice_flag_bits_are_pinned_and_disjoint() {
+    assert_eq!(lattice_flags::THREAD_BOUND, 1 << 0);
+    assert_eq!(lattice_flags::PARALLEL_REENTRANT, 1 << 1);
+    assert_eq!(lattice_flags::STABLE_BYTES, 1 << 2);
+    assert_eq!(lattice_flags::BATCH, 1 << 3);
+    let all = lattice_flags::THREAD_BOUND
+        | lattice_flags::PARALLEL_REENTRANT
+        | lattice_flags::STABLE_BYTES
+        | lattice_flags::BATCH;
+    assert_eq!(all.count_ones(), 4, "lattice flag bits overlap");
 }
 
 // ── zeroed defaults (the consumer-side half of reserved-must-be-zero) ───────

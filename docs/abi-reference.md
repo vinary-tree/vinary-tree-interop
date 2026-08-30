@@ -1126,6 +1126,67 @@ explicit `reserved` word that must be zero. The operations:
 
 ---
 
+### 7.5 Immutable lattice values: `vt.lattice.val.1`
+
+A lattice is a partially ordered set in which every pair has a least upper
+bound (join) and a greatest lower bound (meet). The ABI represents one immutable
+lattice element as one retained `VtResource`; its optional interface is:
+
+```c
+typedef struct VtLatticeVTable {
+    size_t struct_size;
+    uint32_t interface_version;
+    uint32_t reserved;
+    uint64_t flags;
+    VtInterfaceId domain_id;
+    VtStatus (*join)(void*, const VtResource*, VtResource*);
+    VtStatus (*meet)(void*, const VtResource*, VtResource*);
+    VtStatus (*equal)(void*, const VtResource*, uint8_t*);
+    VtStatus (*stable_bytes)(void*, uint8_t*, size_t, size_t*, size_t*);
+    VtStatus (*diagnostic)(void*, uint8_t*, size_t, size_t*, size_t*);
+    VtStatus (*join_many)(void*, const VtResource*, size_t, VtResource*);
+    VtStatus (*meet_many)(void*, const VtResource*, size_t, VtResource*);
+} VtLatticeVTable;
+```
+
+`domain_id` is part of the semantic type: it identifies both the value
+representation and the chosen order. A consumer rejects binary operands with
+different identifiers before calling the provider. On success, every algebra
+operation writes one owned result resource; on failure it writes none. Equality
+must agree with the chosen canonical encoding whenever `STABLE_BYTES` is set.
+
+The batch callbacks are associative left folds. If the receiver is `a` and the
+operand array is `[b, c]`, `join_many` returns:
+
+```math
+(a \sqcup b) \sqcup c
+```
+
+An empty array returns an independent retain of `a`. When `BATCH` or the
+corresponding callback is absent, consumers produce the same result through
+pairwise calls and release every intermediate value. This preserves semantics
+while allowing managed providers to amortize one foreign-function boundary over
+up to `VT_RECOMMENDED_LATTICE_BATCH` operands.
+
+Canonical bytes and diagnostics use a two-call caller-owned-buffer protocol.
+The first call passes `(NULL, 0)` and receives the required byte count. The
+second supplies that exact capacity. A consumer rejects a changing requirement,
+an over-capacity write, or a short final write. Diagnostics are advisory UTF-8;
+the portable status remains authoritative.
+
+The flags are independent claims:
+
+| Flag | Meaning | Consumer obligation |
+|---|---|---|
+| `THREAD_BOUND` | Callbacks must remain on the runtime-attached thread that entered the consumer. | Reject worker-thread algorithms or select a single-thread dynamic adapter. |
+| `PARALLEL_REENTRANT` | Attached threads may call concurrently and callbacks may re-enter. | Omit a serial gate only when this bit is present. |
+| `STABLE_BYTES` | `stable_bytes` is canonical for the domain. | Validate the buffer protocol and use bytes only after domain equality. |
+| `BATCH` | Both associative batch folds are implemented. | Bound each array and fall back pairwise if either callback is absent. |
+
+The interface does not claim that semiring multiplication is meet. Semiring
+providers have separate identities and laws in `lling-llang`; an adapter is
+valid only when the declared idempotent-semiring order proves the mapping.
+
 ## 8. Epilogue of the header
 
 ### 8.1 The published identifiers
@@ -1154,14 +1215,18 @@ static const VtInterfaceId VT_SNAPSHOT_IDENTITY_INTERFACE_ID = {
 static const VtInterfaceId VT_WFST_INTERFACE_ID = {
     { 'v','t','.','s','c','a','l','a','r','-','w','f','s','t','.','1' }
 };
+
+static const VtInterfaceId VT_LATTICE_INTERFACE_ID = {
+    { 'v','t','.','l','a','t','t','i','c','e','.','v','a','l','.','1' }
+};
 ```
 
-The six constants are spelled as character arrays so byte exactness is
+The seven constants are spelled as character arrays so byte exactness is
 visible: `vt.dictionary.v1`, `vt.dict.visit.v1`, `vt.dict.graph.v1`,
-`vt.dict.entry.v1`, `vt.snapshot.id.1`, and `vt.scalar-wfst.1` (16 bytes
-each). They are
+`vt.dict.entry.v1`, `vt.snapshot.id.1`, `vt.scalar-wfst.1`, and
+`vt.lattice.val.1` (16 bytes each). They are
 `static const` so the header stays usable from any C translation unit without
-a home object file. Only the base dictionary and WFST interfaces are mandatory
+a home object file. Dictionary, WFST, and lattice interfaces are optional
 for their respective providers; visit, compact graph, dictionary entries, and
 snapshot identity are optional negotiated capabilities.
 

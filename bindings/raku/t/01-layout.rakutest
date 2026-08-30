@@ -3,7 +3,7 @@ use NativeCall;
 use lib 'lib';
 use Vinary::Tree::Interop;
 
-plan 13;
+plan 19;
 
 is ABI-VERSION, 1, 'ABI version is pinned';
 is nativesizeof(InterfaceId.new), 16, 'interface identifier is 16 bytes';
@@ -25,4 +25,12 @@ is snapshot-identity-interface-id().bytes.list.map(*.chr).join,
     'vt.snapshot.id.1', 'snapshot interface ID is exact';
 is wfst-interface-id().bytes.list.map(*.chr).join,
     'vt.scalar-wfst.1', 'WFST interface ID is exact';
+is lattice-interface-id().bytes.list.map(*.chr).join,
+    'vt.lattice.val.1', 'lattice interface ID is exact';
+is LATTICE-INTERFACE-VERSION, 1, 'lattice interface version is pinned';
+is LATTICE-FLAG-THREAD-BOUND, 1, 'thread-bound flag is pinned';
+is LATTICE-FLAG-BATCH, 8, 'lattice batch flag is pinned';
+is nativesizeof(LatticeVTable.new), 96,
+    'lattice vtable layout is stable on the supported 64-bit host';
 is BatchLimits.new.max-entries, 256, 'bounded batch defaults are explicit';
+ok native-header-path.e, 'the authoritative native header is packaged';

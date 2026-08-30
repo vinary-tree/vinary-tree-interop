@@ -233,10 +233,51 @@ native_sizeof(kind) = ccall((:vt_test_sizeof, NATIVE_FIXTURE), Csize_t,
         VTI.VtDictionaryEntriesVTable,
         VTI.VtWfstArc,
         VTI.VtWfstVTable,
+        VTI.VtLatticeVTable,
     ]
     for (index, type) in enumerate(types)
         @test sizeof(type) == native_sizeof(index)
     end
+end
+
+function native_lattice(value::Integer)
+    output = Ref(VTI.VtResourceRaw(C_NULL, Ptr{VTI.VtResourceVTable}(C_NULL)))
+    ccall((:vt_test_lattice, NATIVE_FIXTURE), Cvoid,
+        (UInt64, Ref{VTI.VtResourceRaw}), UInt64(value), output)
+    VTI.lattice_value(output[])
+end
+
+function native_lattice_value(value::VTI.LatticeValue)
+    raw = Ref(VTI.raw_resource(value.resource))
+    ccall((:vt_test_lattice_value, NATIVE_FIXTURE), UInt64,
+        (Ref{VTI.VtResourceRaw},), raw)
+end
+
+@testset "immutable lattice value interface" begin
+    small = native_lattice(3)
+    large = native_lattice(8)
+    @test VTI.flags(small) & VTI.LATTICE_FLAG_BATCH != 0
+    @test VTI.domain_id(small) == VTI.domain_id(large)
+
+    joined = VTI.lattice_join(small, large)
+    met = VTI.lattice_meet(small, large)
+    @test native_lattice_value(joined) == 8
+    @test native_lattice_value(met) == 3
+    @test VTI.equivalent(joined, large)
+    @test !VTI.equivalent(met, large)
+    @test VTI.stable_bytes(joined) == UInt8[0, 0, 0, 0, 0, 0, 0, 8]
+    @test VTI.diagnostic(joined) == "fixture lattice"
+
+    middle = native_lattice(5)
+    batched_join = VTI.join_many(small, (middle, large))
+    batched_meet = VTI.meet_many(large, (middle, small))
+    empty_join = VTI.join_many(middle, ())
+    @test native_lattice_value(batched_join) == 8
+    @test native_lattice_value(batched_meet) == 3
+    @test native_lattice_value(empty_join) == 5
+
+    foreach(close, (empty_join, batched_meet, batched_join, middle, met,
+        joined, large, small))
 end
 
 @testset "native collections, entry batches, and WFSTs" begin
@@ -252,7 +293,7 @@ end
     @test !haskey(dictionary, "x")
     @test dictionary["a"] == 10
     @test length(dictionary) == 2
-    @test collect(dictionary) == ["a" => 10, "b" => 20]
+    @test collect(dictionary) == ["a" => 10, "bc" => 20]
 
     tasks = [Threads.@spawn begin
         (VTI.root(dictionary), VTI.transition(
@@ -283,7 +324,7 @@ end
     end
     @test count == 2
     @test [entry.units for entry in reduced] ==
-        [UInt32[UInt32('a')], UInt32[UInt32('b')]]
+        [UInt32[UInt32('a')], UInt32[UInt32('b'), UInt32('c')]]
     close(reduction_cursor)
     failing_cursor = VTI.entries(dictionary)
     @test_throws ErrorException VTI.reduce_entries(failing_cursor) do _

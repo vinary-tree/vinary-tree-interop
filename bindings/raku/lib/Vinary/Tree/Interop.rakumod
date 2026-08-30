@@ -2,6 +2,10 @@ unit module Vinary::Tree::Interop;
 
 use NativeCall;
 
+sub native-header-path(--> IO::Path:D) is export {
+    %?RESOURCES<include/vinary_tree_interop.h>.IO.absolute.IO
+}
+
 # BEGIN GENERATED ABI CONSTANTS
 our constant ABI-VERSION is export = 1;
 our constant DICTIONARY-INTERFACE-VERSION is export = 1;
@@ -10,8 +14,10 @@ our constant DICTIONARY-GRAPH-INTERFACE-VERSION is export = 1;
 our constant DICTIONARY-ENTRIES-INTERFACE-VERSION is export = 1;
 our constant SNAPSHOT-IDENTITY-INTERFACE-VERSION is export = 1;
 our constant WFST-INTERFACE-VERSION is export = 1;
+our constant LATTICE-INTERFACE-VERSION is export = 1;
 our constant RECOMMENDED-EDGE-BATCH is export = 256;
 our constant RECOMMENDED-ARC-BATCH is export = 256;
+our constant RECOMMENDED-LATTICE-BATCH is export = 256;
 
 our enum Status is export (
     OK => 0,
@@ -61,6 +67,10 @@ our constant WFST-FLAG-PARALLEL-REENTRANT is export = 1;
 our constant WFST-FLAG-IMMUTABLE is export = 2;
 our constant WFST-FLAG-LAZY is export = 4;
 our constant WFST-FLAG-ACYCLIC is export = 8;
+our constant LATTICE-FLAG-THREAD-BOUND is export = 1;
+our constant LATTICE-FLAG-PARALLEL-REENTRANT is export = 2;
+our constant LATTICE-FLAG-STABLE-BYTES is export = 4;
+our constant LATTICE-FLAG-BATCH is export = 8;
 # END GENERATED ABI CONSTANTS
 
 class X::Vinary::Tree::Interop is Exception is export {
@@ -131,6 +141,10 @@ sub snapshot-identity-interface-id(--> InterfaceId:D) is export {
 
 sub wfst-interface-id(--> InterfaceId:D) is export {
     interface-id('vt.scalar-wfst.1')
+}
+
+sub lattice-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.lattice.val.1')
 }
 # END GENERATED ABI INTERFACE IDS
 
@@ -334,6 +348,21 @@ class WfstVTable is repr('CStruct') is export {
     has Pointer $.num-states;
     has Pointer $.state-info;
     has Pointer $.state-arcs;
+}
+
+class LatticeVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has uint64 $.flags;
+    HAS InterfaceId $.domain-id;
+    has Pointer $.join;
+    has Pointer $.meet;
+    has Pointer $.equal;
+    has Pointer $.stable-bytes;
+    has Pointer $.diagnostic;
+    has Pointer $.join-many;
+    has Pointer $.meet-many;
 }
 
 sub memcpy(Pointer, Pointer, size_t --> Pointer) is native { * }
@@ -1115,6 +1144,204 @@ class Wfst is export {
 
 sub wfst(Resource:D $resource, Bool :$take = False --> Wfst:D) is export {
     Wfst.new(:$resource, :$take)
+}
+
+class LatticeValue is export {
+    has Resource:D $.resource is required;
+    has LatticeVTable $!table;
+    has Bool $!closed = False;
+
+    submethod BUILD(Resource:D :$resource!, Bool :$take = False) {
+        $!resource = $take ?? $resource !! $resource.retain;
+        CATCH {
+            default {
+                $!resource.close if $!resource.defined;
+                .rethrow;
+            }
+        }
+        my $pointer = $!resource.query-interface(
+            lattice-interface-id(), LATTICE-INTERFACE-VERSION);
+        X::Vinary::Tree::Interop.new(
+            status => UNSUPPORTED,
+            operation => 'lattice-value',
+        ).throw unless $pointer;
+        $!table := copy-cstruct(LatticeVTable, $pointer);
+        X::Vinary::Tree::Interop.new(
+            status => UNSUPPORTED,
+            operation => 'lattice-version',
+        ).throw unless $!table.interface-version >= LATTICE-INTERFACE-VERSION;
+        X::Vinary::Tree::Interop.new(
+            status => PROVIDER-ERROR,
+            operation => 'lattice-reserved',
+        ).throw unless $!table.reserved == 0;
+    }
+
+    method !open(--> Nil) {
+        X::Vinary::Tree::Interop.new(
+            status => CLOSED,
+            operation => 'lattice-value',
+        ).throw if $!closed;
+    }
+
+    method domain-id(--> InterfaceId:D) {
+        self!open;
+        $!table.domain-id
+    }
+
+    method flags(--> UInt:D) {
+        self!open;
+        $!table.flags
+    }
+
+    method !same-domain(LatticeValue:D $other, Str:D $operation --> Nil) {
+        X::Vinary::Tree::Interop.new(
+            status => INVALID-ARGUMENT,
+            :$operation,
+        ).throw unless self.domain-id.bytes eqv $other.domain-id.bytes;
+    }
+
+    method !binary(LatticeValue:D $other, Str:D $operation --> LatticeValue:D) {
+        self!same-domain($other, $operation);
+        my $function = $operation eq 'lattice-join'
+            ?? $!table.join
+            !! $!table.meet;
+        my &call = nativecast(:(Pointer, RawResource, RawResource --> int32),
+            require-pointer($function, $operation));
+        my $output = RawResource.new;
+        check-status(call($!resource.raw.context, $other.resource.raw, $output),
+            $operation);
+        lattice-value(adopt-resource($output), :take)
+    }
+
+    method join(LatticeValue:D $other --> LatticeValue:D) {
+        self!binary($other, 'lattice-join')
+    }
+
+    method meet(LatticeValue:D $other --> LatticeValue:D) {
+        self!binary($other, 'lattice-meet')
+    }
+
+    method equivalent(LatticeValue:D $other --> Bool:D) {
+        self!same-domain($other, 'lattice-equal');
+        my &call = nativecast(
+            :(Pointer, RawResource, uint8 is rw --> int32),
+            require-pointer($!table.equal, 'lattice-equal'),
+        );
+        my uint8 $output = 0;
+        check-status(call($!resource.raw.context, $other.resource.raw, $output),
+            'lattice-equal');
+        X::Vinary::Tree::Interop.new(
+            status => PROVIDER-ERROR,
+            operation => 'lattice-equal',
+        ).throw unless $output <= 1;
+        so $output
+    }
+
+    method !bytes(Pointer $function, Str:D $operation --> Blob) {
+        return Blob unless $function;
+        my &call = nativecast(
+            :(Pointer, Pointer, size_t, size_t is rw, size_t is rw --> int32),
+            $function,
+        );
+        my size_t $written = 0;
+        my size_t $required = 0;
+        check-status(call($!resource.raw.context, Pointer, 0,
+            $written, $required), $operation);
+        X::Vinary::Tree::Interop.new(
+            status => PROVIDER-ERROR,
+            :$operation,
+        ).throw unless $written == 0;
+        my $storage = buf8.allocate($required);
+        my size_t $second-written = 0;
+        my size_t $second-required = 0;
+        my $pointer = $required ?? nativecast(Pointer, $storage) !! Pointer;
+        check-status(call($!resource.raw.context, $pointer, $required,
+            $second-written, $second-required), $operation);
+        X::Vinary::Tree::Interop.new(
+            status => PROVIDER-ERROR,
+            :$operation,
+        ).throw unless $second-required == $required &&
+            $second-written == $required;
+        Blob.new($storage.list)
+    }
+
+    method stable-bytes(--> Blob:D) {
+        X::Vinary::Tree::Interop.new(
+            status => UNSUPPORTED,
+            operation => 'lattice-stable-bytes',
+        ).throw unless $!table.flags +& LATTICE-FLAG-STABLE-BYTES;
+        my $bytes = self!bytes($!table.stable-bytes,
+            'lattice-stable-bytes');
+        X::Vinary::Tree::Interop.new(
+            status => UNSUPPORTED,
+            operation => 'lattice-stable-bytes',
+        ).throw unless $bytes.defined;
+        $bytes
+    }
+
+    method diagnostic(--> Str) {
+        my $bytes = self!bytes($!table.diagnostic, 'lattice-diagnostic');
+        $bytes.defined ?? $bytes.decode('utf8') !! Str
+    }
+
+    method !many(@others, Str:D $operation --> LatticeValue:D) {
+        self!same-domain($_, $operation) for @others;
+        return lattice-value($!resource.retain, :take) unless @others;
+        my $function = $operation eq 'lattice-join-many'
+            ?? $!table.join-many
+            !! $!table.meet-many;
+        unless $!table.flags +& LATTICE-FLAG-BATCH && $function {
+            my $result = lattice-value($!resource.retain, :take);
+            for @others -> $other {
+                my $next = $operation eq 'lattice-join-many'
+                    ?? $result.join($other)
+                    !! $result.meet($other);
+                $result.close;
+                $result = $next;
+            }
+            return $result;
+        }
+        my $storage = buf8.allocate(@others.elems * nativesizeof(RawResource));
+        for @others.kv -> $index, $other {
+            my $raw = $other.resource.raw;
+            memcpy(
+                Pointer.new(nativecast(Pointer, $storage) +
+                    $index * nativesizeof(RawResource)),
+                nativecast(Pointer, $raw),
+                nativesizeof(RawResource),
+            );
+        }
+        my &call = nativecast(
+            :(Pointer, Pointer, size_t, RawResource --> int32),
+            $function,
+        );
+        my $output = RawResource.new;
+        check-status(call($!resource.raw.context, nativecast(Pointer, $storage),
+            @others.elems, $output), $operation);
+        lattice-value(adopt-resource($output), :take)
+    }
+
+    method join-many(*@others --> LatticeValue:D) {
+        self!many(@others, 'lattice-join-many')
+    }
+
+    method meet-many(*@others --> LatticeValue:D) {
+        self!many(@others, 'lattice-meet-many')
+    }
+
+    method close(--> Nil) {
+        return if $!closed;
+        $!closed = True;
+        $!resource.close;
+    }
+
+    method opened(--> Bool:D) { !$!closed }
+    submethod DESTROY { try self.close }
+}
+
+sub lattice-value(Resource:D $resource, Bool :$take = False --> LatticeValue:D)
+    is export {
+    LatticeValue.new(:$resource, :$take)
 }
 
 =begin pod

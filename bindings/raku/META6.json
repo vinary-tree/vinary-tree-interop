@@ -9,6 +9,9 @@
   "provides": {
     "Vinary::Tree::Interop": "lib/Vinary/Tree/Interop.rakumod"
   },
+  "resources": [
+    "include/vinary_tree_interop.h"
+  ],
   "test-depends": [
     "Test"
   ],

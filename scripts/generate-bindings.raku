@@ -53,6 +53,7 @@ my @interfaces = (
     ['DICTIONARY_ENTRIES', 'dictionary-entries'],
     ['SNAPSHOT_IDENTITY', 'snapshot-identity'],
     ['WFST', 'wfst'],
+    ['LATTICE', 'lattice'],
 );
 
 my %interface-ids;
@@ -89,10 +90,14 @@ my @macro-spec = (
         'SNAPSHOT-IDENTITY-INTERFACE-VERSION', 'UInt32'],
     ['VT_WFST_INTERFACE_VERSION', 'WFST_INTERFACE_VERSION',
         'WFST-INTERFACE-VERSION', 'UInt32'],
+    ['VT_LATTICE_INTERFACE_VERSION', 'LATTICE_INTERFACE_VERSION',
+        'LATTICE-INTERFACE-VERSION', 'UInt32'],
     ['VT_RECOMMENDED_EDGE_BATCH', 'RECOMMENDED_EDGE_BATCH',
         'RECOMMENDED-EDGE-BATCH', 'Int'],
     ['VT_RECOMMENDED_ARC_BATCH', 'RECOMMENDED_ARC_BATCH',
         'RECOMMENDED-ARC-BATCH', 'Int'],
+    ['VT_RECOMMENDED_LATTICE_BATCH', 'RECOMMENDED_LATTICE_BATCH',
+        'RECOMMENDED-LATTICE-BATCH', 'Int'],
 );
 
 my @flag-spec = (
@@ -114,6 +119,15 @@ my @flag-spec = (
         'WFST-FLAG-IMMUTABLE'],
     ['VT_WFST_FLAG_LAZY', 'WFST_FLAG_LAZY', 'WFST-FLAG-LAZY'],
     ['VT_WFST_FLAG_ACYCLIC', 'WFST_FLAG_ACYCLIC', 'WFST-FLAG-ACYCLIC'],
+    ['VT_LATTICE_FLAG_THREAD_BOUND', 'LATTICE_FLAG_THREAD_BOUND',
+        'LATTICE-FLAG-THREAD-BOUND'],
+    ['VT_LATTICE_FLAG_PARALLEL_REENTRANT',
+        'LATTICE_FLAG_PARALLEL_REENTRANT',
+        'LATTICE-FLAG-PARALLEL-REENTRANT'],
+    ['VT_LATTICE_FLAG_STABLE_BYTES', 'LATTICE_FLAG_STABLE_BYTES',
+        'LATTICE-FLAG-STABLE-BYTES'],
+    ['VT_LATTICE_FLAG_BATCH', 'LATTICE_FLAG_BATCH',
+        'LATTICE-FLAG-BATCH'],
 );
 
 my @enum-spec = (
@@ -253,6 +267,10 @@ for @structs.sort -> $struct {
 }
 my $inventory = @inventory.join("\n") ~ "\n";
 my $inventory-path = $root.add('bindings/generated/abi-capabilities.tsv');
+my @header-targets =
+    $root.add('bindings/ocaml/vinary_tree_interop.h'),
+    $root.add('bindings/raku/resources/include/vinary_tree_interop.h');
+my $header = $header-path.slurp;
 
 my @differences;
 for %updated.kv -> $name, $expected {
@@ -266,6 +284,16 @@ if $actual-inventory ne $inventory {
     if $mode eq '--write' {
         $inventory-path.parent.mkdir;
         $inventory-path.spurt($inventory);
+    }
+}
+for @header-targets -> $target {
+    my $actual-header = $target.e ?? $target.slurp !! '';
+    if $actual-header ne $header {
+        @differences.push($target.Str);
+        if $mode eq '--write' {
+            $target.parent.mkdir;
+            $target.spurt($header);
+        }
     }
 }
 

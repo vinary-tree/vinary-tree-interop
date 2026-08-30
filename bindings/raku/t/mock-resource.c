@@ -5,6 +5,203 @@
 
 static size_t references = 0;
 
+typedef struct TestLatticeValue {
+    size_t references;
+    uint64_t value;
+} TestLatticeValue;
+
+static const VtResourceVTable lattice_resource_vtable;
+static const VtLatticeVTable lattice_vtable;
+
+static VtStatus lattice_make(uint64_t value, VtResource *out_resource) {
+    if (out_resource == NULL) {
+        return VT_STATUS_NULL_POINTER;
+    }
+    TestLatticeValue *context = malloc(sizeof(*context));
+    if (context == NULL) {
+        return VT_STATUS_IO_ERROR;
+    }
+    context->references = 1;
+    context->value = value;
+    out_resource->context = context;
+    out_resource->vtable = &lattice_resource_vtable;
+    return VT_STATUS_OK;
+}
+
+static void lattice_retain(void *raw_context) {
+    TestLatticeValue *context = raw_context;
+    context->references += 1;
+}
+
+static void lattice_release(void *raw_context) {
+    TestLatticeValue *context = raw_context;
+    context->references -= 1;
+    if (context->references == 0) {
+        free(context);
+    }
+}
+
+static VtStatus lattice_query(void *raw_context,
+                              const VtInterfaceId *interface_id,
+                              uint32_t minimum_version,
+                              const void **out_vtable) {
+    (void)raw_context;
+    if (interface_id == NULL || out_vtable == NULL) {
+        return VT_STATUS_NULL_POINTER;
+    }
+    if (memcmp(interface_id, &VT_LATTICE_INTERFACE_ID,
+               sizeof(*interface_id)) != 0 ||
+        minimum_version > VT_LATTICE_INTERFACE_VERSION) {
+        return VT_STATUS_UNSUPPORTED;
+    }
+    *out_vtable = &lattice_vtable;
+    return VT_STATUS_OK;
+}
+
+static TestLatticeValue *lattice_operand(const VtResource *resource) {
+    if (resource == NULL || resource->context == NULL ||
+        resource->vtable != &lattice_resource_vtable) {
+        return NULL;
+    }
+    return resource->context;
+}
+
+static VtStatus lattice_join(void *raw_context, const VtResource *other,
+                             VtResource *out_value) {
+    TestLatticeValue *left = raw_context;
+    TestLatticeValue *right = lattice_operand(other);
+    if (right == NULL || out_value == NULL) {
+        return VT_STATUS_INVALID_ARGUMENT;
+    }
+    return lattice_make(left->value > right->value ? left->value : right->value,
+                        out_value);
+}
+
+static VtStatus lattice_meet(void *raw_context, const VtResource *other,
+                             VtResource *out_value) {
+    TestLatticeValue *left = raw_context;
+    TestLatticeValue *right = lattice_operand(other);
+    if (right == NULL || out_value == NULL) {
+        return VT_STATUS_INVALID_ARGUMENT;
+    }
+    return lattice_make(left->value < right->value ? left->value : right->value,
+                        out_value);
+}
+
+static VtStatus lattice_equal(void *raw_context, const VtResource *other,
+                              uint8_t *out_equal) {
+    TestLatticeValue *left = raw_context;
+    TestLatticeValue *right = lattice_operand(other);
+    if (right == NULL || out_equal == NULL) {
+        return VT_STATUS_INVALID_ARGUMENT;
+    }
+    *out_equal = left->value == right->value;
+    return VT_STATUS_OK;
+}
+
+static VtStatus copy_bytes(const uint8_t *source, size_t source_len,
+                           uint8_t *out_bytes, size_t capacity,
+                           size_t *out_written, size_t *out_required) {
+    if (out_written == NULL || out_required == NULL ||
+        (capacity != 0 && out_bytes == NULL)) {
+        return VT_STATUS_NULL_POINTER;
+    }
+    const size_t copied = capacity < source_len ? capacity : source_len;
+    if (copied != 0) {
+        memcpy(out_bytes, source, copied);
+    }
+    *out_written = copied;
+    *out_required = source_len;
+    return VT_STATUS_OK;
+}
+
+static VtStatus lattice_bytes(void *raw_context, uint8_t *out_bytes,
+                              size_t capacity, size_t *out_written,
+                              size_t *out_required) {
+    TestLatticeValue *context = raw_context;
+    uint8_t encoded[8];
+    for (size_t index = 0; index < sizeof(encoded); ++index) {
+        encoded[index] = (uint8_t)(context->value >> (56 - 8 * index));
+    }
+    return copy_bytes(encoded, sizeof(encoded), out_bytes, capacity,
+                      out_written, out_required);
+}
+
+static VtStatus lattice_diagnostic(void *raw_context, uint8_t *out_bytes,
+                                   size_t capacity, size_t *out_written,
+                                   size_t *out_required) {
+    (void)raw_context;
+    static const uint8_t message[] = "fixture lattice";
+    return copy_bytes(message, sizeof(message) - 1, out_bytes, capacity,
+                      out_written, out_required);
+}
+
+static VtStatus lattice_many(void *raw_context, const VtResource *others,
+                             size_t count, VtResource *out_value,
+                             uint8_t join) {
+    TestLatticeValue *left = raw_context;
+    uint64_t value = left->value;
+    if ((count != 0 && others == NULL) || out_value == NULL) {
+        return VT_STATUS_NULL_POINTER;
+    }
+    for (size_t index = 0; index < count; ++index) {
+        TestLatticeValue *other = lattice_operand(&others[index]);
+        if (other == NULL) {
+            return VT_STATUS_INVALID_ARGUMENT;
+        }
+        if ((join && other->value > value) || (!join && other->value < value)) {
+            value = other->value;
+        }
+    }
+    return lattice_make(value, out_value);
+}
+
+static VtStatus lattice_join_many(void *raw_context,
+                                  const VtResource *others, size_t count,
+                                  VtResource *out_value) {
+    return lattice_many(raw_context, others, count, out_value, 1);
+}
+
+static VtStatus lattice_meet_many(void *raw_context,
+                                  const VtResource *others, size_t count,
+                                  VtResource *out_value) {
+    return lattice_many(raw_context, others, count, out_value, 0);
+}
+
+static const VtLatticeVTable lattice_vtable = {
+    sizeof(VtLatticeVTable),
+    VT_LATTICE_INTERFACE_VERSION,
+    0,
+    VT_LATTICE_FLAG_PARALLEL_REENTRANT | VT_LATTICE_FLAG_STABLE_BYTES |
+        VT_LATTICE_FLAG_BATCH,
+    {{'v','t','.','t','e','s','t','.','u','6','4','.','l','a','t','1'}},
+    lattice_join,
+    lattice_meet,
+    lattice_equal,
+    lattice_bytes,
+    lattice_diagnostic,
+    lattice_join_many,
+    lattice_meet_many,
+};
+
+static const VtResourceVTable lattice_resource_vtable = {
+    sizeof(VtResourceVTable),
+    VT_ABI_VERSION,
+    0,
+    lattice_retain,
+    lattice_release,
+    lattice_query,
+};
+
+void vt_test_lattice(uint64_t value, VtResource *out_resource) {
+    (void)lattice_make(value, out_resource);
+}
+
+uint64_t vt_test_lattice_value(const VtResource *resource) {
+    TestLatticeValue *context = lattice_operand(resource);
+    return context == NULL ? UINT64_MAX : context->value;
+}
+
 static void test_retain(void *context) {
     (void)context;
     references += 1;
@@ -387,6 +584,7 @@ size_t vt_test_sizeof(uint32_t kind) {
     case 19: return sizeof(VtDictionaryEntriesVTable);
     case 20: return sizeof(VtWfstArc);
     case 21: return sizeof(VtWfstVTable);
+    case 22: return sizeof(VtLatticeVTable);
     default: return 0;
     }
 }

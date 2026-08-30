@@ -62,6 +62,7 @@ version:
 | `vt.dict.entry.v1` | 1 (`VT_DICTIONARY_ENTRIES_INTERFACE_VERSION`) | `VtDictionaryEntry`, `VtDictionaryEntryBatchLimits`, `VtDictionaryEntryBatchView`, `VtDictionaryEntriesInfo`, `VtDictionaryEntriesCursor` | Optional finite lexicographic entry stream over one immutable revision. Cursor-owned arena batches use an explicit generation lease; `reduce` provides the same bounded stream through a callback. |
 | `vt.snapshot.id.1` | 1 (`VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION`) | `VtSnapshotIdentity` | Optional process-local immutable producer/revision identity for safely sharing derived state across separately retained views of the same snapshot. |
 | `vt.scalar-wfst.1` | 1 (`VT_WFST_INTERFACE_VERSION`) | `VtWfstArc` | Immutable scalar-weighted FSTs: start/finality/arc paging with `f64` weights in one of seven declared semirings, epsilon labels encoded by flag (never by magic value), lazy and acyclic capability claims. |
+| `vt.lattice.val.1` | 1 (`VT_LATTICE_INTERFACE_VERSION`) | `VtResource` operands and results | Immutable lattice values: join, meet, equality, canonical bytes, diagnostics, and bounded batch folds with explicit runtime-thread and reentrancy capabilities. |
 
 Base protocol version: `VT_ABI_VERSION` = 1. The full change rules — what
 may be added, what forks an identity, and the four distinct version
@@ -69,13 +70,14 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 
 ## Who produces and consumes what
 
-| Repository | Dictionary + optional graph | Scalar WFST | Notes |
-|---|---|---|---|
-| [libdictenstein](https://github.com/vinary-tree/libdictenstein) | **produces** | — | Dictionary resources publish the base interface; immutable DynamicDawg snapshots additionally publish compact graphs in all three unit domains. Other backends retain the callback fallback until they can expose the same immutable representation without copying at query start. |
-| [liblevenshtein](https://github.com/vinary-tree/liblevenshtein-rust) | **consumes** | — | Validates compact graphs at snapshot acquisition and routes every applicable automaton through the shared captured-graph traversal seam; falls back to fused or paged callbacks for older providers. |
-| [duallity](https://github.com/vinary-tree/duallity) | **consumes base dictionary** | **produces** | Builds Levenshtein/fuzzy WFSTs *from* consumed dictionary resources. |
-| [lling-llang](https://github.com/vinary-tree/lling-llang) | — | **produces + consumes** | Publishes vector WFSTs and lazily composes consumed ones. |
-| [shared JavaScript runtime](https://github.com/vinary-tree/javascript-runtime) | hosts | hosts | Depends on all four projects plus this crate; the one sanctioned all-of-family surface for Node, WASI, and browsers. |
+| Repository | Dictionary + optional graph | Scalar WFST | Lattice value | Notes |
+|---|---|---|---|---|
+| [llattice](https://github.com/vinary-tree/llattice) | — | — | **defines source trait; host packages produce** | The Rust leaf stays dependency-free; target runtimes use this ABI capability. |
+| [libdictenstein](https://github.com/vinary-tree/libdictenstein) | **produces** | — | **consumes for values** | Dictionary resources publish the base interface; immutable DynamicDawg snapshots additionally publish compact graphs in all three unit domains. |
+| [liblevenshtein](https://github.com/vinary-tree/liblevenshtein-rust) | **consumes** | — | — | Validates compact graphs at snapshot acquisition and routes every applicable automaton through the shared captured-graph traversal seam. |
+| [duallity](https://github.com/vinary-tree/duallity) | **consumes base dictionary** | **produces** | **consumes** | Builds and combines fuzzy and product automata. |
+| [lling-llang](https://github.com/vinary-tree/lling-llang) | — | **produces + consumes** | **produces + consumes** | Publishes dynamic adapters without changing native monomorphized paths. |
+| [shared JavaScript runtime](https://github.com/vinary-tree/javascript-runtime) | hosts | hosts | hosts | The sanctioned all-of-family surface for Node, WASI, and browsers. |
 
 ## Documentation
 

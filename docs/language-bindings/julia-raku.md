@@ -9,8 +9,8 @@ result codes between independently compiled components.
 These packages are the shared foundation for the Julia and Raku bindings of
 `llattice`, `libdictenstein`, `liblevenshtein`, `lling-llang`, and `duallity`.
 They do not duplicate automata algorithms. Native producers implement the
-algorithms once in Rust and expose dictionaries or scalar weighted finite-state
-transducers (WFSTs) as retained resources.
+algorithms once in Rust and expose dictionaries, scalar weighted finite-state
+transducers (WFSTs), or immutable lattice values as retained resources.
 
 ![Resource ownership from native producer to bounded language-owned values](../diagrams/julia-raku-resource-ownership.svg)
 
@@ -92,10 +92,35 @@ native control returns. Exceptions never unwind through C or Rust frames.
 
 Neither package advertises arbitrary native-thread language providers. A native
 worker created outside Julia or Rakudo cannot safely enter those runtimes merely
-because a function pointer exists. A future provider interface must carry an
-explicit thread-affinity contract or marshal work onto a runtime-owned executor.
-The current consumer and synchronous reducer interfaces are safe without that
-unproven assumption.
+because a function pointer exists. The lattice provider therefore carries an
+explicit thread-affinity capability, while reducers remain synchronous on the
+calling thread.
+
+### Host-implemented lattice values
+
+`vt.lattice.val.1` carries immutable values with `join`, `meet`, equality,
+canonical bytes, diagnostics, and associative batch folds. Julia initializes
+its `@cfunction` trampolines at module load so precompilation never serializes
+process-local function addresses. A rooted provider registry keeps Julia
+objects alive until the last native retain is released; its lock is used only
+for retain/release bookkeeping, never on the algebra hot path.
+
+Rakudo cannot place a managed callback pointer directly into a `CStruct` field.
+The Raku `LLattice` distribution therefore uses a small C17 trampoline. An
+atomic native retain count owns the callback bundle and calls one contained Raku
+drop callback at final release. The shim does not interpret values or serialize
+operations; join, meet, equality, encoding, and batch folds execute in Raku.
+
+Both managed providers advertise `LATTICE_FLAG_THREAD_BOUND`. Consumers must
+keep callbacks synchronous on the runtime-attached calling thread and reject an
+algorithm that requires unattached worker-thread callbacks. The optional
+`PARALLEL_REENTRANT` flag permits concurrency among attached runtime threads; it
+does not weaken the thread-bound requirement.
+
+Same-provider operands use a direct object path. A host may additionally supply
+a stable-byte decoder for cross-provider operations: the facade verifies the
+16-byte domain identifier, retains the foreign value, copies its canonical
+encoding, decodes, performs the operation, and releases on every exit.
 
 ## ABI verification
 

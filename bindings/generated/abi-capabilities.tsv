@@ -5,6 +5,7 @@ interface	VT_DICTIONARY_GRAPH_INTERFACE_ID	1	vt.dict.graph.v1	-
 interface	VT_DICTIONARY_ENTRIES_INTERFACE_ID	1	vt.dict.entry.v1	-
 interface	VT_SNAPSHOT_IDENTITY_INTERFACE_ID	1	vt.snapshot.id.1	-
 interface	VT_WFST_INTERFACE_ID	1	vt.scalar-wfst.1	-
+interface	VT_LATTICE_INTERFACE_ID	1	vt.lattice.val.1	-
 struct	VtDictionaryEdge	-	-	-
 struct	VtDictionaryEntriesCursor	-	-	-
 struct	VtDictionaryEntriesInfo	-	-	-
@@ -35,6 +36,14 @@ operation	VtDictionaryVTable	-	-	snapshot
 struct	VtDictionaryVisitVTable	-	-	-
 operation	VtDictionaryVisitVTable	-	-	node_visit
 struct	VtInterfaceId	-	-	-
+struct	VtLatticeVTable	-	-	-
+operation	VtLatticeVTable	-	-	diagnostic
+operation	VtLatticeVTable	-	-	equal
+operation	VtLatticeVTable	-	-	join
+operation	VtLatticeVTable	-	-	join_many
+operation	VtLatticeVTable	-	-	meet
+operation	VtLatticeVTable	-	-	meet_many
+operation	VtLatticeVTable	-	-	stable_bytes
 struct	VtOptionalU64	-	-	-
 struct	VtResource	-	-	-
 struct	VtResourceVTable	-	-	-

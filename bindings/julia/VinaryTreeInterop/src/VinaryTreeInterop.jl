@@ -7,6 +7,7 @@ export ABI_VERSION,
     DICTIONARY_ENTRIES_INTERFACE_VERSION,
     SNAPSHOT_IDENTITY_INTERFACE_VERSION,
     WFST_INTERFACE_VERSION,
+    LATTICE_INTERFACE_VERSION,
     Status,
     UnitDomain,
     ValueDomain,
@@ -21,12 +22,17 @@ export ABI_VERSION,
     WFST_FLAG_IMMUTABLE,
     WFST_FLAG_LAZY,
     WFST_FLAG_ACYCLIC,
+    LATTICE_FLAG_THREAD_BOUND,
+    LATTICE_FLAG_PARALLEL_REENTRANT,
+    LATTICE_FLAG_STABLE_BYTES,
+    LATTICE_FLAG_BATCH,
     DICTIONARY_INTERFACE_ID,
     DICTIONARY_VISIT_INTERFACE_ID,
     DICTIONARY_GRAPH_INTERFACE_ID,
     DICTIONARY_ENTRIES_INTERFACE_ID,
     SNAPSHOT_IDENTITY_INTERFACE_ID,
     WFST_INTERFACE_ID,
+    LATTICE_INTERFACE_ID,
     VtInterfaceId,
     VtResourceVTable,
     VtResourceRaw,
@@ -46,6 +52,7 @@ export ABI_VERSION,
     VtDictionaryEntriesVTable,
     VtWfstArc,
     VtWfstVTable,
+    VtLatticeVTable,
     InteropError,
     Resource,
     Dictionary,
@@ -56,6 +63,7 @@ export ABI_VERSION,
     Wfst,
     WfstStateInfo,
     WfstArc,
+    LatticeValue,
     BatchLimits,
     SnapshotIdentity,
     adopt_resource,
@@ -93,6 +101,15 @@ export ABI_VERSION,
     state_count,
     state_info,
     arcs,
+    lattice_value,
+    domain_id,
+    lattice_join,
+    lattice_meet,
+    equivalent,
+    stable_bytes,
+    diagnostic,
+    join_many,
+    meet_many,
     close!
 
 # BEGIN GENERATED ABI CONSTANTS
@@ -103,8 +120,10 @@ const DICTIONARY_GRAPH_INTERFACE_VERSION = UInt32(1)
 const DICTIONARY_ENTRIES_INTERFACE_VERSION = UInt32(1)
 const SNAPSHOT_IDENTITY_INTERFACE_VERSION = UInt32(1)
 const WFST_INTERFACE_VERSION = UInt32(1)
+const LATTICE_INTERFACE_VERSION = UInt32(1)
 const RECOMMENDED_EDGE_BATCH = 256
 const RECOMMENDED_ARC_BATCH = 256
+const RECOMMENDED_LATTICE_BATCH = 256
 
 @enum Status::Cint begin
     STATUS_OK = 0
@@ -154,6 +173,10 @@ const WFST_FLAG_PARALLEL_REENTRANT = UInt64(1)
 const WFST_FLAG_IMMUTABLE = UInt64(2)
 const WFST_FLAG_LAZY = UInt64(4)
 const WFST_FLAG_ACYCLIC = UInt64(8)
+const LATTICE_FLAG_THREAD_BOUND = UInt64(1)
+const LATTICE_FLAG_PARALLEL_REENTRANT = UInt64(2)
+const LATTICE_FLAG_STABLE_BYTES = UInt64(4)
+const LATTICE_FLAG_BATCH = UInt64(8)
 # END GENERATED ABI CONSTANTS
 
 struct InteropError <: Exception
@@ -183,6 +206,7 @@ const DICTIONARY_GRAPH_INTERFACE_ID = interface_id("vt.dict.graph.v1")
 const DICTIONARY_ENTRIES_INTERFACE_ID = interface_id("vt.dict.entry.v1")
 const SNAPSHOT_IDENTITY_INTERFACE_ID = interface_id("vt.snapshot.id.1")
 const WFST_INTERFACE_ID = interface_id("vt.scalar-wfst.1")
+const LATTICE_INTERFACE_ID = interface_id("vt.lattice.val.1")
 # END GENERATED ABI INTERFACE IDS
 
 struct VtResourceVTable
@@ -358,6 +382,21 @@ struct VtWfstVTable
     num_states::Ptr{Cvoid}
     state_info::Ptr{Cvoid}
     state_arcs::Ptr{Cvoid}
+end
+
+struct VtLatticeVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    flags::UInt64
+    domain_id::VtInterfaceId
+    join::Ptr{Cvoid}
+    meet::Ptr{Cvoid}
+    equal::Ptr{Cvoid}
+    stable_bytes::Ptr{Cvoid}
+    diagnostic::Ptr{Cvoid}
+    join_many::Ptr{Cvoid}
+    meet_many::Ptr{Cvoid}
 end
 
 function checked_status(code::Integer, operation::Symbol; allow_end::Bool=false,
@@ -1198,6 +1237,184 @@ function arcs(wfst::Wfst, state::Integer;
     output
 end
 
+mutable struct LatticeValue
+    resource::Resource
+    table::Ptr{VtLatticeVTable}
+    closed::Bool
+end
+
+function lattice_value(resource::Resource; take::Bool=false)
+    owned = take ? resource : retain(resource)
+    try
+        pointer = query_interface(owned, LATTICE_INTERFACE_ID,
+            LATTICE_INTERFACE_VERSION)
+        pointer === nothing && throw(InteropError(STATUS_UNSUPPORTED,
+            :lattice_value))
+        table = Ptr{VtLatticeVTable}(pointer)
+        value = unsafe_load(table)
+        value.interface_version >= LATTICE_INTERFACE_VERSION ||
+            throw(InteropError(STATUS_UNSUPPORTED, :lattice_version))
+        value.reserved == 0 ||
+            throw(InteropError(STATUS_PROVIDER_ERROR, :lattice_reserved))
+        result = LatticeValue(owned, table, false)
+        finalizer(finalize_close, result)
+        result
+    catch
+        close!(owned)
+        rethrow()
+    end
+end
+
+lattice_value(raw::VtResourceRaw) = lattice_value(adopt_resource(raw); take=true)
+
+function lattice_table(value::LatticeValue)
+    value.closed && throw(InteropError(STATUS_CLOSED, :lattice_value))
+    unsafe_load(value.table)
+end
+
+domain_id(value::LatticeValue) = lattice_table(value).domain_id
+flags(value::LatticeValue) = lattice_table(value).flags
+
+function close!(value::LatticeValue)
+    value.closed && return nothing
+    value.closed = true
+    close!(value.resource)
+end
+
+Base.close(value::LatticeValue) = close!(value)
+Base.isopen(value::LatticeValue) = !value.closed
+
+function retain(value::LatticeValue)
+    lattice_value(retain(value.resource); take=true)
+end
+
+function require_same_domain(left::LatticeValue, right::LatticeValue,
+    operation::Symbol)
+    domain_id(left) == domain_id(right) ||
+        throw(InteropError(STATUS_INVALID_ARGUMENT, operation))
+    nothing
+end
+
+function lattice_binary(left::LatticeValue, right::LatticeValue,
+    operation::Symbol)
+    require_same_domain(left, right, operation)
+    left_raw = raw_resource(left.resource)
+    right_raw = Ref(raw_resource(right.resource))
+    output = Ref(VtResourceRaw(C_NULL, Ptr{VtResourceVTable}(C_NULL)))
+    table = lattice_table(left)
+    function_pointer = operation == :lattice_join ? table.join : table.meet
+    status = ccall(require_pointer(function_pointer, operation), Cint,
+        (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{VtResourceRaw}),
+        left_raw.context, right_raw, output)
+    checked_status(status, operation)
+    lattice_value(output[])
+end
+
+lattice_join(left::LatticeValue, right::LatticeValue) =
+    lattice_binary(left, right, :lattice_join)
+lattice_meet(left::LatticeValue, right::LatticeValue) =
+    lattice_binary(left, right, :lattice_meet)
+
+function equivalent(left::LatticeValue, right::LatticeValue)
+    require_same_domain(left, right, :lattice_equal)
+    left_raw = raw_resource(left.resource)
+    right_raw = Ref(raw_resource(right.resource))
+    output = Ref{UInt8}(0)
+    status = ccall(require_pointer(lattice_table(left).equal, :lattice_equal),
+        Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{UInt8}),
+        left_raw.context, right_raw, output)
+    checked_status(status, :lattice_equal)
+    output[] <= 1 || throw(InteropError(STATUS_PROVIDER_ERROR,
+        :lattice_equal))
+    output[] == 1
+end
+
+function read_lattice_bytes(value::LatticeValue, field::Symbol,
+    operation::Symbol)
+    raw = raw_resource(value.resource)
+    table = lattice_table(value)
+    function_pointer = getfield(table, field)
+    function_pointer == C_NULL && return nothing
+    written = Ref{Csize_t}(0)
+    required = Ref{Csize_t}(0)
+    status = ccall(function_pointer, Cint,
+        (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}),
+        raw.context, Ptr{UInt8}(C_NULL), 0, written, required)
+    checked_status(status, operation)
+    written[] == 0 || throw(InteropError(STATUS_PROVIDER_ERROR, operation))
+    output = Vector{UInt8}(undef, Int(required[]))
+    written[] = 0
+    second_required = Ref{Csize_t}(0)
+    status = GC.@preserve output ccall(function_pointer, Cint,
+        (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}),
+        raw.context, isempty(output) ? Ptr{UInt8}(C_NULL) : pointer(output),
+        length(output), written, second_required)
+    checked_status(status, operation)
+    second_required[] == required[] ||
+        throw(InteropError(STATUS_PROVIDER_ERROR, operation))
+    written[] == required[] ||
+        throw(InteropError(STATUS_PROVIDER_ERROR, operation))
+    output
+end
+
+function stable_bytes(value::LatticeValue)
+    lattice_table(value).flags & LATTICE_FLAG_STABLE_BYTES != 0 ||
+        throw(InteropError(STATUS_UNSUPPORTED, :lattice_stable_bytes))
+    result = read_lattice_bytes(value, :stable_bytes, :lattice_stable_bytes)
+    result === nothing && throw(InteropError(STATUS_UNSUPPORTED,
+        :lattice_stable_bytes))
+    result
+end
+
+function diagnostic(value::LatticeValue)
+    bytes = read_lattice_bytes(value, :diagnostic, :lattice_diagnostic)
+    bytes === nothing ? nothing : String(bytes)
+end
+
+function lattice_many(value::LatticeValue, others,
+    operation::Symbol)
+    operands = collect(others)
+    all(item -> item isa LatticeValue, operands) ||
+        throw(ArgumentError("all lattice operands must be LatticeValue objects"))
+    for item in operands
+        require_same_domain(value, item, operation)
+    end
+    isempty(operands) && return retain(value)
+    table = lattice_table(value)
+    function_pointer = operation == :lattice_join_many ? table.join_many :
+        table.meet_many
+    supports_batch = table.flags & LATTICE_FLAG_BATCH != 0 &&
+        function_pointer != C_NULL
+    if !supports_batch
+        result = retain(value)
+        try
+            for item in operands
+                next = operation == :lattice_join_many ? lattice_join(result, item) :
+                    lattice_meet(result, item)
+                close!(result)
+                result = next
+            end
+            return result
+        catch
+            close!(result)
+            rethrow()
+        end
+    end
+    raw = raw_resource(value.resource)
+    raw_operands = VtResourceRaw[raw_resource(item.resource) for item in operands]
+    output = Ref(VtResourceRaw(C_NULL, Ptr{VtResourceVTable}(C_NULL)))
+    status = GC.@preserve operands raw_operands ccall(function_pointer, Cint,
+        (Ptr{Cvoid}, Ptr{VtResourceRaw}, Csize_t, Ref{VtResourceRaw}),
+        raw.context, pointer(raw_operands), length(raw_operands), output)
+    checked_status(status, operation)
+    lattice_value(output[])
+end
+
+join_many(value::LatticeValue, others) =
+    lattice_many(value, others, :lattice_join_many)
+meet_many(value::LatticeValue, others) =
+    lattice_many(value, others, :lattice_meet_many)
+
 @doc "The stable resource ABI version understood by this package." ABI_VERSION
 @doc "The minimum dictionary interface version used by `dictionary`." DICTIONARY_INTERFACE_VERSION
 @doc "The minimum fused dictionary-visit interface version." DICTIONARY_VISIT_INTERFACE_VERSION
@@ -1205,6 +1422,7 @@ end
 @doc "The minimum bounded dictionary-entry stream interface version." DICTIONARY_ENTRIES_INTERFACE_VERSION
 @doc "The minimum snapshot-identity interface version." SNAPSHOT_IDENTITY_INTERFACE_VERSION
 @doc "The minimum scalar weighted finite-state transducer interface version." WFST_INTERFACE_VERSION
+@doc "The minimum immutable lattice-value interface version." LATTICE_INTERFACE_VERSION
 
 @doc """
     Status
@@ -1227,12 +1445,17 @@ by bounded cursors, and `STATUS_UNSUPPORTED` only by optional interface queries.
 @doc "WFST resource is immutable for its retained lifetime." WFST_FLAG_IMMUTABLE
 @doc "WFST states or arcs may be expanded lazily." WFST_FLAG_LAZY
 @doc "WFST graph is acyclic." WFST_FLAG_ACYCLIC
+@doc "Lattice callbacks must remain on the caller's runtime-attached thread." LATTICE_FLAG_THREAD_BOUND
+@doc "Lattice callbacks are safe for concurrent and reentrant invocation." LATTICE_FLAG_PARALLEL_REENTRANT
+@doc "Lattice values provide a canonical stable byte encoding." LATTICE_FLAG_STABLE_BYTES
+@doc "Lattice values provide bounded batch join and meet callbacks." LATTICE_FLAG_BATCH
 @doc "Stable identifier for the dictionary interface." DICTIONARY_INTERFACE_ID
 @doc "Stable identifier for the fused dictionary-visit interface." DICTIONARY_VISIT_INTERFACE_ID
 @doc "Stable identifier for the compact immutable dictionary-graph interface." DICTIONARY_GRAPH_INTERFACE_ID
 @doc "Stable identifier for the bounded dictionary-entry stream interface." DICTIONARY_ENTRIES_INTERFACE_ID
 @doc "Stable identifier for process-local snapshot identity." SNAPSHOT_IDENTITY_INTERFACE_ID
 @doc "Stable identifier for the scalar WFST interface." WFST_INTERFACE_ID
+@doc "Stable identifier for the immutable lattice-value interface." LATTICE_INTERFACE_ID
 @doc "Sixteen-byte interface identifier passed to resource interface discovery." VtInterfaceId
 @doc "Raw resource ownership and interface-discovery function table." VtResourceVTable
 @doc "Raw two-word owned resource handle." VtResourceRaw
@@ -1252,6 +1475,7 @@ by bounded cursors, and `STATUS_UNSUPPORTED` only by optional interface queries.
 @doc "Raw bounded dictionary-entry cursor function table." VtDictionaryEntriesVTable
 @doc "Raw scalar WFST arc representation." VtWfstArc
 @doc "Raw scalar WFST traversal function table." VtWfstVTable
+@doc "Raw immutable lattice-value operation function table." VtLatticeVTable
 
 @doc """
     InteropError(status, operation)
@@ -1365,5 +1589,22 @@ paging and snapshot-local state identifiers.
 @doc "Return the known number of WFST states, or `nothing` for a lazy graph." state_count
 @doc "Return finality and final weight, or `nothing` for an invalid state." state_info
 @doc "Copy every outgoing WFST arc through bounded provider pages." arcs
+
+@doc """
+    LatticeValue
+
+Owned immutable lattice element backed by a versioned resource. Binary and
+batched operations return independently owned values. Call `close`
+deterministically; the finalizer is a leak-safety fallback.
+""" LatticeValue
+@doc "Open the immutable lattice-value interface; `take=true` transfers ownership." lattice_value
+@doc "Return the stable 16-byte lattice domain identifier." domain_id
+@doc "Return the least upper bound of two same-domain lattice values." lattice_join
+@doc "Return the greatest lower bound of two same-domain lattice values." lattice_meet
+@doc "Compare two same-domain lattice values using the provider's equality relation." equivalent
+@doc "Copy a lattice value's canonical stable encoding." stable_bytes
+@doc "Return the provider's most recent advisory UTF-8 diagnostic, when supported." diagnostic
+@doc "Join a value with a collection using one batch callback when available." join_many
+@doc "Meet a value with a collection using one batch callback when available." meet_many
 
 end # module VinaryTreeInterop

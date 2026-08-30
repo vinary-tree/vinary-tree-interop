@@ -2,7 +2,8 @@
 
 `VinaryTreeInterop` is the shared Julia ownership and traversal layer for Vinary
 Tree resources. Native libraries supply the algorithms; this package supplies
-Julia's collections, exceptions, snapshots, bounded streams, and scalar WFSTs.
+Julia's collections, exceptions, snapshots, bounded streams, scalar WFSTs, and
+immutable lattice values.
 
 ## Ownership
 
@@ -43,3 +44,15 @@ leak a lease.
 
 Reducer callbacks are synchronous. Do not call the native reducer through
 `@threadcall`, because Julia's manual forbids callbacks from that worker pool.
+
+## Lattice values
+
+`LatticeValue` owns an immutable value implementing the negotiated
+`vt.lattice.val.1` capability. `lattice_join` and `lattice_meet` return new
+owned values; `join_many` and `meet_many` use one bounded callback when the
+producer advertises batching. `stable_bytes` returns the canonical value
+encoding, and `diagnostic` reports a contained provider failure.
+
+Close all providers and results in `finally` blocks. Domain identifiers must
+match before an operation; equality and encoding do not make values from
+different algebraic domains interchangeable.

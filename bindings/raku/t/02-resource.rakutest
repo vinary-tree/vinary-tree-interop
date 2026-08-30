@@ -6,8 +6,10 @@ use Vinary::Tree::Interop;
 sub test-library(--> Str:D) { %*ENV<VINARY_TREE_INTEROP_TEST_LIB> }
 sub vt_test_resource(RawResource) is native(&test-library) { * }
 sub vt_test_references(--> size_t) is native(&test-library) { * }
+sub vt_test_lattice(uint64, RawResource) is native(&test-library) { * }
+sub vt_test_lattice_value(RawResource --> uint64) is native(&test-library) { * }
 
-plan 61;
+plan 73;
 
 my $raw = RawResource.new;
 vt_test_resource($raw);
@@ -118,3 +120,42 @@ $wfst-snapshot.close;
 is vt_test_references(), 1, 'WFST snapshot close releases its reference';
 $wfst.close;
 is vt_test_references(), 0, 'WFST close releases adopted ownership';
+
+sub native-lattice(UInt:D $value --> LatticeValue:D) {
+    my $raw = RawResource.new;
+    vt_test_lattice($value, $raw);
+    lattice-value(adopt-resource($raw), :take)
+}
+
+my $small = native-lattice(3);
+my $large = native-lattice(8);
+ok $small.flags +& LATTICE-FLAG-BATCH,
+    'lattice exposes its bounded batch capability';
+is $small.domain-id.bytes.list.map(*.chr).join, 'vt.test.u64.lat1',
+    'lattice domain identity is preserved';
+my $joined = $small.join($large);
+my $met = $small.meet($large);
+is vt_test_lattice_value($joined.resource.raw), 8,
+    'lattice join returns the least upper bound';
+is vt_test_lattice_value($met.resource.raw), 3,
+    'lattice meet returns the greatest lower bound';
+ok $joined.equivalent($large), 'provider equality recognizes equal values';
+nok $met.equivalent($large), 'provider equality rejects unequal values';
+is-deeply $joined.stable-bytes.list.Array, [0, 0, 0, 0, 0, 0, 0, 8],
+    'stable byte encoding is copied into Raku-owned memory';
+is $joined.diagnostic, 'fixture lattice',
+    'provider diagnostics are decoded as UTF-8';
+my $middle = native-lattice(5);
+my $joined-many = $small.join-many($middle, $large);
+my $met-many = $large.meet-many($middle, $small);
+is vt_test_lattice_value($joined-many.resource.raw), 8,
+    'batch join folds every operand in one callback';
+is vt_test_lattice_value($met-many.resource.raw), 3,
+    'batch meet folds every operand in one callback';
+my $empty = $middle.join-many;
+is vt_test_lattice_value($empty.resource.raw), 5,
+    'empty batch returns an independent value retain';
+for $empty, $met-many, $joined-many, $middle, $met, $joined, $large, $small {
+    .close;
+}
+ok !$small.opened, 'lattice resources close deterministically';

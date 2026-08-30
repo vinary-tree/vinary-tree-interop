@@ -11,6 +11,7 @@
 /bindings/julia/**/Manifest.toml
 /bindings/raku/target/
 /bindings/raku/lib/.precomp/
+/lib/.precomp/
 /.precomp/
 /bindings/raku/*.so
 /bindings/raku/*.dylib

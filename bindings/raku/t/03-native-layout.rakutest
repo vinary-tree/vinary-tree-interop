@@ -28,6 +28,7 @@ my @types = (
     DictionaryEntriesVTable,
     WfstArc,
     WfstVTable,
+    LatticeVTable,
 );
 
 plan @types.elems;

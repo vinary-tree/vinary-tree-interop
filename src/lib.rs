@@ -37,11 +37,17 @@ pub const VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION: u32 = 1;
 /// Version of [`VtWfstVTable`].
 pub const VT_WFST_INTERFACE_VERSION: u32 = 1;
 
+/// Version of [`VtLatticeVTable`].
+pub const VT_LATTICE_INTERFACE_VERSION: u32 = 1;
+
 /// Recommended number of provider edges requested in one call.
 pub const VT_RECOMMENDED_EDGE_BATCH: usize = 256;
 
 /// Recommended number of WFST arcs requested in one call.
 pub const VT_RECOMMENDED_ARC_BATCH: usize = 256;
+
+/// Recommended maximum number of operands in one lattice fold callback.
+pub const VT_RECOMMENDED_LATTICE_BATCH: usize = 256;
 
 /// Stable 128-bit identifier for the dictionary provider interface.
 pub const VT_DICTIONARY_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
@@ -85,6 +91,11 @@ pub const VT_SNAPSHOT_IDENTITY_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
 /// Stable 128-bit identifier for the scalar WFST provider interface.
 pub const VT_WFST_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
     bytes: *b"vt.scalar-wfst.1",
+};
+
+/// Stable 128-bit identifier for an immutable lattice-value provider.
+pub const VT_LATTICE_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.lattice.val.1",
 };
 
 /// Result status used by every interop callback.
@@ -796,6 +807,120 @@ pub struct VtWfstVTable {
             capacity: usize,
             out_written: *mut usize,
             out_total: *mut usize,
+        ) -> u32,
+    >,
+}
+
+/// Immutable lattice-value provider capabilities.
+pub mod lattice_flags {
+    /// Callbacks must execute synchronously on the thread that entered the
+    /// consuming library.
+    ///
+    /// Managed runtimes that cannot safely attach arbitrary native threads
+    /// advertise this flag. Consumers must reject algorithms that require
+    /// worker-thread callbacks instead of silently violating the runtime's
+    /// threading contract.
+    pub const THREAD_BOUND: u64 = 1 << 0;
+    /// Calls may run concurrently and may re-enter the provider.
+    pub const PARALLEL_REENTRANT: u64 = 1 << 1;
+    /// `stable_bytes` returns a canonical encoding for this domain.
+    pub const STABLE_BYTES: u64 = 1 << 2;
+    /// `join_many` and `meet_many` are implemented.
+    pub const BATCH: u64 = 1 << 3;
+}
+
+/// Versioned immutable lattice-value interface.
+///
+/// Each [`VtResource`] carrying this interface represents one immutable
+/// lattice value. `join`, `meet`, `join_many`, and `meet_many` return one new
+/// owned resource retain through `out_value`; callers release it through its
+/// base resource vtable. Operands must have the same `domain_id`. A provider
+/// must write no output resource on failure.
+///
+/// The batch operations are associative left folds. For example,
+/// `join_many(a, [b, c])` returns `(a join b) join c`. An empty batch returns
+/// an independent retain of the receiver. Consumers fall back to pairwise
+/// calls when [`lattice_flags::BATCH`] is absent.
+#[repr(C)]
+pub struct VtLatticeVTable {
+    /// Size of this struct in bytes, for additive interface evolution.
+    pub struct_size: usize,
+    /// Must be at least [`VT_LATTICE_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Bitset from [`lattice_flags`].
+    pub flags: u64,
+    /// Stable provider-defined identifier for the value representation and
+    /// lattice semantics. Binary operations reject different identifiers.
+    pub domain_id: VtInterfaceId,
+    /// Return the least upper bound of the receiver and `other`.
+    pub join: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            other: *const VtResource,
+            out_value: *mut VtResource,
+        ) -> u32,
+    >,
+    /// Return the greatest lower bound of the receiver and `other`.
+    pub meet: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            other: *const VtResource,
+            out_value: *mut VtResource,
+        ) -> u32,
+    >,
+    /// Compare two values from the same domain.
+    pub equal: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            other: *const VtResource,
+            out_equal: *mut u8,
+        ) -> u32,
+    >,
+    /// Copy the canonical encoding into caller-owned storage.
+    ///
+    /// A zero-capacity call with a null `out_bytes` is the size query. On
+    /// success, `out_required` is the complete size and `out_written` is the
+    /// number copied, which may be less than the required size.
+    pub stable_bytes: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            out_bytes: *mut u8,
+            capacity: usize,
+            out_written: *mut usize,
+            out_required: *mut usize,
+        ) -> u32,
+    >,
+    /// Copy the provider's most recent diagnostic for this value context.
+    ///
+    /// The buffer protocol is identical to `stable_bytes`. Diagnostics are
+    /// advisory UTF-8 and never replace the portable [`VtStatus`] result.
+    pub diagnostic: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            out_bytes: *mut u8,
+            capacity: usize,
+            out_written: *mut usize,
+            out_required: *mut usize,
+        ) -> u32,
+    >,
+    /// Return the join of the receiver and every value in `others`.
+    pub join_many: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            others: *const VtResource,
+            count: usize,
+            out_value: *mut VtResource,
+        ) -> u32,
+    >,
+    /// Return the meet of the receiver and every value in `others`.
+    pub meet_many: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            others: *const VtResource,
+            count: usize,
+            out_value: *mut VtResource,
         ) -> u32,
     >,
 }

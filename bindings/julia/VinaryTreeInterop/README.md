@@ -2,7 +2,8 @@
 
 `VinaryTreeInterop` gives Julia safe, idiomatic access to Vinary Tree's stable
 resource ABI: snapshot-consistent dictionaries, bounded entry streams, compact
-graphs, and scalar weighted finite-state transducers (WFSTs).
+graphs, scalar weighted finite-state transducers (WFSTs), and immutable lattice
+values.
 
 The package implements `AbstractDict`, deterministic `close`, retained snapshots,
 bounded `do`-block batches, provider-side reducers, typed domains, and portable
@@ -62,6 +63,28 @@ end
 
 Reducer callbacks are synchronous and must remain on a Julia-owned calling
 thread. Exceptions are contained at the ABI boundary and re-thrown in Julia.
+
+## Immutable lattice values
+
+`LatticeValue` is an owned handle with `lattice_join`, `lattice_meet`,
+`equivalent`, `stable_bytes`, `diagnostic`, `join_many`, and `meet_many`.
+Every algebra operation returns an independent owned result. Empty batch folds
+retain the receiver, while non-empty batches cross the ABI once:
+
+```julia
+function merge_page(base::LatticeValue, updates)
+    merged = join_many(base, updates)
+    try
+        stable_bytes(merged)
+    finally
+        close(merged)
+    end
+end
+```
+
+The `LLattice.jl` package builds host-implemented Julia providers on this
+consumer surface. A 16-byte domain identifier binds each provider's laws and
+canonical encoding.
 
 See the [complete design, security, and performance guide](../../../docs/language-bindings/julia-raku.md)
 and the generated API reference in `docs/`.
