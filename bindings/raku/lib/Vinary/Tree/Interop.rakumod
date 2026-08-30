@@ -435,6 +435,30 @@ sub adopt-resource(RawResource:D $raw, :@anchors = () --> Resource:D) is export 
     Resource.new(:$raw, :@anchors)
 }
 
+sub borrow-resource(RawResource:D $raw, :@anchors = () --> Resource:D) is export {
+    my $table = copy-cstruct(ResourceVTable, $raw.vtable);
+    X::Vinary::Tree::Interop.new(
+        status => UNSUPPORTED,
+        operation => 'abi-version',
+    ).throw unless $table.abi-version == ABI-VERSION;
+    my &retain = nativecast(:(Pointer),
+        require-pointer($table.retain, 'retain'));
+    my &release = nativecast(:(Pointer),
+        require-pointer($table.release, 'release'));
+    retain($raw.context);
+    my $owned;
+    try {
+        $owned = Resource.new(:$raw, :@anchors);
+        CATCH {
+            default {
+                release($raw.context);
+                .rethrow;
+            }
+        }
+    }
+    $owned
+}
+
 sub with-resource(Resource:D $resource, &operation --> Mu) is export {
     my $owned = $resource.retain;
     LEAVE $owned.close;
@@ -1128,10 +1152,11 @@ transducers (WFSTs).
 
 =head1 OWNERSHIP
 
-=head2 C<Resource>, C<adopt-resource>, C<with-resource>
+=head2 C<Resource>, C<adopt-resource>, C<borrow-resource>, C<with-resource>
 
 C<adopt-resource> transfers one existing native reference into Raku without
-retaining it. C<Resource.retain> creates an independent reference.
+retaining it. C<borrow-resource> retains provider-owned borrowed words before
+wrapping them. C<Resource.retain> creates an independent reference.
 C<Resource.close> releases exactly one reference and is idempotent. C<DESTROY>
 is fallback leak protection; deterministic close is the supported normal path.
 

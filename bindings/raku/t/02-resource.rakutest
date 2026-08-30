@@ -7,7 +7,7 @@ sub test-library(--> Str:D) { %*ENV<VINARY_TREE_INTEROP_TEST_LIB> }
 sub vt_test_resource(RawResource) is native(&test-library) { * }
 sub vt_test_references(--> size_t) is native(&test-library) { * }
 
-plan 59;
+plan 61;
 
 my $raw = RawResource.new;
 vt_test_resource($raw);
@@ -15,6 +15,10 @@ is vt_test_references(), 1, 'fixture returns one owned reference';
 
 my $resource = adopt-resource($raw);
 ok $resource.opened, 'adopted resource is open';
+my $borrowed = borrow-resource($resource.raw);
+is vt_test_references(), 2, 'borrow-resource retains provider-owned words';
+$borrowed.close;
+is vt_test_references(), 1, 'borrowed resource close releases retained ownership';
 my $retained = $resource.retain;
 is vt_test_references(), 2, 'retain duplicates ownership';
 $retained.close;

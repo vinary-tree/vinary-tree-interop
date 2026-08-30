@@ -158,6 +158,10 @@ end
     MOCK_STATE.references = 1
     MOCK_STATE.releases = 0
     resource = mock_resource()
+    borrowed = VTI.borrow_resource(VTI.raw_resource(resource))
+    @test MOCK_STATE.references == 2
+    close(borrowed)
+    @test MOCK_STATE.references == 1
     retained = VTI.retain(resource)
     @test MOCK_STATE.references == 2
     close(retained)
@@ -181,7 +185,7 @@ end
     close(captured)
     close(dictionary)
     @test MOCK_STATE.references == 0
-    @test MOCK_STATE.releases == 3
+    @test MOCK_STATE.releases == 4
     @test_throws VTI.InteropError VTI.root(dictionary)
 end
 

@@ -59,6 +59,7 @@ export ABI_VERSION,
     BatchLimits,
     SnapshotIdentity,
     adopt_resource,
+    borrow_resource,
     retain,
     raw_resource,
     query_interface,
@@ -411,6 +412,19 @@ function adopt_resource(raw::VtResourceRaw; anchors=Any[])
     resource = Resource(raw, false, Any[anchors...])
     finalizer(finalize_close, resource)
     resource
+end
+
+function borrow_resource(raw::VtResourceRaw; anchors=Any[])
+    table = resource_vtable(raw)
+    require_pointer(table.retain, :retain)
+    require_pointer(table.release, :release)
+    ccall(table.retain, Cvoid, (Ptr{Cvoid},), raw.context)
+    try
+        adopt_resource(raw; anchors)
+    catch
+        ccall(table.release, Cvoid, (Ptr{Cvoid},), raw.context)
+        rethrow()
+    end
 end
 
 function retain_raw(raw::VtResourceRaw)
@@ -1262,6 +1276,7 @@ Julia callback or storage objects alive for the complete native ownership interv
 """ adopt_resource
 
 @doc "Return an independently owned reference to `resource`." retain
+@doc "Retain a borrowed raw provider handle and return one independently owned resource." borrow_resource
 @doc "Return the open raw two-word resource handle, or throw after closure." raw_resource
 @doc """
     query_interface(resource, id, minimum_version=1)

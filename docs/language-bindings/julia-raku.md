@@ -31,9 +31,11 @@ reference count, ownership transitions obey:
 r_{t+1} = r_t + N_{\mathrm{retain}} - N_{\mathrm{release}}
 ```
 
-Every successful retain is paired with exactly one release. Julia's `close`
-and Raku's `.close` are deterministic. Finalizers are fallback leak protection,
-not a substitute for explicit ownership.
+Every successful retain is paired with exactly one release. Julia's
+`borrow_resource` and Raku's `borrow-resource` first retain provider-owned
+borrowed words; their `adopt` counterparts transfer an already-owned reference.
+Julia's `close` and Raku's `.close` are deterministic. Finalizers are fallback
+leak protection, not a substitute for explicit ownership.
 
 ### Snapshot consistency
 
