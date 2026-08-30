@@ -98,7 +98,7 @@ typedef struct TestEntriesCursor {
     uint64_t generation;
     uint8_t batch_active;
     VtDictionaryEntry entry;
-    uint32_t unit;
+    uint32_t units[2];
     uint64_t value;
 } TestEntriesCursor;
 
@@ -235,16 +235,17 @@ static VtStatus test_entries_next(VtDictionaryEntriesCursor *raw_cursor,
     }
     memset(out_batch, 0, sizeof(*out_batch));
     memset(&cursor->entry, 0, sizeof(cursor->entry));
-    cursor->unit = cursor->index == 0 ? 'a' : 'b';
+    cursor->units[0] = cursor->index == 0 ? 'a' : 'b';
+    cursor->units[1] = 'c';
     cursor->value = (cursor->index + 1) * 10;
-    cursor->entry.unit_len = 1;
+    cursor->entry.unit_len = cursor->index == 0 ? 1 : 2;
     cursor->entry.value_len = 1;
     cursor->generation += 1;
     cursor->batch_active = 1;
     out_batch->entries = &cursor->entry;
     out_batch->entry_count = 1;
-    out_batch->units = &cursor->unit;
-    out_batch->unit_count = 1;
+    out_batch->units = cursor->units;
+    out_batch->unit_count = cursor->entry.unit_len;
     out_batch->values = &cursor->value;
     out_batch->value_count = 1;
     out_batch->generation = cursor->generation;

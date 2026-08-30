@@ -70,8 +70,8 @@ ok !$entries.next-batch.defined, 'entry cursor reports end explicitly';
 $entries.close;
 is vt_test_references(), 1, 'entry cursor close releases its resource';
 my @iterated = entries($dictionary).list;
-is-deeply @iterated.map(*.units).Array, [['a'.ord], ['b'.ord]],
-    'entry cursor implements bounded Iterable traversal';
+is-deeply @iterated.map(*.units).Array, [['a'.ord], ['b'.ord, 'c'.ord]],
+    'entry cursor preserves complete multi-unit keys during bounded traversal';
 is vt_test_references(), 1, 'completed iteration closes its cursor resource';
 my $reduction = entries($dictionary);
 my @reduced;

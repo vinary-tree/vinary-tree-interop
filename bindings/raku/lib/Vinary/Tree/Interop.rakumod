@@ -755,7 +755,7 @@ class EntryBatch is export {
                     !! CArray[uint64].allocate($descriptor.unit-len);
                 memcpy(nativecast(Pointer, $array), nativecast(Pointer, $unit-storage),
                     $descriptor.unit-len * $unit-width) if $descriptor.unit-len;
-                @units = $array[$_] for ^$descriptor.unit-len;
+                @units = (^$descriptor.unit-len).map({ $array[$_] }).Array;
             }
             my UInt $value;
             if $descriptor.value-len == 1 {
