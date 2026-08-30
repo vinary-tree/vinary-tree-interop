@@ -7,9 +7,12 @@ streams, compact graphs, and scalar weighted finite-state transducers (WFSTs).
 The distribution implements `Associative` dictionaries, `Iterable` entry
 cursors, deterministic `.close`, retained snapshots, bounded batch callbacks,
 provider-side reducers, lattice-value algebra, and typed portable exceptions.
-It also publishes the exact C header used to generate the NativeCall layout;
-dependent distributions can locate it with `native-header-path()` when they
-compile a small native adapter during installation.
+It also publishes the exact C header used to generate the NativeCall layout.
+Dependent distributions can read its package-resource path with
+`native-header-path()` or copy it under its canonical C include name with
+`materialize-native-header($include-directory)` when they compile a small
+native adapter during installation. Materialization is required because an
+installed Raku distribution may store resources under content-addressed names.
 
 ## Installation
 

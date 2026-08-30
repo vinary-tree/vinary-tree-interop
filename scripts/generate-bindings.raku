@@ -268,6 +268,7 @@ for @structs.sort -> $struct {
 my $inventory = @inventory.join("\n") ~ "\n";
 my $inventory-path = $root.add('bindings/generated/abi-capabilities.tsv');
 my @header-targets =
+    $root.add('bindings/haskell/include/vinary_tree_interop.h'),
     $root.add('bindings/ocaml/vinary_tree_interop.h'),
     $root.add('bindings/raku/resources/include/vinary_tree_interop.h');
 my $header = $header-path.slurp;

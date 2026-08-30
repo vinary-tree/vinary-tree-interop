@@ -3,7 +3,17 @@ use NativeCall;
 use lib 'lib';
 use Vinary::Tree::Interop;
 
-plan 19;
+plan 21;
+
+my $header-stage = $?FILE.IO.absolute.IO.parent.parent
+    .add('.build').add("header-$*PID");
+LEAVE {
+    my $header = $header-stage.add('vinary_tree_interop.h');
+    $header.unlink if $header.e;
+    $header-stage.rmdir if $header-stage.d && $header-stage.dir.elems == 0;
+    my $build = $header-stage.parent;
+    $build.rmdir if $build.d && $build.dir.elems == 0;
+}
 
 is ABI-VERSION, 1, 'ABI version is pinned';
 is nativesizeof(InterfaceId.new), 16, 'interface identifier is 16 bytes';
@@ -34,3 +44,7 @@ is nativesizeof(LatticeVTable.new), 96,
     'lattice vtable layout is stable on the supported 64-bit host';
 is BatchLimits.new.max-entries, 256, 'bounded batch defaults are explicit';
 ok native-header-path.e, 'the authoritative native header is packaged';
+my $materialized = materialize-native-header($header-stage);
+ok $materialized.e, 'the native header materializes under its canonical name';
+is-deeply $materialized.slurp(:bin), native-header-path.slurp(:bin),
+    'the materialized header preserves every authoritative byte';

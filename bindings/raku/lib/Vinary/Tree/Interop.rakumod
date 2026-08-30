@@ -6,6 +6,14 @@ sub native-header-path(--> IO::Path:D) is export {
     %?RESOURCES<include/vinary_tree_interop.h>.IO.absolute.IO
 }
 
+sub materialize-native-header(IO() $directory --> IO::Path:D) is export {
+    my $include-directory = $directory.IO.absolute.IO;
+    $include-directory.mkdir(:parents);
+    my $header = $include-directory.add('vinary_tree_interop.h');
+    $header.spurt(native-header-path().slurp(:bin), :bin);
+    $header
+}
+
 # BEGIN GENERATED ABI CONSTANTS
 our constant ABI-VERSION is export = 1;
 our constant DICTIONARY-INTERFACE-VERSION is export = 1;
