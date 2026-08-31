@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vinary-tree-interop"
-version = "4.0.0rc4"
+version = "4.0.0rc6"
 description = "Shared retained-resource ABI for modular vinary-tree Python bindings"
 requires-python = ">=3.10"
 license = "Apache-2.0"
