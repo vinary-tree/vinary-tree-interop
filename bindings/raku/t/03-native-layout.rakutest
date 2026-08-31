@@ -29,6 +29,12 @@ my @types = (
     WfstArc,
     WfstVTable,
     LatticeVTable,
+    SemiringValue,
+    SemiringVTable,
+    SemiringDivisionVTable,
+    SemiringStarVTable,
+    SemiringNumericVTable,
+    SemiringPropertiesVTable,
 );
 
 plan @types.elems;

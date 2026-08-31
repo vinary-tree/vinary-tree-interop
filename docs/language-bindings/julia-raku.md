@@ -10,7 +10,8 @@ These packages are the shared foundation for the Julia and Raku bindings of
 `llattice`, `libdictenstein`, `liblevenshtein`, `lling-llang`, and `duallity`.
 They do not duplicate automata algorithms. Native producers implement the
 algorithms once in Rust and expose dictionaries, scalar weighted finite-state
-transducers (WFSTs), or immutable lattice values as retained resources.
+transducers (WFSTs), immutable lattice values, or dynamic semiring operation
+contexts as retained resources.
 
 ![Resource ownership from native producer to bounded language-owned values](../diagrams/julia-raku-resource-ownership.svg)
 
@@ -121,6 +122,29 @@ Same-provider operands use a direct object path. A host may additionally supply
 a stable-byte decoder for cross-provider operations: the facade verifies the
 16-byte domain identifier, retains the foreign value, copies its canonical
 encoding, decodes, performs the operation, and releases on every exit.
+
+### Host-implemented semirings
+
+The semiring capability is deliberately an operation context rather than one
+retained resource per weight. `VtSemiringValue` is a fixed two-word token. A
+host may store a scalar inline or encode a slot and generation from a bounded,
+recycling arena. The retained context owns that representation and implements
+explicit token clone/release operations, so Rust's native `Semiring: Copy`
+contract is never falsified by a reference-counted foreign object.
+
+The base interface contains the universally meaningful operations: zero, one,
+addition, multiplication, exact and approximate equality, natural order,
+canonical bytes, diagnostics, and bounded folds. Division, Kleene closure,
+numerical projections, and declared laws are separate negotiated interfaces.
+This separation prevents an oversized vtable and lets algorithms ask for the
+smallest lawful capability they require.
+
+Julia `@cfunction` and Raku NativeCall providers must contain every host
+exception and return a portable status. Their tokens remain scoped to one exact
+operation context even when two providers publish the same 16-byte domain
+identifier. An algorithm may use a declared law such as idempotence or total
+order only after its conformance suite validates representative values; a flag
+is a claim to test, not permission to assume arbitrary host code is lawful.
 
 ## ABI verification
 

@@ -38,6 +38,8 @@ Every symbol and acronym used below, defined before use:
 | value domain | What a final dictionary node carries: nothing (set semantics), an optional `u64`, or (reserved) opaque bytes. |
 | weight domain | Which scalar semiring the `double` in a WFST arc denotes. |
 | semiring | An algebraic structure $`\langle K, \oplus, \otimes, \bar{0}, \bar{1} \rangle`$: a carrier set with two associative operations, where $`\oplus`$ (path alternation) is commutative with identity $`\bar{0}`$, $`\otimes`$ (path extension) has identity $`\bar{1}`$, $`\otimes`$ distributes over $`\oplus`$, and $`\bar{0}`$ annihilates $`\otimes`$. |
+| operation context | A retained resource that owns one dynamic semiring's callbacks and the storage behind its compact value tokens. It is the lifetime and concurrency boundary for host-defined weights. |
+| generational identifier | A pair of slot and generation numbers. Reusing a freed slot increments its generation, so a stale token cannot accidentally name the new occupant. |
 | epsilon label | The empty label $`\varepsilon`$ on a transducer arc — consumed no input or emitted no output. Encoded here by a *flag*, never by a magic label value. |
 | page / paging | Transferring a variable-length edge or arc list through a fixed-capacity caller-owned buffer, in one or more calls. |
 | entry cursor | A move-only two-word owned handle that streams all entries from one captured immutable dictionary revision. It has its own lifetime and vtable, independent of the source resource after `open`. |
@@ -90,8 +92,16 @@ vinary-tree project.
 #define VT_DICTIONARY_ENTRIES_INTERFACE_VERSION 1u
 #define VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION 1u
 #define VT_WFST_INTERFACE_VERSION 1u
+#define VT_LATTICE_INTERFACE_VERSION 1u
+#define VT_SEMIRING_INTERFACE_VERSION 1u
+#define VT_SEMIRING_DIVISION_INTERFACE_VERSION 1u
+#define VT_SEMIRING_STAR_INTERFACE_VERSION 1u
+#define VT_SEMIRING_NUMERIC_INTERFACE_VERSION 1u
+#define VT_SEMIRING_PROPERTIES_INTERFACE_VERSION 1u
 #define VT_RECOMMENDED_EDGE_BATCH 256u
 #define VT_RECOMMENDED_ARC_BATCH 256u
+#define VT_RECOMMENDED_LATTICE_BATCH 256u
+#define VT_RECOMMENDED_SEMIRING_BATCH 256u
 ```
 
 These version counters have precisely delimited jurisdictions
@@ -108,7 +118,7 @@ These version counters have precisely delimited jurisdictions
   dictionary entries, and snapshot-identity capabilities therefore evolve
   independently from both the base dictionary interface and one another.
 
-The two batch constants are *recommendations*, not limits: a consumer that
+The batch constants are *recommendations*, not limits: a consumer that
 expands a node through a 256-entry buffer completes almost every expansion in
 one crossing and pages only pathological nodes, giving
 
@@ -156,7 +166,7 @@ forbidden). The ten values, their semantics, and who may return each:
 | Value | Name | Meaning | Who returns it |
 |---|---|---|---|
 | 0 | `Ok` | The operation completed; every advertised output was written. | Any callback. The **only** success value: `is_ok()` holds exactly for `Ok`, pinned by `tests/discriminant_pins.rs`. |
-| 1 | `End` | A stream is exhausted, or a reducer requests successful early stop. | Legal only from entries-v1 `next_batch` and from a `VtDictionaryEntryReducer`. `reduce` translates reducer `End` to its own `Ok`. Existing dictionary/WFST paging still terminates through counts; `End` from any other current interface callback is a provider error. |
+| 1 | `End` | A stream is exhausted, a reducer requests successful early stop, or an explicitly partial algebra operation has no mathematical result. | Entries-v1 `next_batch`; `VtDictionaryEntryReducer`; dynamic-semiring division and star callbacks for undefined quotients or divergent closure. Existing dictionary/WFST paging still terminates through counts; `End` from a callback whose contract does not list it is a provider error. |
 | 2 | `InvalidArgument` | An argument was outside the callback's domain (e.g. an unknown node identifier). | Providers. |
 | 3 | `NullPointer` | A required pointer argument was NULL. Failed calls make **no partial writes**: outputs are untouched. | Providers; also the value consumers expect from `query_interface` given a NULL identifier or output slot (pinned by `tests/vtable_evolution.rs`). |
 | 4 | `Unsupported` | The requested interface, version, or operation is not offered. A *negotiation* outcome, not a fault. | `query_interface` (wrong identifier, or `minimum_version` above support); any op a provider legitimately cannot honor. |
@@ -184,11 +194,12 @@ typedef struct VtInterfaceId { uint8_t bytes[16]; } VtInterfaceId;
 ```
 
 An interface identifier is sixteen bytes compared **byte-for-byte** — no
-hashing, no case folding, no NUL terminator, no registry. The six published
+hashing, no case folding, no NUL terminator, no registry. The twelve published
 identifiers (quoted in [§ 8.1](#81-the-published-identifiers)) are ASCII
 mnemonics with an explicit version suffix: `vt.dictionary.v1`,
 `vt.dict.visit.v1`, `vt.dict.graph.v1`, `vt.dict.entry.v1`,
-`vt.snapshot.id.1`, and `vt.scalar-wfst.1`. Exactness is the point: two
+`vt.snapshot.id.1`, `vt.scalar-wfst.1`, `vt.lattice.val.1`, and the five
+`vt.semiring.*1` capabilities. Exactness is the point: two
 independently built binaries agree on an interface exactly when they contain
 the same sixteen bytes, and a *breaking* interface revision changes the
 string itself so the two contracts can never be confused
@@ -1187,6 +1198,68 @@ The interface does not claim that semiring multiplication is meet. Semiring
 providers have separate identities and laws in `lling-llang`; an adapter is
 valid only when the declared idempotent-semiring order proves the mapping.
 
+### 7.6 Dynamic semiring operation contexts: `vt.semiring.*1`
+
+Host languages cannot safely pretend a garbage-collected or reference-counted
+weight satisfies Rust's native `Semiring: Copy` bound. The dynamic contract
+therefore separates one retained **operation context** from compact values:
+
+![Dynamic semiring ownership from target-language implementation through contained callbacks and a retained operation context to a validated Rust adapter, with compact provider-scoped tokens and a separate unchanged native fast path.](diagrams/dynamic-semiring-ownership.svg)
+
+```c
+typedef struct VtSemiringValue {
+    uint64_t word0;
+    uint64_t word1;
+} VtSemiringValue;
+```
+
+The two words may be an inline scalar. They may instead be a generational
+identifier $`(s,g)`$, where $`s`$ is an arena slot and $`g`$ is its generation.
+In either case, a token is valid only for the exact retained context that issued
+it. Equal `domain_id` values mean equal algebraic semantics; they do **not** make
+tokens from two distinct contexts interchangeable.
+
+`VtSemiringVTable` supplies zero, one, clone, release, addition, multiplication,
+exact and approximate equality, natural order, canonical bytes, diagnostics,
+and optional bounded folds. Every constructor and algebra callback writes one
+owned token on `Ok` and writes none on failure. `release_values` consumes each
+owned token exactly once. Copying its two words is therefore not a clone, just
+as copying `VtResource` is not a retain.
+
+The natural-order callback writes a raw `int32_t`, which the consumer validates
+against `BETTER = -1`, `EQUAL = 0`, `WORSE = 1`, and `INCOMPARABLE = 2` before
+constructing a host-language value. An unrecognized integer is hostile provider
+output, never an extensible enum silently accepted by old code.
+
+Four independent interfaces keep optional algebra out of the base vtable:
+
+| Interface | Operations or claims | Why separate |
+|---|---|---|
+| `vt.semiring.div1` | right division and weak left division | Many lawful semirings are not divisible. `End` means the requested quotient is undefined. |
+| `vt.semiring.str1` | Kleene star | Closure can diverge. `End` denotes divergence without manufacturing a value. |
+| `vt.semiring.num1` | numerical projection, quantization, probability projection | Symbolic and string semirings have no lawful scalar projection. |
+| `vt.semiring.prp1` | hashability, idempotence, bounded closure, zero-sum freedom, commutative multiplication, total order, nonnegativity, and an optional closure bound | Marker laws select algorithms but do not themselves perform algebra. They remain explicit claims that conformance tests must validate. |
+
+The consumer algorithm is literate ownership pseudocode:
+
+```text
+capture and retain one semiring operation context
+query only the capability vtables required by the chosen algorithm
+for each successful output token:
+    attach it to that exact context
+    release it once after its final use
+for a host batch larger than the configured boundary budget:
+    fold bounded chunks
+    release every intermediate token before advancing
+release the operation context after the final token is gone
+```
+
+No callback may retain an input-array pointer. Providers with
+`PARALLEL_REENTRANT` may be called concurrently. A `THREAD_BOUND` provider must
+remain on its attached host thread. An unflagged provider is serialized by the
+consumer's dynamic adapter; native monomorphized semirings never enter this
+path, so the general interface does not tax specialized Rust algorithms.
+
 ## 8. Epilogue of the header
 
 ### 8.1 The published identifiers
@@ -1219,16 +1292,38 @@ static const VtInterfaceId VT_WFST_INTERFACE_ID = {
 static const VtInterfaceId VT_LATTICE_INTERFACE_ID = {
     { 'v','t','.','l','a','t','t','i','c','e','.','v','a','l','.','1' }
 };
+
+static const VtInterfaceId VT_SEMIRING_INTERFACE_ID = {
+    { 'v','t','.','s','e','m','i','r','i','n','g','.','v','a','l','1' }
+};
+
+static const VtInterfaceId VT_SEMIRING_DIVISION_INTERFACE_ID = {
+    { 'v','t','.','s','e','m','i','r','i','n','g','.','d','i','v','1' }
+};
+
+static const VtInterfaceId VT_SEMIRING_STAR_INTERFACE_ID = {
+    { 'v','t','.','s','e','m','i','r','i','n','g','.','s','t','r','1' }
+};
+
+static const VtInterfaceId VT_SEMIRING_NUMERIC_INTERFACE_ID = {
+    { 'v','t','.','s','e','m','i','r','i','n','g','.','n','u','m','1' }
+};
+
+static const VtInterfaceId VT_SEMIRING_PROPERTIES_INTERFACE_ID = {
+    { 'v','t','.','s','e','m','i','r','i','n','g','.','p','r','p','1' }
+};
 ```
 
-The seven constants are spelled as character arrays so byte exactness is
+The twelve constants are spelled as character arrays so byte exactness is
 visible: `vt.dictionary.v1`, `vt.dict.visit.v1`, `vt.dict.graph.v1`,
 `vt.dict.entry.v1`, `vt.snapshot.id.1`, `vt.scalar-wfst.1`, and
-`vt.lattice.val.1` (16 bytes each). They are
+`vt.lattice.val.1`, followed by `vt.semiring.val1`, `vt.semiring.div1`,
+`vt.semiring.str1`, `vt.semiring.num1`, and `vt.semiring.prp1` (16 bytes each). They are
 `static const` so the header stays usable from any C translation unit without
 a home object file. Dictionary, WFST, and lattice interfaces are optional
-for their respective providers; visit, compact graph, dictionary entries, and
-snapshot identity are optional negotiated capabilities.
+for their respective providers; visit, compact graph, dictionary entries,
+snapshot identity, and every semiring refinement are optional negotiated
+capabilities.
 
 ### 8.2 The C++ guard
 

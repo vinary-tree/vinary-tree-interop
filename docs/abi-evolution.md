@@ -21,7 +21,7 @@ gates — and, as importantly, what it does **not**.
 | Counter | Today | Gates | Checked where | Does not gate |
 |---|---|---|---|---|
 | `VT_ABI_VERSION` | 1 | The **base resource protocol**: the layout and meaning of `VtResource` and `VtResourceVTable` — two words, retain/release semantics, the `query_interface` signature. | Written by every provider into `VtResourceVTable.abi_version`; the reference consumer checks **exact equality** (`validate_base` in liblevenshtein `src/bindings.rs` rejects any value other than 1). A bump is therefore a coordinated, family-wide flag day: every producer and consumer rebuilds together. | Interface contracts, project C surfaces, package versions. |
-| Interface versions (`VT_DICTIONARY_INTERFACE_VERSION`, `VT_DICTIONARY_VISIT_INTERFACE_VERSION`, `VT_DICTIONARY_GRAPH_INTERFACE_VERSION`, `VT_DICTIONARY_ENTRIES_INTERFACE_VERSION`, `VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION`, `VT_WFST_INTERFACE_VERSION`) | 1 / 1 / 1 / 1 / 1 / 1 | **One interface's contract** under one 16-byte identifier: its vtable's guaranteed prefix and operation semantics. | Negotiated per resource: the consumer passes its `minimum_version` to `query_interface`; the provider answers `Unsupported` if it cannot honor it. Consumers validate the discovered vtable with a **minimum** check (`interface_version >=`), never equality. The identifier string itself (`…v1`, `….1`) carries the *fork* counter for breaking revisions. | The base protocol; sibling interfaces; anything outside the named interface. |
+| Interface versions (`VT_DICTIONARY_*`, `VT_SNAPSHOT_*`, `VT_WFST_*`, `VT_LATTICE_*`, and `VT_SEMIRING_*_INTERFACE_VERSION`) | 1 for every current interface | **One interface's contract** under one 16-byte identifier: its vtable's guaranteed prefix and operation semantics. | Negotiated per resource: the consumer passes its `minimum_version` to `query_interface`; the provider answers `Unsupported` if it cannot honor it. Consumers validate the discovered vtable with a **minimum** check (`interface_version >=`), never equality. The identifier string itself carries the *fork* counter for breaking revisions. | The base protocol; sibling interfaces; anything outside the named interface. |
 | Project API revision (llev 2 · ldict 5 · lling 1 · duallity 1) | see left | Each project's **own C surface** above the interop layer: an additive counter bumped when the project adds `llev_*` / `ldict_*` / `lling_*` / `duallity_*` functions. Declared as `apiRevision` in each repository's `bindings/api.json` and surfaced at runtime where the project exposes it (for example, `LDICT_API_REVISION` in libdictenstein). | Facade preflight checks in the language bindings: a facade built against revision $`n`$ refuses a library reporting less than $`n`$. | The interop structs — a project may add fifty functions without touching this crate. |
 | Package semver (family release candidate `4.0.0-rc.5`) | see left | **Distribution only**: crates.io, npm, PyPI, Maven, and the other registry coordinates and version pins between packages. | Package managers and each repository's release manifest enforce the registry-normalized form. | Any byte of the ABI. A patch release must not change layouts; conversely an additive interface version may ship in a minor package release. |
 
@@ -108,8 +108,10 @@ denotes the v1 behavior; otherwise the change is breaking.
 ### 2.4 New capability flag bits
 
 Flags are self-claims (`dictionary_flags`, `dictionary_entries_info_flags`,
-`wfst_flags`). A new claim takes the **next free bit** (dictionary: bit 3;
-entries metadata: bit 2; WFST: bit 4). Consumers must
+`wfst_flags`, `lattice_flags`, `semiring_flags`, and
+`semiring_properties`). A new claim takes the **next free bit** (dictionary:
+bit 3; entries metadata: bit 2; WFST: bit 4; lattice and semiring callbacks:
+bit 4; semiring properties: bit 7). Consumers must
 ignore bits they do not know — a claim a consumer cannot exploit is simply
 unexploited — and the reference consumer does exactly that (`validate_dictionary`
 inspects only the bits it understands). Bits are never reused (§ 3.2).

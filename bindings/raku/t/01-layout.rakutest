@@ -3,7 +3,7 @@ use NativeCall;
 use lib 'lib';
 use Vinary::Tree::Interop;
 
-plan 21;
+plan 34;
 
 my $header-stage = $?FILE.IO.absolute.IO.parent.parent
     .add('.build').add("header-$*PID");
@@ -37,11 +37,34 @@ is wfst-interface-id().bytes.list.map(*.chr).join,
     'vt.scalar-wfst.1', 'WFST interface ID is exact';
 is lattice-interface-id().bytes.list.map(*.chr).join,
     'vt.lattice.val.1', 'lattice interface ID is exact';
+is semiring-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.val1', 'semiring interface ID is exact';
+is semiring-division-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.div1', 'semiring division interface ID is exact';
+is semiring-star-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.str1', 'semiring star interface ID is exact';
+is semiring-numeric-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.num1', 'semiring numeric interface ID is exact';
+is semiring-properties-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.prp1', 'semiring properties interface ID is exact';
 is LATTICE-INTERFACE-VERSION, 1, 'lattice interface version is pinned';
 is LATTICE-FLAG-THREAD-BOUND, 1, 'thread-bound flag is pinned';
 is LATTICE-FLAG-BATCH, 8, 'lattice batch flag is pinned';
 is nativesizeof(LatticeVTable.new), 96,
     'lattice vtable layout is stable on the supported 64-bit host';
+is SEMIRING-INTERFACE-VERSION, 1, 'semiring interface version is pinned';
+is SEMIRING-ORDER-BETTER, -1, 'semiring better-order value is signed and pinned';
+is SEMIRING-ORDER-INCOMPARABLE, 2,
+    'semiring incomparable-order value is pinned';
+is SEMIRING-PROPERTY-HASHABLE, 1, 'semiring hashable property is pinned';
+is SEMIRING-PROPERTY-NONNEGATIVE, 64,
+    'semiring nonnegative property is pinned';
+is nativesizeof(SemiringValue.new), 16,
+    'semiring value token remains two 64-bit words';
+is nativesizeof(SemiringVTable.new), 144,
+    'semiring base vtable layout is stable on the supported 64-bit host';
+is nativesizeof(SemiringPropertiesVTable.new), 32,
+    'semiring properties vtable layout is stable on the supported 64-bit host';
 is BatchLimits.new.max-entries, 256, 'bounded batch defaults are explicit';
 ok native-header-path.e, 'the authoritative native header is packaged';
 my $materialized = materialize-native-header($header-stage);

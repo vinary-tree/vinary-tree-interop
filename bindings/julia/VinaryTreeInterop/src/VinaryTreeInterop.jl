@@ -8,6 +8,11 @@ export ABI_VERSION,
     SNAPSHOT_IDENTITY_INTERFACE_VERSION,
     WFST_INTERFACE_VERSION,
     LATTICE_INTERFACE_VERSION,
+    SEMIRING_INTERFACE_VERSION,
+    SEMIRING_DIVISION_INTERFACE_VERSION,
+    SEMIRING_STAR_INTERFACE_VERSION,
+    SEMIRING_NUMERIC_INTERFACE_VERSION,
+    SEMIRING_PROPERTIES_INTERFACE_VERSION,
     Status,
     UnitDomain,
     ValueDomain,
@@ -26,6 +31,21 @@ export ABI_VERSION,
     LATTICE_FLAG_PARALLEL_REENTRANT,
     LATTICE_FLAG_STABLE_BYTES,
     LATTICE_FLAG_BATCH,
+    SEMIRING_FLAG_THREAD_BOUND,
+    SEMIRING_FLAG_PARALLEL_REENTRANT,
+    SEMIRING_FLAG_STABLE_BYTES,
+    SEMIRING_FLAG_BATCH,
+    SEMIRING_PROPERTY_HASHABLE,
+    SEMIRING_PROPERTY_IDEMPOTENT_PLUS,
+    SEMIRING_PROPERTY_K_CLOSED,
+    SEMIRING_PROPERTY_ZERO_SUM_FREE,
+    SEMIRING_PROPERTY_COMMUTATIVE_TIMES,
+    SEMIRING_PROPERTY_TOTALLY_ORDERED,
+    SEMIRING_PROPERTY_NONNEGATIVE,
+    SEMIRING_ORDER_BETTER,
+    SEMIRING_ORDER_EQUAL,
+    SEMIRING_ORDER_WORSE,
+    SEMIRING_ORDER_INCOMPARABLE,
     DICTIONARY_INTERFACE_ID,
     DICTIONARY_VISIT_INTERFACE_ID,
     DICTIONARY_GRAPH_INTERFACE_ID,
@@ -33,6 +53,11 @@ export ABI_VERSION,
     SNAPSHOT_IDENTITY_INTERFACE_ID,
     WFST_INTERFACE_ID,
     LATTICE_INTERFACE_ID,
+    SEMIRING_INTERFACE_ID,
+    SEMIRING_DIVISION_INTERFACE_ID,
+    SEMIRING_STAR_INTERFACE_ID,
+    SEMIRING_NUMERIC_INTERFACE_ID,
+    SEMIRING_PROPERTIES_INTERFACE_ID,
     VtInterfaceId,
     VtResourceVTable,
     VtResourceRaw,
@@ -53,6 +78,12 @@ export ABI_VERSION,
     VtWfstArc,
     VtWfstVTable,
     VtLatticeVTable,
+    VtSemiringValue,
+    VtSemiringVTable,
+    VtSemiringDivisionVTable,
+    VtSemiringStarVTable,
+    VtSemiringNumericVTable,
+    VtSemiringPropertiesVTable,
     InteropError,
     Resource,
     Dictionary,
@@ -121,9 +152,19 @@ const DICTIONARY_ENTRIES_INTERFACE_VERSION = UInt32(1)
 const SNAPSHOT_IDENTITY_INTERFACE_VERSION = UInt32(1)
 const WFST_INTERFACE_VERSION = UInt32(1)
 const LATTICE_INTERFACE_VERSION = UInt32(1)
+const SEMIRING_INTERFACE_VERSION = UInt32(1)
+const SEMIRING_DIVISION_INTERFACE_VERSION = UInt32(1)
+const SEMIRING_STAR_INTERFACE_VERSION = UInt32(1)
+const SEMIRING_NUMERIC_INTERFACE_VERSION = UInt32(1)
+const SEMIRING_PROPERTIES_INTERFACE_VERSION = UInt32(1)
 const RECOMMENDED_EDGE_BATCH = 256
 const RECOMMENDED_ARC_BATCH = 256
 const RECOMMENDED_LATTICE_BATCH = 256
+const RECOMMENDED_SEMIRING_BATCH = 256
+const SEMIRING_ORDER_BETTER = Int32(-1)
+const SEMIRING_ORDER_EQUAL = Int32(0)
+const SEMIRING_ORDER_WORSE = Int32(1)
+const SEMIRING_ORDER_INCOMPARABLE = Int32(2)
 
 @enum Status::Cint begin
     STATUS_OK = 0
@@ -177,6 +218,17 @@ const LATTICE_FLAG_THREAD_BOUND = UInt64(1)
 const LATTICE_FLAG_PARALLEL_REENTRANT = UInt64(2)
 const LATTICE_FLAG_STABLE_BYTES = UInt64(4)
 const LATTICE_FLAG_BATCH = UInt64(8)
+const SEMIRING_FLAG_THREAD_BOUND = UInt64(1)
+const SEMIRING_FLAG_PARALLEL_REENTRANT = UInt64(2)
+const SEMIRING_FLAG_STABLE_BYTES = UInt64(4)
+const SEMIRING_FLAG_BATCH = UInt64(8)
+const SEMIRING_PROPERTY_HASHABLE = UInt64(1)
+const SEMIRING_PROPERTY_IDEMPOTENT_PLUS = UInt64(2)
+const SEMIRING_PROPERTY_K_CLOSED = UInt64(4)
+const SEMIRING_PROPERTY_ZERO_SUM_FREE = UInt64(8)
+const SEMIRING_PROPERTY_COMMUTATIVE_TIMES = UInt64(16)
+const SEMIRING_PROPERTY_TOTALLY_ORDERED = UInt64(32)
+const SEMIRING_PROPERTY_NONNEGATIVE = UInt64(64)
 # END GENERATED ABI CONSTANTS
 
 struct InteropError <: Exception
@@ -207,6 +259,11 @@ const DICTIONARY_ENTRIES_INTERFACE_ID = interface_id("vt.dict.entry.v1")
 const SNAPSHOT_IDENTITY_INTERFACE_ID = interface_id("vt.snapshot.id.1")
 const WFST_INTERFACE_ID = interface_id("vt.scalar-wfst.1")
 const LATTICE_INTERFACE_ID = interface_id("vt.lattice.val.1")
+const SEMIRING_INTERFACE_ID = interface_id("vt.semiring.val1")
+const SEMIRING_DIVISION_INTERFACE_ID = interface_id("vt.semiring.div1")
+const SEMIRING_STAR_INTERFACE_ID = interface_id("vt.semiring.str1")
+const SEMIRING_NUMERIC_INTERFACE_ID = interface_id("vt.semiring.num1")
+const SEMIRING_PROPERTIES_INTERFACE_ID = interface_id("vt.semiring.prp1")
 # END GENERATED ABI INTERFACE IDS
 
 struct VtResourceVTable
@@ -397,6 +454,64 @@ struct VtLatticeVTable
     diagnostic::Ptr{Cvoid}
     join_many::Ptr{Cvoid}
     meet_many::Ptr{Cvoid}
+end
+
+struct VtSemiringValue
+    word0::UInt64
+    word1::UInt64
+end
+
+struct VtSemiringVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    flags::UInt64
+    domain_id::VtInterfaceId
+    zero::Ptr{Cvoid}
+    one::Ptr{Cvoid}
+    clone_value::Ptr{Cvoid}
+    release_values::Ptr{Cvoid}
+    plus::Ptr{Cvoid}
+    times::Ptr{Cvoid}
+    equal::Ptr{Cvoid}
+    approx_equal::Ptr{Cvoid}
+    natural_order::Ptr{Cvoid}
+    stable_bytes::Ptr{Cvoid}
+    diagnostic::Ptr{Cvoid}
+    plus_many::Ptr{Cvoid}
+    times_many::Ptr{Cvoid}
+end
+
+struct VtSemiringDivisionVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    divide::Ptr{Cvoid}
+    left_divide::Ptr{Cvoid}
+end
+
+struct VtSemiringStarVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    star::Ptr{Cvoid}
+end
+
+struct VtSemiringNumericVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    numerical_value::Ptr{Cvoid}
+    quantize::Ptr{Cvoid}
+    to_probability::Ptr{Cvoid}
+end
+
+struct VtSemiringPropertiesVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    properties::UInt64
+    closure_bound::Ptr{Cvoid}
 end
 
 function checked_status(code::Integer, operation::Symbol; allow_end::Bool=false,
@@ -1423,13 +1538,19 @@ meet_many(value::LatticeValue, others) =
 @doc "The minimum snapshot-identity interface version." SNAPSHOT_IDENTITY_INTERFACE_VERSION
 @doc "The minimum scalar weighted finite-state transducer interface version." WFST_INTERFACE_VERSION
 @doc "The minimum immutable lattice-value interface version." LATTICE_INTERFACE_VERSION
+@doc "The minimum dynamic-semiring base interface version." SEMIRING_INTERFACE_VERSION
+@doc "The minimum optional dynamic-semiring division interface version." SEMIRING_DIVISION_INTERFACE_VERSION
+@doc "The minimum optional dynamic-semiring Kleene-star interface version." SEMIRING_STAR_INTERFACE_VERSION
+@doc "The minimum optional dynamic-semiring numerical interface version." SEMIRING_NUMERIC_INTERFACE_VERSION
+@doc "The minimum optional dynamic-semiring property interface version." SEMIRING_PROPERTIES_INTERFACE_VERSION
 
 @doc """
     Status
 
 Portable result codes returned by every fallible C ABI operation. Public wrappers
-translate every non-success code into `InteropError`; `STATUS_END` is handled only
-by bounded cursors, and `STATUS_UNSUPPORTED` only by optional interface queries.
+translate every non-success code into `InteropError`; `STATUS_END` is handled by
+bounded cursors and explicitly partial semiring operations, and
+`STATUS_UNSUPPORTED` only by optional interface queries.
 """ Status
 
 @doc "The token representation used by a dictionary or scalar WFST." UnitDomain
@@ -1449,6 +1570,21 @@ by bounded cursors, and `STATUS_UNSUPPORTED` only by optional interface queries.
 @doc "Lattice callbacks are safe for concurrent and reentrant invocation." LATTICE_FLAG_PARALLEL_REENTRANT
 @doc "Lattice values provide a canonical stable byte encoding." LATTICE_FLAG_STABLE_BYTES
 @doc "Lattice values provide bounded batch join and meet callbacks." LATTICE_FLAG_BATCH
+@doc "Semiring callbacks must remain on the caller's runtime-attached thread." SEMIRING_FLAG_THREAD_BOUND
+@doc "Semiring callbacks are safe for concurrent and reentrant invocation." SEMIRING_FLAG_PARALLEL_REENTRANT
+@doc "Semiring values provide a canonical stable byte encoding." SEMIRING_FLAG_STABLE_BYTES
+@doc "Semiring values provide bounded addition and multiplication folds." SEMIRING_FLAG_BATCH
+@doc "Semiring tokens support exact equality and canonical hash bytes." SEMIRING_PROPERTY_HASHABLE
+@doc "Semiring addition is idempotent: `a ⊕ a = a`." SEMIRING_PROPERTY_IDEMPOTENT_PLUS
+@doc "Semiring closure converges within a uniform bound when one is reported." SEMIRING_PROPERTY_K_CLOSED
+@doc "A semiring sum is zero only when each operand is zero." SEMIRING_PROPERTY_ZERO_SUM_FREE
+@doc "Semiring multiplication is commutative." SEMIRING_PROPERTY_COMMUTATIVE_TIMES
+@doc "The semiring natural order is total." SEMIRING_PROPERTY_TOTALLY_ORDERED
+@doc "Every semiring weight is nonnegative in the provider's interpretation." SEMIRING_PROPERTY_NONNEGATIVE
+@doc "The left operand is better than the right operand in natural order." SEMIRING_ORDER_BETTER
+@doc "The operands are equal in natural order." SEMIRING_ORDER_EQUAL
+@doc "The left operand is worse than the right operand in natural order." SEMIRING_ORDER_WORSE
+@doc "The natural order does not compare this operand pair." SEMIRING_ORDER_INCOMPARABLE
 @doc "Stable identifier for the dictionary interface." DICTIONARY_INTERFACE_ID
 @doc "Stable identifier for the fused dictionary-visit interface." DICTIONARY_VISIT_INTERFACE_ID
 @doc "Stable identifier for the compact immutable dictionary-graph interface." DICTIONARY_GRAPH_INTERFACE_ID
@@ -1456,6 +1592,11 @@ by bounded cursors, and `STATUS_UNSUPPORTED` only by optional interface queries.
 @doc "Stable identifier for process-local snapshot identity." SNAPSHOT_IDENTITY_INTERFACE_ID
 @doc "Stable identifier for the scalar WFST interface." WFST_INTERFACE_ID
 @doc "Stable identifier for the immutable lattice-value interface." LATTICE_INTERFACE_ID
+@doc "Stable identifier for the dynamic-semiring base interface." SEMIRING_INTERFACE_ID
+@doc "Stable identifier for optional semiring division." SEMIRING_DIVISION_INTERFACE_ID
+@doc "Stable identifier for optional semiring Kleene closure." SEMIRING_STAR_INTERFACE_ID
+@doc "Stable identifier for optional semiring numerical projections." SEMIRING_NUMERIC_INTERFACE_ID
+@doc "Stable identifier for declared semiring laws." SEMIRING_PROPERTIES_INTERFACE_ID
 @doc "Sixteen-byte interface identifier passed to resource interface discovery." VtInterfaceId
 @doc "Raw resource ownership and interface-discovery function table." VtResourceVTable
 @doc "Raw two-word owned resource handle." VtResourceRaw
@@ -1476,6 +1617,12 @@ by bounded cursors, and `STATUS_UNSUPPORTED` only by optional interface queries.
 @doc "Raw scalar WFST arc representation." VtWfstArc
 @doc "Raw scalar WFST traversal function table." VtWfstVTable
 @doc "Raw immutable lattice-value operation function table." VtLatticeVTable
+@doc "Compact provider-scoped dynamic-semiring value token." VtSemiringValue
+@doc "Raw dynamic-semiring base operation function table." VtSemiringVTable
+@doc "Raw optional semiring division function table." VtSemiringDivisionVTable
+@doc "Raw optional semiring Kleene-star function table." VtSemiringStarVTable
+@doc "Raw optional semiring numerical-projection function table." VtSemiringNumericVTable
+@doc "Raw optional semiring law and closure-bound function table." VtSemiringPropertiesVTable
 
 @doc """
     InteropError(status, operation)

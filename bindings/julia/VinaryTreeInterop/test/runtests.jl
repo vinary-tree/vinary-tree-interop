@@ -142,6 +142,7 @@ end
     @test sizeof(VTI.VtOptionalU64) == 16
     @test sizeof(VTI.VtDictionaryEdge) == 16
     @test sizeof(VTI.VtDictionaryEntriesCursorRaw) == 2sizeof(Ptr{Cvoid})
+    @test sizeof(VTI.VtSemiringValue) == 16
 end
 
 @testset "exported API documentation" begin
@@ -234,6 +235,12 @@ native_sizeof(kind) = ccall((:vt_test_sizeof, NATIVE_FIXTURE), Csize_t,
         VTI.VtWfstArc,
         VTI.VtWfstVTable,
         VTI.VtLatticeVTable,
+        VTI.VtSemiringValue,
+        VTI.VtSemiringVTable,
+        VTI.VtSemiringDivisionVTable,
+        VTI.VtSemiringStarVTable,
+        VTI.VtSemiringNumericVTable,
+        VTI.VtSemiringPropertiesVTable,
     ]
     for (index, type) in enumerate(types)
         @test sizeof(type) == native_sizeof(index)

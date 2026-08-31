@@ -26,7 +26,9 @@ sub macro-value(Str:D $name --> Int:D) {
         // die "missing ABI macro $name in $header-path";
     $raw ~~ s/ 'UINT64_C(' (\d+) ')' /$0/;
     $raw ~~ s/ <[uUlL]>+ $//;
-    die "ABI macro $name is not an integer: $raw" unless $raw ~~ /^ \d+ $/;
+    $raw ~~ s/^ '(' (.*) ')' $/$0/;
+    die "ABI macro $name is not an integer: $raw"
+        unless $raw ~~ /^ '-'? \d+ $/;
     $raw.Int
 }
 
@@ -54,6 +56,11 @@ my @interfaces = (
     ['SNAPSHOT_IDENTITY', 'snapshot-identity'],
     ['WFST', 'wfst'],
     ['LATTICE', 'lattice'],
+    ['SEMIRING', 'semiring'],
+    ['SEMIRING_DIVISION', 'semiring-division'],
+    ['SEMIRING_STAR', 'semiring-star'],
+    ['SEMIRING_NUMERIC', 'semiring-numeric'],
+    ['SEMIRING_PROPERTIES', 'semiring-properties'],
 );
 
 my %interface-ids;
@@ -92,12 +99,35 @@ my @macro-spec = (
         'WFST-INTERFACE-VERSION', 'UInt32'],
     ['VT_LATTICE_INTERFACE_VERSION', 'LATTICE_INTERFACE_VERSION',
         'LATTICE-INTERFACE-VERSION', 'UInt32'],
+    ['VT_SEMIRING_INTERFACE_VERSION', 'SEMIRING_INTERFACE_VERSION',
+        'SEMIRING-INTERFACE-VERSION', 'UInt32'],
+    ['VT_SEMIRING_DIVISION_INTERFACE_VERSION',
+        'SEMIRING_DIVISION_INTERFACE_VERSION',
+        'SEMIRING-DIVISION-INTERFACE-VERSION', 'UInt32'],
+    ['VT_SEMIRING_STAR_INTERFACE_VERSION', 'SEMIRING_STAR_INTERFACE_VERSION',
+        'SEMIRING-STAR-INTERFACE-VERSION', 'UInt32'],
+    ['VT_SEMIRING_NUMERIC_INTERFACE_VERSION',
+        'SEMIRING_NUMERIC_INTERFACE_VERSION',
+        'SEMIRING-NUMERIC-INTERFACE-VERSION', 'UInt32'],
+    ['VT_SEMIRING_PROPERTIES_INTERFACE_VERSION',
+        'SEMIRING_PROPERTIES_INTERFACE_VERSION',
+        'SEMIRING-PROPERTIES-INTERFACE-VERSION', 'UInt32'],
     ['VT_RECOMMENDED_EDGE_BATCH', 'RECOMMENDED_EDGE_BATCH',
         'RECOMMENDED-EDGE-BATCH', 'Int'],
     ['VT_RECOMMENDED_ARC_BATCH', 'RECOMMENDED_ARC_BATCH',
         'RECOMMENDED-ARC-BATCH', 'Int'],
     ['VT_RECOMMENDED_LATTICE_BATCH', 'RECOMMENDED_LATTICE_BATCH',
         'RECOMMENDED-LATTICE-BATCH', 'Int'],
+    ['VT_RECOMMENDED_SEMIRING_BATCH', 'RECOMMENDED_SEMIRING_BATCH',
+        'RECOMMENDED-SEMIRING-BATCH', 'Int'],
+    ['VT_SEMIRING_ORDER_BETTER', 'SEMIRING_ORDER_BETTER',
+        'SEMIRING-ORDER-BETTER', 'Int32'],
+    ['VT_SEMIRING_ORDER_EQUAL', 'SEMIRING_ORDER_EQUAL',
+        'SEMIRING-ORDER-EQUAL', 'Int32'],
+    ['VT_SEMIRING_ORDER_WORSE', 'SEMIRING_ORDER_WORSE',
+        'SEMIRING-ORDER-WORSE', 'Int32'],
+    ['VT_SEMIRING_ORDER_INCOMPARABLE', 'SEMIRING_ORDER_INCOMPARABLE',
+        'SEMIRING-ORDER-INCOMPARABLE', 'Int32'],
 );
 
 my @flag-spec = (
@@ -128,6 +158,34 @@ my @flag-spec = (
         'LATTICE-FLAG-STABLE-BYTES'],
     ['VT_LATTICE_FLAG_BATCH', 'LATTICE_FLAG_BATCH',
         'LATTICE-FLAG-BATCH'],
+    ['VT_SEMIRING_FLAG_THREAD_BOUND', 'SEMIRING_FLAG_THREAD_BOUND',
+        'SEMIRING-FLAG-THREAD-BOUND'],
+    ['VT_SEMIRING_FLAG_PARALLEL_REENTRANT',
+        'SEMIRING_FLAG_PARALLEL_REENTRANT',
+        'SEMIRING-FLAG-PARALLEL-REENTRANT'],
+    ['VT_SEMIRING_FLAG_STABLE_BYTES', 'SEMIRING_FLAG_STABLE_BYTES',
+        'SEMIRING-FLAG-STABLE-BYTES'],
+    ['VT_SEMIRING_FLAG_BATCH', 'SEMIRING_FLAG_BATCH',
+        'SEMIRING-FLAG-BATCH'],
+    ['VT_SEMIRING_PROPERTY_HASHABLE', 'SEMIRING_PROPERTY_HASHABLE',
+        'SEMIRING-PROPERTY-HASHABLE'],
+    ['VT_SEMIRING_PROPERTY_IDEMPOTENT_PLUS',
+        'SEMIRING_PROPERTY_IDEMPOTENT_PLUS',
+        'SEMIRING-PROPERTY-IDEMPOTENT-PLUS'],
+    ['VT_SEMIRING_PROPERTY_K_CLOSED', 'SEMIRING_PROPERTY_K_CLOSED',
+        'SEMIRING-PROPERTY-K-CLOSED'],
+    ['VT_SEMIRING_PROPERTY_ZERO_SUM_FREE',
+        'SEMIRING_PROPERTY_ZERO_SUM_FREE',
+        'SEMIRING-PROPERTY-ZERO-SUM-FREE'],
+    ['VT_SEMIRING_PROPERTY_COMMUTATIVE_TIMES',
+        'SEMIRING_PROPERTY_COMMUTATIVE_TIMES',
+        'SEMIRING-PROPERTY-COMMUTATIVE-TIMES'],
+    ['VT_SEMIRING_PROPERTY_TOTALLY_ORDERED',
+        'SEMIRING_PROPERTY_TOTALLY_ORDERED',
+        'SEMIRING-PROPERTY-TOTALLY-ORDERED'],
+    ['VT_SEMIRING_PROPERTY_NONNEGATIVE',
+        'SEMIRING_PROPERTY_NONNEGATIVE',
+        'SEMIRING-PROPERTY-NONNEGATIVE'],
 );
 
 my @enum-spec = (
@@ -145,9 +203,13 @@ my @enum-spec = (
 my @julia;
 for @macro-spec -> @spec {
     my $value = macro-value(@spec[0]);
-    @julia.push(@spec[3] eq 'UInt32'
-        ?? "const {@spec[1]} = UInt32($value)"
-        !! "const {@spec[1]} = $value");
+    if @spec[3] eq 'UInt32' {
+        @julia.push("const {@spec[1]} = UInt32($value)");
+    } elsif @spec[3] eq 'Int32' {
+        @julia.push("const {@spec[1]} = Int32($value)");
+    } else {
+        @julia.push("const {@spec[1]} = $value");
+    }
 }
 @julia.push('');
 for @enum-spec.kv -> $index, @spec {

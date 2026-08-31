@@ -23,9 +23,19 @@ our constant DICTIONARY-ENTRIES-INTERFACE-VERSION is export = 1;
 our constant SNAPSHOT-IDENTITY-INTERFACE-VERSION is export = 1;
 our constant WFST-INTERFACE-VERSION is export = 1;
 our constant LATTICE-INTERFACE-VERSION is export = 1;
+our constant SEMIRING-INTERFACE-VERSION is export = 1;
+our constant SEMIRING-DIVISION-INTERFACE-VERSION is export = 1;
+our constant SEMIRING-STAR-INTERFACE-VERSION is export = 1;
+our constant SEMIRING-NUMERIC-INTERFACE-VERSION is export = 1;
+our constant SEMIRING-PROPERTIES-INTERFACE-VERSION is export = 1;
 our constant RECOMMENDED-EDGE-BATCH is export = 256;
 our constant RECOMMENDED-ARC-BATCH is export = 256;
 our constant RECOMMENDED-LATTICE-BATCH is export = 256;
+our constant RECOMMENDED-SEMIRING-BATCH is export = 256;
+our constant SEMIRING-ORDER-BETTER is export = -1;
+our constant SEMIRING-ORDER-EQUAL is export = 0;
+our constant SEMIRING-ORDER-WORSE is export = 1;
+our constant SEMIRING-ORDER-INCOMPARABLE is export = 2;
 
 our enum Status is export (
     OK => 0,
@@ -79,6 +89,17 @@ our constant LATTICE-FLAG-THREAD-BOUND is export = 1;
 our constant LATTICE-FLAG-PARALLEL-REENTRANT is export = 2;
 our constant LATTICE-FLAG-STABLE-BYTES is export = 4;
 our constant LATTICE-FLAG-BATCH is export = 8;
+our constant SEMIRING-FLAG-THREAD-BOUND is export = 1;
+our constant SEMIRING-FLAG-PARALLEL-REENTRANT is export = 2;
+our constant SEMIRING-FLAG-STABLE-BYTES is export = 4;
+our constant SEMIRING-FLAG-BATCH is export = 8;
+our constant SEMIRING-PROPERTY-HASHABLE is export = 1;
+our constant SEMIRING-PROPERTY-IDEMPOTENT-PLUS is export = 2;
+our constant SEMIRING-PROPERTY-K-CLOSED is export = 4;
+our constant SEMIRING-PROPERTY-ZERO-SUM-FREE is export = 8;
+our constant SEMIRING-PROPERTY-COMMUTATIVE-TIMES is export = 16;
+our constant SEMIRING-PROPERTY-TOTALLY-ORDERED is export = 32;
+our constant SEMIRING-PROPERTY-NONNEGATIVE is export = 64;
 # END GENERATED ABI CONSTANTS
 
 class X::Vinary::Tree::Interop is Exception is export {
@@ -153,6 +174,26 @@ sub wfst-interface-id(--> InterfaceId:D) is export {
 
 sub lattice-interface-id(--> InterfaceId:D) is export {
     interface-id('vt.lattice.val.1')
+}
+
+sub semiring-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.val1')
+}
+
+sub semiring-division-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.div1')
+}
+
+sub semiring-star-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.str1')
+}
+
+sub semiring-numeric-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.num1')
+}
+
+sub semiring-properties-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.prp1')
 }
 # END GENERATED ABI INTERFACE IDS
 
@@ -371,6 +412,64 @@ class LatticeVTable is repr('CStruct') is export {
     has Pointer $.diagnostic;
     has Pointer $.join-many;
     has Pointer $.meet-many;
+}
+
+class SemiringValue is repr('CStruct') is export {
+    has uint64 $.word0 is rw;
+    has uint64 $.word1 is rw;
+}
+
+class SemiringVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has uint64 $.flags;
+    HAS InterfaceId $.domain-id;
+    has Pointer $.zero;
+    has Pointer $.one;
+    has Pointer $.clone-value;
+    has Pointer $.release-values;
+    has Pointer $.plus;
+    has Pointer $.times;
+    has Pointer $.equal;
+    has Pointer $.approx-equal;
+    has Pointer $.natural-order;
+    has Pointer $.stable-bytes;
+    has Pointer $.diagnostic;
+    has Pointer $.plus-many;
+    has Pointer $.times-many;
+}
+
+class SemiringDivisionVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has Pointer $.divide;
+    has Pointer $.left-divide;
+}
+
+class SemiringStarVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has Pointer $.star;
+}
+
+class SemiringNumericVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has Pointer $.numerical-value;
+    has Pointer $.quantize;
+    has Pointer $.to-probability;
+}
+
+class SemiringPropertiesVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has uint64 $.properties;
+    has Pointer $.closure-bound;
 }
 
 sub memcpy(Pointer, Pointer, size_t --> Pointer) is native { * }
@@ -1444,8 +1543,10 @@ through bounded pages. Epsilon labels are represented by the C<UInt> type object
 =head1 RAW ABI TYPES
 
 C<InterfaceId>, C<RawResource>, every C<*VTable>, graph node/edge/view types,
-entry descriptor/view/info types, and C<WfstArc> mirror the authoritative C
-header. Fixed padding arrays are represented as individual native scalars to
+entry descriptor/view/info types, C<WfstArc>, and the compact
+C<SemiringValue> token mirror the authoritative C header. The five semiring
+vtable types keep base algebra, division, Kleene closure, numerical projections,
+and declared laws independently negotiable. Fixed padding arrays are represented as individual native scalars to
 preserve layout without giving Rakudo a separately owned CArray. Native tests
 compare C<nativesizeof> for every raw type with C<sizeof> compiled from the C
 header.

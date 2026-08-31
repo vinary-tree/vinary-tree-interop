@@ -40,6 +40,21 @@ pub const VT_WFST_INTERFACE_VERSION: u32 = 1;
 /// Version of [`VtLatticeVTable`].
 pub const VT_LATTICE_INTERFACE_VERSION: u32 = 1;
 
+/// Version of [`VtSemiringVTable`].
+pub const VT_SEMIRING_INTERFACE_VERSION: u32 = 1;
+
+/// Version of [`VtSemiringDivisionVTable`].
+pub const VT_SEMIRING_DIVISION_INTERFACE_VERSION: u32 = 1;
+
+/// Version of [`VtSemiringStarVTable`].
+pub const VT_SEMIRING_STAR_INTERFACE_VERSION: u32 = 1;
+
+/// Version of [`VtSemiringNumericVTable`].
+pub const VT_SEMIRING_NUMERIC_INTERFACE_VERSION: u32 = 1;
+
+/// Version of [`VtSemiringPropertiesVTable`].
+pub const VT_SEMIRING_PROPERTIES_INTERFACE_VERSION: u32 = 1;
+
 /// Recommended number of provider edges requested in one call.
 pub const VT_RECOMMENDED_EDGE_BATCH: usize = 256;
 
@@ -48,6 +63,9 @@ pub const VT_RECOMMENDED_ARC_BATCH: usize = 256;
 
 /// Recommended maximum number of operands in one lattice fold callback.
 pub const VT_RECOMMENDED_LATTICE_BATCH: usize = 256;
+
+/// Recommended maximum number of weights in one semiring fold callback.
+pub const VT_RECOMMENDED_SEMIRING_BATCH: usize = 256;
 
 /// Stable 128-bit identifier for the dictionary provider interface.
 pub const VT_DICTIONARY_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
@@ -96,6 +114,31 @@ pub const VT_WFST_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
 /// Stable 128-bit identifier for an immutable lattice-value provider.
 pub const VT_LATTICE_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
     bytes: *b"vt.lattice.val.1",
+};
+
+/// Stable 128-bit identifier for a dynamic semiring operation context.
+pub const VT_SEMIRING_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.semiring.val1",
+};
+
+/// Stable identifier for optional semiring division operations.
+pub const VT_SEMIRING_DIVISION_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.semiring.div1",
+};
+
+/// Stable identifier for optional semiring Kleene closure.
+pub const VT_SEMIRING_STAR_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.semiring.str1",
+};
+
+/// Stable identifier for optional numerical semiring projections.
+pub const VT_SEMIRING_NUMERIC_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.semiring.num1",
+};
+
+/// Stable identifier for declared semiring laws and closure metadata.
+pub const VT_SEMIRING_PROPERTIES_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.semiring.prp1",
 };
 
 /// Result status used by every interop callback.
@@ -925,6 +968,302 @@ pub struct VtLatticeVTable {
     >,
 }
 
+/// Dynamic-semiring callback and threading capabilities.
+pub mod semiring_flags {
+    /// Callbacks must run synchronously on the entering host thread.
+    pub const THREAD_BOUND: u64 = 1 << 0;
+    /// Calls may execute concurrently and may re-enter the provider.
+    pub const PARALLEL_REENTRANT: u64 = 1 << 1;
+    /// [`VtSemiringVTable::stable_bytes`] returns a canonical encoding.
+    pub const STABLE_BYTES: u64 = 1 << 2;
+    /// `plus_many` and `times_many` are implemented.
+    pub const BATCH: u64 = 1 << 3;
+}
+
+/// Algebraic laws declared by [`VtSemiringPropertiesVTable`].
+pub mod semiring_properties {
+    /// Exact equality and canonical bytes are suitable for hash keys.
+    pub const HASHABLE: u64 = 1 << 0;
+    /// Addition is idempotent.
+    pub const IDEMPOTENT_PLUS: u64 = 1 << 1;
+    /// Kleene closure converges within a uniform bound when one is reported.
+    pub const K_CLOSED: u64 = 1 << 2;
+    /// A sum is zero only when each operand is zero.
+    pub const ZERO_SUM_FREE: u64 = 1 << 3;
+    /// Multiplication is commutative.
+    pub const COMMUTATIVE_TIMES: u64 = 1 << 4;
+    /// Natural order is total.
+    pub const TOTALLY_ORDERED: u64 = 1 << 5;
+    /// Every weight is nonnegative in the provider's interpretation.
+    pub const NONNEGATIVE: u64 = 1 << 6;
+}
+
+/// Raw natural-order result written by [`VtSemiringVTable::natural_order`].
+pub mod semiring_order {
+    /// The left operand is better than the right operand.
+    pub const BETTER: i32 = -1;
+    /// The operands are equal in natural order.
+    pub const EQUAL: i32 = 0;
+    /// The left operand is worse than the right operand.
+    pub const WORSE: i32 = 1;
+    /// The provider has no ordering for this operand pair.
+    pub const INCOMPARABLE: i32 = 2;
+}
+
+/// Compact provider-scoped semiring weight token.
+///
+/// A provider may encode an inline value or a generational arena identifier in
+/// these two words. The token remains valid only while the retained operation
+/// context that issued it remains alive. Copying the words does not duplicate
+/// ownership: consumers clone and release owned tokens through
+/// [`VtSemiringVTable`].
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct VtSemiringValue {
+    /// Provider-defined payload or slot.
+    pub word0: u64,
+    /// Provider-defined payload, generation, or validation tag.
+    pub word1: u64,
+}
+
+/// Versioned base interface for one dynamic semiring operation context.
+///
+/// Every successful constructor or algebra callback writes one owned token.
+/// `release_values` consumes every token exactly once. Inputs are borrowed for
+/// the duration of a synchronous callback and may not be retained. Empty
+/// `plus_many` and `times_many` batches return zero and one respectively.
+#[repr(C)]
+pub struct VtSemiringVTable {
+    /// Size of this struct in bytes, for additive interface evolution.
+    pub struct_size: usize,
+    /// Must be at least [`VT_SEMIRING_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Bitset from [`semiring_flags`].
+    pub flags: u64,
+    /// Stable provider-defined identifier for representation and semantics.
+    pub domain_id: VtInterfaceId,
+    /// Construct the additive identity.
+    pub zero:
+        Option<unsafe extern "C" fn(context: *mut c_void, out_value: *mut VtSemiringValue) -> u32>,
+    /// Construct the multiplicative identity.
+    pub one:
+        Option<unsafe extern "C" fn(context: *mut c_void, out_value: *mut VtSemiringValue) -> u32>,
+    /// Duplicate one owned value token.
+    pub clone_value: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+    /// Consume `count` owned tokens and invalidate their storage.
+    pub release_values: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            values: *mut VtSemiringValue,
+            count: usize,
+        ) -> u32,
+    >,
+    /// Add two borrowed values and return one owned result.
+    pub plus: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            left: *const VtSemiringValue,
+            right: *const VtSemiringValue,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+    /// Multiply two borrowed values and return one owned result.
+    pub times: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            left: *const VtSemiringValue,
+            right: *const VtSemiringValue,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+    /// Compare two values for exact semantic equality.
+    pub equal: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            left: *const VtSemiringValue,
+            right: *const VtSemiringValue,
+            out_equal: *mut u8,
+        ) -> u32,
+    >,
+    /// Compare two values using the provider's natural metric.
+    pub approx_equal: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            left: *const VtSemiringValue,
+            right: *const VtSemiringValue,
+            epsilon: f64,
+            out_equal: *mut u8,
+        ) -> u32,
+    >,
+    /// Write one validated raw value from [`semiring_order`].
+    pub natural_order: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            left: *const VtSemiringValue,
+            right: *const VtSemiringValue,
+            out_order: *mut i32,
+        ) -> u32,
+    >,
+    /// Copy a canonical encoding into caller-owned storage.
+    pub stable_bytes: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            out_bytes: *mut u8,
+            capacity: usize,
+            out_written: *mut usize,
+            out_required: *mut usize,
+        ) -> u32,
+    >,
+    /// Copy an advisory UTF-8 diagnostic for the context or supplied value.
+    pub diagnostic: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            out_bytes: *mut u8,
+            capacity: usize,
+            out_written: *mut usize,
+            out_required: *mut usize,
+        ) -> u32,
+    >,
+    /// Add a bounded borrowed batch, or return zero for an empty batch.
+    pub plus_many: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            values: *const VtSemiringValue,
+            count: usize,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+    /// Multiply a bounded borrowed batch, or return one for an empty batch.
+    pub times_many: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            values: *const VtSemiringValue,
+            count: usize,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+}
+
+/// Optional dynamic-semiring division operations.
+///
+/// [`VtStatus::End`] denotes a mathematically undefined quotient without
+/// writing an output token.
+#[repr(C)]
+pub struct VtSemiringDivisionVTable {
+    /// Size of this struct in bytes.
+    pub struct_size: usize,
+    /// Must be at least [`VT_SEMIRING_DIVISION_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Compute right division.
+    pub divide: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            dividend: *const VtSemiringValue,
+            divisor: *const VtSemiringValue,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+    /// Compute the weak left quotient.
+    pub left_divide: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            divisor: *const VtSemiringValue,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+}
+
+/// Optional dynamic-semiring Kleene-closure operation.
+///
+/// [`VtStatus::End`] denotes divergence or an undefined closure.
+#[repr(C)]
+pub struct VtSemiringStarVTable {
+    /// Size of this struct in bytes.
+    pub struct_size: usize,
+    /// Must be at least [`VT_SEMIRING_STAR_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Compute Kleene closure.
+    pub star: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            out_value: *mut VtSemiringValue,
+        ) -> u32,
+    >,
+}
+
+/// Optional numerical projections for dynamic semiring values.
+#[repr(C)]
+pub struct VtSemiringNumericVTable {
+    /// Size of this struct in bytes.
+    pub struct_size: usize,
+    /// Must be at least [`VT_SEMIRING_NUMERIC_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Extract the underlying numerical value.
+    pub numerical_value: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            out_value: *mut f64,
+        ) -> u32,
+    >,
+    /// Quantize a value using the supplied precision.
+    pub quantize: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            epsilon: f64,
+            out_value: *mut i64,
+        ) -> u32,
+    >,
+    /// Convert a value to a nonnegative sampling weight.
+    pub to_probability: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value: *const VtSemiringValue,
+            out_value: *mut f64,
+        ) -> u32,
+    >,
+}
+
+/// Optional declared algebraic laws and bounded-closure metadata.
+#[repr(C)]
+pub struct VtSemiringPropertiesVTable {
+    /// Size of this struct in bytes.
+    pub struct_size: usize,
+    /// Must be at least [`VT_SEMIRING_PROPERTIES_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Bitset from [`semiring_properties`].
+    pub properties: u64,
+    /// Return a uniform closure bound when cheaply known.
+    pub closure_bound: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            out_bound: *mut usize,
+            out_known: *mut u8,
+        ) -> u32,
+    >,
+}
+
 const _: () = {
     assert!(core::mem::size_of::<VtResource>() == 2 * core::mem::size_of::<usize>());
     assert!(core::mem::align_of::<VtResource>() == core::mem::align_of::<usize>());
@@ -940,6 +1279,7 @@ const _: () = {
     assert!(core::mem::size_of::<VtDictionaryEntriesCursor>() == 2 * core::mem::size_of::<usize>());
     assert!(core::mem::size_of::<VtSnapshotIdentity>() == 16);
     assert!(core::mem::size_of::<VtWfstArc>() == 40);
+    assert!(core::mem::size_of::<VtSemiringValue>() == 16);
     // Absent vtable operations are NULL on the C side: the Option-of-function
     // null-pointer optimization is load-bearing for the whole vtable ABI.
     assert!(

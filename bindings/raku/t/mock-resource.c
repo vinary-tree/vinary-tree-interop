@@ -585,6 +585,12 @@ size_t vt_test_sizeof(uint32_t kind) {
     case 20: return sizeof(VtWfstArc);
     case 21: return sizeof(VtWfstVTable);
     case 22: return sizeof(VtLatticeVTable);
+    case 23: return sizeof(VtSemiringValue);
+    case 24: return sizeof(VtSemiringVTable);
+    case 25: return sizeof(VtSemiringDivisionVTable);
+    case 26: return sizeof(VtSemiringStarVTable);
+    case 27: return sizeof(VtSemiringNumericVTable);
+    case 28: return sizeof(VtSemiringPropertiesVTable);
     default: return 0;
     }
 }
