@@ -1,0 +1,24 @@
+{
+  "name": "Vinary-Tree-Interop",
+  "version": "4.0.0-rc.6",
+  "auth": "zef:vinary-tree",
+  "api": "1",
+  "description": "Safe NativeCall access to Vinary Tree's stable resource ABI",
+  "license": "Apache-2.0",
+  "source-url": "https://github.com/vinary-tree/vinary-tree-interop.git",
+  "provides": {
+    "Vinary::Tree::Interop": "lib/Vinary/Tree/Interop.rakumod"
+  },
+  "resources": [
+    "include/vinary_tree_interop.h"
+  ],
+  "test-depends": [
+    "Test"
+  ],
+  "tags": [
+    "automata",
+    "ffi",
+    "nativecall",
+    "vinary-tree"
+  ]
+}

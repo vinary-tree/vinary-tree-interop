@@ -62,6 +62,12 @@ version:
 | `vt.dict.entry.v1` | 1 (`VT_DICTIONARY_ENTRIES_INTERFACE_VERSION`) | `VtDictionaryEntry`, `VtDictionaryEntryBatchLimits`, `VtDictionaryEntryBatchView`, `VtDictionaryEntriesInfo`, `VtDictionaryEntriesCursor` | Optional finite lexicographic entry stream over one immutable revision. Cursor-owned arena batches use an explicit generation lease; `reduce` provides the same bounded stream through a callback. |
 | `vt.snapshot.id.1` | 1 (`VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION`) | `VtSnapshotIdentity` | Optional process-local immutable producer/revision identity for safely sharing derived state across separately retained views of the same snapshot. |
 | `vt.scalar-wfst.1` | 1 (`VT_WFST_INTERFACE_VERSION`) | `VtWfstArc` | Immutable scalar-weighted FSTs: start/finality/arc paging with `f64` weights in one of seven declared semirings, epsilon labels encoded by flag (never by magic value), lazy and acyclic capability claims. |
+| `vt.lattice.val.1` | 1 (`VT_LATTICE_INTERFACE_VERSION`) | `VtResource` operands and results | Immutable lattice values: join, meet, equality, canonical bytes, diagnostics, and bounded batch folds with explicit runtime-thread and reentrancy capabilities. |
+| `vt.semiring.val1` | 1 (`VT_SEMIRING_INTERFACE_VERSION`) | `VtSemiringValue` | Host-defined semiring operation contexts with compact provider-scoped values, explicit clone/release, identities, addition, multiplication, equality, natural order, canonical bytes, diagnostics, and bounded folds. |
+| `vt.semiring.div1` · `vt.semiring.str1` | 1 each | `VtSemiringValue` | Independently negotiated division/left-division and Kleene-closure capabilities; an undefined mathematical result is `VT_STATUS_END`, not a sentinel value. |
+| `vt.semiring.num1` · `vt.semiring.prp1` | 1 each | Scalars and law flags | Optional numerical projections/quantization/probability plus declared algebraic laws and uniform closure bounds. Consumers validate every claimed law before selecting a specialized algorithm. |
+
+![Dynamic semiring ownership from a target-language implementation through the stable capability vtables to a validated Rust adapter, with provider-scoped compact tokens and the unchanged native fast path shown separately.](docs/diagrams/dynamic-semiring-ownership.svg)
 
 Base protocol version: `VT_ABI_VERSION` = 1. The full change rules — what
 may be added, what forks an identity, and the four distinct version
@@ -69,13 +75,14 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 
 ## Who produces and consumes what
 
-| Repository | Dictionary + optional graph | Scalar WFST | Notes |
-|---|---|---|---|
-| [libdictenstein](https://github.com/vinary-tree/libdictenstein) | **produces** | — | Dictionary resources publish the base interface; immutable DynamicDawg snapshots additionally publish compact graphs in all three unit domains. Other backends retain the callback fallback until they can expose the same immutable representation without copying at query start. |
-| [liblevenshtein](https://github.com/vinary-tree/liblevenshtein-rust) | **consumes** | — | Validates compact graphs at snapshot acquisition and routes every applicable automaton through the shared captured-graph traversal seam; falls back to fused or paged callbacks for older providers. |
-| [duallity](https://github.com/vinary-tree/duallity) | **consumes base dictionary** | **produces** | Builds Levenshtein/fuzzy WFSTs *from* consumed dictionary resources. |
-| [lling-llang](https://github.com/vinary-tree/lling-llang) | — | **produces + consumes** | Publishes vector WFSTs and lazily composes consumed ones. |
-| [shared JavaScript runtime](https://github.com/vinary-tree/javascript-runtime) | hosts | hosts | Depends on all four projects plus this crate; the one sanctioned all-of-family surface for Node, WASI, and browsers. |
+| Repository | Dictionary + optional graph | Scalar WFST | Lattice value | Dynamic semiring | Notes |
+|---|---|---|---|---|---|
+| [llattice](https://github.com/vinary-tree/llattice) | — | — | **defines source trait; host packages produce** | — | The Rust leaf stays dependency-free; target runtimes use this ABI capability. |
+| [libdictenstein](https://github.com/vinary-tree/libdictenstein) | **produces** | — | **consumes for values** | — | Dictionary resources publish the base interface; immutable DynamicDawg snapshots additionally publish compact graphs in all three unit domains. |
+| [liblevenshtein](https://github.com/vinary-tree/liblevenshtein-rust) | **consumes** | — | — | — | Validates compact graphs at snapshot acquisition and routes every applicable automaton through the shared captured-graph traversal seam. |
+| [duallity](https://github.com/vinary-tree/duallity) | **consumes base dictionary** | **produces** | **consumes** | **consumes where product weights require it** | Builds and combines fuzzy and product automata. |
+| [lling-llang](https://github.com/vinary-tree/lling-llang) | — | **produces + consumes** | **produces + consumes** | **produces + consumes** | Publishes dynamic adapters without changing native monomorphized paths. |
+| [shared JavaScript runtime](https://github.com/vinary-tree/javascript-runtime) | hosts | hosts | hosts | hosts | The sanctioned all-of-family surface for Node, WASI, and browsers. |
 
 ## Documentation
 
@@ -84,20 +91,28 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 | [docs/abi-reference.md](docs/abi-reference.md) | The annotated, literate walk of the entire header: every declaration quoted and explained, the refcount/paging/two-word/snapshot laws in display math, the seven semirings defined, and a complete minimal C provider that compiles under `-std=c17 -Wall -Wextra -Werror`. |
 | [docs/abi-evolution.md](docs/abi-evolution.md) | The four version counters and their jurisdictions, additive-versus-breaking rules per construct, worked examples (add an op, add a weight domain, retire a flag), the decision table, and the current family compatibility matrix. |
 | [docs/security-model.md](docs/security-model.md) | The family trust model: zones, the panic/exception containment law with file:line evidence, threading-by-claim, the input-validation duty table grounded in confirmed findings, exhaustion vectors, WASI capability policy, and explicit non-goals. |
+| [docs/npm-coordinate-migration.md](docs/npm-coordinate-migration.md) | The RC5 canonical npm identity, immutable RC4 compatibility policy, fail-closed publication sequence, and consumer migration. |
 
 ## Language packages
 
-Nine language-native mirrors of the interop structs and constants live under
-[`bindings/`](bindings/), so non-C ecosystems consume the ABI idiomatically
-without generating from the header at build time:
+Twelve language-native mirrors of the interop structs and constants live under
+[`bindings/`](bindings/), so non-C ecosystems consume the ABI idiomatically:
 
-[Fortran](bindings/fortran) · [Go](bindings/go) · [Haskell](bindings/haskell) ·
-[JavaScript](bindings/javascript) · [JVM](bindings/jvm) · [Lua](bindings/lua) ·
-[OCaml](bindings/ocaml) · [Python](bindings/python) · [Swift](bindings/swift)
+[.NET](bindings/dotnet) · [Fortran](bindings/fortran) · [Go](bindings/go) ·
+[Haskell](bindings/haskell) · [JavaScript](bindings/javascript) ·
+[Julia](bindings/julia/VinaryTreeInterop) · [JVM](bindings/jvm) ·
+[Lua](bindings/lua) · [OCaml](bindings/ocaml) · [Python](bindings/python) ·
+[Raku](bindings/raku) · [Swift](bindings/swift)
 
-Each mirror is layout-checked against the canonical definitions by the
-repository's binding gates (`scripts/generate-bindings.py` and
-`scripts/check-bindings.py` at the repo root).
+The C header is the stable authority. The Raku generator at
+[`scripts/generate-bindings.raku`](scripts/generate-bindings.raku) derives the
+Julia and Raku constants, enum declarations, interface identities, and the
+machine-readable
+[`bindings/generated/abi-capabilities.tsv`](bindings/generated/abi-capabilities.tsv)
+inventory from that header. Its `--check` mode rejects generated drift without
+editing the worktree. Native fixture tests then compare every Julia and Raku
+raw layout to C `sizeof`; the other language packages retain their own compiler
+and host-language conformance gates.
 
 The optional entries-v1 surface is canonical in the Rust crate, C header, and
 generator-owned bundled C-header mirrors. Its generated conformance fixture
@@ -146,7 +161,7 @@ The generated [`dictionary_entries_v1.tsv`](conformance/dictionary_entries_v1.ts
 | C/C++ | Native header and CMake/pkg-config package | This README and `docs/abi-reference.md` |
 | Python 3.10+ | `PyPI package `vinary-tree-interop`` | [`bindings/python/README.md`](bindings/python/README.md) |
 | Java 22+, Kotlin, and Scala | Maven coordinate `io.vinarytree:vinary-tree-interop` | [`bindings/jvm/README.md`](bindings/jvm/README.md) |
-| JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
+| JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/vinary-tree-interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
 | Go 1.25+ with cgo | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` | [`bindings/go/README.md`](bindings/go/README.md) |
 | Swift 6+ through Swift Package Manager | `SwiftPM product `VinaryTreeInterop`` | [`bindings/swift/README.md`](bindings/swift/README.md) |
 | Fortran 2018 through fpm | fpm package `vinary-tree-interop` (final-version candidate during RC) | [`bindings/fortran/README.md`](bindings/fortran/README.md) |

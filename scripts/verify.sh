@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export TMPDIR="${TMPDIR:-$PWD/target/tmp}"
+export GOCACHE="${GOCACHE:-$PWD/target/go-cache}"
+export GOTMPDIR="${GOTMPDIR:-$PWD/target/go-tmp}"
+mkdir -p "$TMPDIR" "$GOCACHE" "$GOTMPDIR"
+
 python3 scripts/sync-release-version.py
 python3 scripts/check-release-ref.py --self-test
 git ls-files --eol | awk '
@@ -26,6 +31,7 @@ PYTHONPATH=bindings/python/src python3 -c \
 GOWORK=off go -C bindings/go test ./...
 
 if [[ "${1:-}" == "--full" ]]; then
+  raku scripts/generate-bindings.raku --check
   dotnet build bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj \
     --configuration Release -p:NuGetAudit=false -m:1
   bindings/jvm/gradlew --no-daemon -p bindings/jvm test javadoc

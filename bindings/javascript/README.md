@@ -1,8 +1,8 @@
-# @vinary-tree/interop
+# @vinary-tree/vinary-tree-interop
 
 Shared TypeScript and runtime guards for retained resources passed between
 modular Vinary Tree packages. The package does not create a second resource
-table: resources are created by the selected `@vinary-tree/vinary-tree`
+table: resources are created by the selected `@vinary-tree/javascript-runtime`
 native, WASM, or WASI runtime and carry that runtime's identity.
 
 Project facades use `assertSameRuntime` before accepting a resource and use
@@ -18,7 +18,7 @@ constructors and CRUD remain in `@vinary-tree/libdictenstein`.
 | Binding | JavaScript family |
 | Languages/runtime | JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI |
 | Support tier | Tier 1 |
-| Distribution | npm package `@vinary-tree/interop` |
+| Distribution | npm package `@vinary-tree/vinary-tree-interop` |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
 | Canonical facade source | [`vinary-tree-interop/bindings/javascript`](.) |
 

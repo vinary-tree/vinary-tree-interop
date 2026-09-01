@@ -1,0 +1,14 @@
+name = "VinaryTreeInterop"
+uuid = "8d6503e5-4d65-4bd8-a8ee-293a0149584e"
+authors = ["Dylon Edwards <dylon.devo@gmail.com>"]
+version = "4.0.0-rc.6"
+
+[compat]
+julia = "1.10"
+
+[extras]
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Libdl", "Test"]

@@ -15,10 +15,11 @@
 //! the Rust definitions match the manifest.
 
 use vinary_tree_interop::{
-    dictionary_entries_info_flags, dictionary_flags, wfst_flags, VtDictionaryEdge,
-    VtDictionaryEntriesInfo, VtDictionaryEntry, VtDictionaryEntryBatchLimits,
-    VtDictionaryEntryBatchView, VtDictionaryEntryOrder, VtOptionalU64, VtStatus, VtUnitDomain,
-    VtValueDomain, VtWeightDomain, VtWfstArc,
+    dictionary_entries_info_flags, dictionary_flags, lattice_flags, semiring_flags, semiring_order,
+    semiring_properties, wfst_flags, VtDictionaryEdge, VtDictionaryEntriesInfo, VtDictionaryEntry,
+    VtDictionaryEntryBatchLimits, VtDictionaryEntryBatchView, VtDictionaryEntryOrder,
+    VtOptionalU64, VtSemiringValue, VtStatus, VtUnitDomain, VtValueDomain, VtWeightDomain,
+    VtWfstArc,
 };
 
 // ── VtStatus ────────────────────────────────────────────────────────────────
@@ -249,6 +250,59 @@ fn wfst_flag_bits_are_pinned_and_disjoint() {
     assert_eq!(all.count_ones(), 4, "wfst flag bits overlap");
 }
 
+#[test]
+fn lattice_flag_bits_are_pinned_and_disjoint() {
+    assert_eq!(lattice_flags::THREAD_BOUND, 1 << 0);
+    assert_eq!(lattice_flags::PARALLEL_REENTRANT, 1 << 1);
+    assert_eq!(lattice_flags::STABLE_BYTES, 1 << 2);
+    assert_eq!(lattice_flags::BATCH, 1 << 3);
+    let all = lattice_flags::THREAD_BOUND
+        | lattice_flags::PARALLEL_REENTRANT
+        | lattice_flags::STABLE_BYTES
+        | lattice_flags::BATCH;
+    assert_eq!(all.count_ones(), 4, "lattice flag bits overlap");
+}
+
+#[test]
+fn semiring_flag_bits_are_pinned_and_disjoint() {
+    assert_eq!(semiring_flags::THREAD_BOUND, 1 << 0);
+    assert_eq!(semiring_flags::PARALLEL_REENTRANT, 1 << 1);
+    assert_eq!(semiring_flags::STABLE_BYTES, 1 << 2);
+    assert_eq!(semiring_flags::BATCH, 1 << 3);
+    let all = semiring_flags::THREAD_BOUND
+        | semiring_flags::PARALLEL_REENTRANT
+        | semiring_flags::STABLE_BYTES
+        | semiring_flags::BATCH;
+    assert_eq!(all.count_ones(), 4, "semiring flag bits overlap");
+}
+
+#[test]
+fn semiring_property_bits_are_pinned_and_disjoint() {
+    assert_eq!(semiring_properties::HASHABLE, 1 << 0);
+    assert_eq!(semiring_properties::IDEMPOTENT_PLUS, 1 << 1);
+    assert_eq!(semiring_properties::K_CLOSED, 1 << 2);
+    assert_eq!(semiring_properties::ZERO_SUM_FREE, 1 << 3);
+    assert_eq!(semiring_properties::COMMUTATIVE_TIMES, 1 << 4);
+    assert_eq!(semiring_properties::TOTALLY_ORDERED, 1 << 5);
+    assert_eq!(semiring_properties::NONNEGATIVE, 1 << 6);
+    let all = semiring_properties::HASHABLE
+        | semiring_properties::IDEMPOTENT_PLUS
+        | semiring_properties::K_CLOSED
+        | semiring_properties::ZERO_SUM_FREE
+        | semiring_properties::COMMUTATIVE_TIMES
+        | semiring_properties::TOTALLY_ORDERED
+        | semiring_properties::NONNEGATIVE;
+    assert_eq!(all.count_ones(), 7, "semiring property bits overlap");
+}
+
+#[test]
+fn semiring_natural_order_values_are_pinned() {
+    assert_eq!(semiring_order::BETTER, -1);
+    assert_eq!(semiring_order::EQUAL, 0);
+    assert_eq!(semiring_order::WORSE, 1);
+    assert_eq!(semiring_order::INCOMPARABLE, 2);
+}
+
 // ── zeroed defaults (the consumer-side half of reserved-must-be-zero) ───────
 
 #[test]
@@ -304,4 +358,8 @@ fn defaults_are_all_zero_including_reserved_fields() {
     assert_eq!(arc.has_input, 0);
     assert_eq!(arc.has_output, 0);
     assert_eq!(arc.reserved, [0u8; 6]);
+
+    let semiring = VtSemiringValue::default();
+    assert_eq!(semiring.word0, 0);
+    assert_eq!(semiring.word1, 0);
 }

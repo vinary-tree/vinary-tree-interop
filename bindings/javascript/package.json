@@ -1,5 +1,5 @@
 {
-  "name": "@vinary-tree/interop",
+  "name": "@vinary-tree/vinary-tree-interop",
   "version": "4.0.0-rc.6",
   "description": "Shared resource contracts for modular Vinary Tree JavaScript bindings",
   "author": {

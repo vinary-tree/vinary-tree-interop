@@ -1,0 +1,61 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam ArrowColor #334155
+skinparam componentStyle rectangle
+
+title Dynamic semiring: context ownership and bounded value flow
+
+actor "Target-language\ncustomer" as Customer #FCE7F3
+
+rectangle "Host runtime trust boundary" #FFF1F2 {
+  component "Semiring implementation\nzero · one · plus · times\nlaws · optional refinements" as Host #FBCFE8
+  component "Exception/status\ncontainment trampolines" as Trampoline #FDA4AF
+}
+
+rectangle "Stable Vinary Tree ABI" #ECFDF5 {
+  component "Retained operation context\nVtResource" as Context #A7F3D0
+  component "Base vtable\nvt.semiring.val1" as Base #6EE7B7
+  component "Optional vtables\ndiv · star · numeric · properties" as Optional #34D399
+  database "Provider-scoped value storage\ninline words or recycling\n(slot, generation) arena" as Arena #99F6E4
+  artifact "VtSemiringValue\nword0 · word1" as Token #5EEAD4
+}
+
+rectangle "Optimized Rust consumer" #EFF6FF {
+  component "Validated dynamic adapter\nthread gate · bounds · ownership" as Adapter #93C5FD
+  component "Dynamic WFST / algebra\nalgorithm" as Algorithm #60A5FA
+  component "Native monomorphized path\nunchanged, zero ABI calls" as Native #BFDBFE
+}
+
+Customer --> Host : 1. implements algebra
+Host --> Trampoline : 2. contained callback
+Trampoline --> Base : 3. publishes required operations
+Trampoline --> Optional : 4. publishes only lawful refinements
+Context --> Base : query_interface
+Context --> Optional : query_interface
+Context --> Arena : owns lifetime
+Base --> Token : 5. returns one owned token
+Token --> Arena : inline value or (slot, generation)
+Adapter --> Context : 6. retain once
+Adapter --> Base : 7. validate size/version/flags
+Adapter --> Optional : 8. negotiate algorithm requirements
+Algorithm --> Adapter : 9. bounded operation batch
+Adapter --> Base : 10. call without cache/arena lock
+Adapter --> Token : 11. clone/release exactly once
+Algorithm ..> Native : specialized built-ins stay here
+
+note bottom of Token
+Copying two words is not cloning ownership.
+Tokens from distinct contexts never mix,
+even when domain_id is equal.
+end note
+
+legend right
+  |<#FBCFE8>| customer-owned managed code |
+  |<#6EE7B7>| stable negotiated ABI |
+  |<#93C5FD>| validated dynamic consumer |
+  |<#BFDBFE>| unchanged native fast path |
+endlegend
+
+@enduml

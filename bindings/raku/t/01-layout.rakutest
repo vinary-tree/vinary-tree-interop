@@ -1,0 +1,73 @@
+use Test;
+use NativeCall;
+use lib 'lib';
+use Vinary::Tree::Interop;
+
+plan 34;
+
+my $header-stage = $?FILE.IO.absolute.IO.parent.parent
+    .add('.build').add("header-$*PID");
+LEAVE {
+    my $header = $header-stage.add('vinary_tree_interop.h');
+    $header.unlink if $header.e;
+    $header-stage.rmdir if $header-stage.d && $header-stage.dir.elems == 0;
+    my $build = $header-stage.parent;
+    $build.rmdir if $build.d && $build.dir.elems == 0;
+}
+
+is ABI-VERSION, 1, 'ABI version is pinned';
+is nativesizeof(InterfaceId.new), 16, 'interface identifier is 16 bytes';
+is nativesizeof(RawResource.new), 2 * nativesizeof(Pointer),
+    'resource handle remains two words';
+is nativesizeof(OptionalU64.new), 16, 'optional u64 layout is stable';
+is nativesizeof(DictionaryEdge.new), 16, 'dictionary edge layout is stable';
+is nativesizeof(RawDictionaryEntriesCursor.new), 2 * nativesizeof(Pointer),
+    'entry cursor remains two words';
+is dictionary-interface-id().bytes.list.map(*.chr).join,
+    'vt.dictionary.v1', 'dictionary interface ID is exact';
+is dictionary-visit-interface-id().bytes.list.map(*.chr).join,
+    'vt.dict.visit.v1', 'visit interface ID is exact';
+is dictionary-graph-interface-id().bytes.list.map(*.chr).join,
+    'vt.dict.graph.v1', 'graph interface ID is exact';
+is dictionary-entries-interface-id().bytes.list.map(*.chr).join,
+    'vt.dict.entry.v1', 'entries interface ID is exact';
+is snapshot-identity-interface-id().bytes.list.map(*.chr).join,
+    'vt.snapshot.id.1', 'snapshot interface ID is exact';
+is wfst-interface-id().bytes.list.map(*.chr).join,
+    'vt.scalar-wfst.1', 'WFST interface ID is exact';
+is lattice-interface-id().bytes.list.map(*.chr).join,
+    'vt.lattice.val.1', 'lattice interface ID is exact';
+is semiring-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.val1', 'semiring interface ID is exact';
+is semiring-division-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.div1', 'semiring division interface ID is exact';
+is semiring-star-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.str1', 'semiring star interface ID is exact';
+is semiring-numeric-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.num1', 'semiring numeric interface ID is exact';
+is semiring-properties-interface-id().bytes.list.map(*.chr).join,
+    'vt.semiring.prp1', 'semiring properties interface ID is exact';
+is LATTICE-INTERFACE-VERSION, 1, 'lattice interface version is pinned';
+is LATTICE-FLAG-THREAD-BOUND, 1, 'thread-bound flag is pinned';
+is LATTICE-FLAG-BATCH, 8, 'lattice batch flag is pinned';
+is nativesizeof(LatticeVTable.new), 96,
+    'lattice vtable layout is stable on the supported 64-bit host';
+is SEMIRING-INTERFACE-VERSION, 1, 'semiring interface version is pinned';
+is SEMIRING-ORDER-BETTER, -1, 'semiring better-order value is signed and pinned';
+is SEMIRING-ORDER-INCOMPARABLE, 2,
+    'semiring incomparable-order value is pinned';
+is SEMIRING-PROPERTY-HASHABLE, 1, 'semiring hashable property is pinned';
+is SEMIRING-PROPERTY-NONNEGATIVE, 64,
+    'semiring nonnegative property is pinned';
+is nativesizeof(SemiringValue.new), 16,
+    'semiring value token remains two 64-bit words';
+is nativesizeof(SemiringVTable.new), 144,
+    'semiring base vtable layout is stable on the supported 64-bit host';
+is nativesizeof(SemiringPropertiesVTable.new), 32,
+    'semiring properties vtable layout is stable on the supported 64-bit host';
+is BatchLimits.new.max-entries, 256, 'bounded batch defaults are explicit';
+ok native-header-path.e, 'the authoritative native header is packaged';
+my $materialized = materialize-native-header($header-stage);
+ok $materialized.e, 'the native header materializes under its canonical name';
+is-deeply $materialized.slurp(:bin), native-header-path.slurp(:bin),
+    'the materialized header preserves every authoritative byte';

@@ -27,14 +27,22 @@ use vinary_tree_interop::{
     VtDictionaryEntriesVTable, VtDictionaryEntry, VtDictionaryEntryBatchLimits,
     VtDictionaryEntryBatchView, VtDictionaryGraphEdge, VtDictionaryGraphNode,
     VtDictionaryGraphVTable, VtDictionaryGraphView, VtDictionaryVTable, VtDictionaryVisitVTable,
-    VtInterfaceId, VtOptionalU64, VtResource, VtResourceVTable, VtSnapshotIdentity,
+    VtInterfaceId, VtLatticeVTable, VtOptionalU64, VtResource, VtResourceVTable,
+    VtSemiringDivisionVTable, VtSemiringNumericVTable, VtSemiringPropertiesVTable,
+    VtSemiringStarVTable, VtSemiringVTable, VtSemiringValue, VtSnapshotIdentity,
     VtSnapshotIdentityVTable, VtWfstArc, VtWfstVTable, VT_ABI_VERSION,
     VT_DICTIONARY_ENTRIES_INTERFACE_ID, VT_DICTIONARY_ENTRIES_INTERFACE_VERSION,
     VT_DICTIONARY_GRAPH_INTERFACE_ID, VT_DICTIONARY_GRAPH_INTERFACE_VERSION,
     VT_DICTIONARY_INTERFACE_ID, VT_DICTIONARY_INTERFACE_VERSION, VT_DICTIONARY_VISIT_INTERFACE_ID,
-    VT_DICTIONARY_VISIT_INTERFACE_VERSION, VT_RECOMMENDED_ARC_BATCH, VT_RECOMMENDED_EDGE_BATCH,
-    VT_SNAPSHOT_IDENTITY_INTERFACE_ID, VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION,
-    VT_WFST_INTERFACE_ID, VT_WFST_INTERFACE_VERSION,
+    VT_DICTIONARY_VISIT_INTERFACE_VERSION, VT_LATTICE_INTERFACE_ID, VT_LATTICE_INTERFACE_VERSION,
+    VT_RECOMMENDED_ARC_BATCH, VT_RECOMMENDED_EDGE_BATCH, VT_RECOMMENDED_LATTICE_BATCH,
+    VT_RECOMMENDED_SEMIRING_BATCH, VT_SEMIRING_DIVISION_INTERFACE_ID,
+    VT_SEMIRING_DIVISION_INTERFACE_VERSION, VT_SEMIRING_INTERFACE_ID,
+    VT_SEMIRING_INTERFACE_VERSION, VT_SEMIRING_NUMERIC_INTERFACE_ID,
+    VT_SEMIRING_NUMERIC_INTERFACE_VERSION, VT_SEMIRING_PROPERTIES_INTERFACE_ID,
+    VT_SEMIRING_PROPERTIES_INTERFACE_VERSION, VT_SEMIRING_STAR_INTERFACE_ID,
+    VT_SEMIRING_STAR_INTERFACE_VERSION, VT_SNAPSHOT_IDENTITY_INTERFACE_ID,
+    VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION, VT_WFST_INTERFACE_ID, VT_WFST_INTERFACE_VERSION,
 };
 
 /// One machine word.
@@ -531,6 +539,211 @@ fn every_struct_is_packed_in_declaration_order() {
             ("state_arcs", offset_of!(VtWfstVTable, state_arcs), fnp),
         ],
     );
+    assert_packed_in_order(
+        "VtLatticeVTable",
+        size_of::<VtLatticeVTable>(),
+        align_of::<VtLatticeVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtLatticeVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtLatticeVTable, interface_version),
+                4,
+            ),
+            ("reserved", offset_of!(VtLatticeVTable, reserved), 4),
+            ("flags", offset_of!(VtLatticeVTable, flags), 8),
+            ("domain_id", offset_of!(VtLatticeVTable, domain_id), 16),
+            ("join", offset_of!(VtLatticeVTable, join), fnp),
+            ("meet", offset_of!(VtLatticeVTable, meet), fnp),
+            ("equal", offset_of!(VtLatticeVTable, equal), fnp),
+            (
+                "stable_bytes",
+                offset_of!(VtLatticeVTable, stable_bytes),
+                fnp,
+            ),
+            ("diagnostic", offset_of!(VtLatticeVTable, diagnostic), fnp),
+            ("join_many", offset_of!(VtLatticeVTable, join_many), fnp),
+            ("meet_many", offset_of!(VtLatticeVTable, meet_many), fnp),
+        ],
+    );
+    assert_packed_in_order(
+        "VtSemiringValue",
+        size_of::<VtSemiringValue>(),
+        align_of::<VtSemiringValue>(),
+        &[
+            ("word0", offset_of!(VtSemiringValue, word0), 8),
+            ("word1", offset_of!(VtSemiringValue, word1), 8),
+        ],
+    );
+    assert_packed_in_order(
+        "VtSemiringVTable",
+        size_of::<VtSemiringVTable>(),
+        align_of::<VtSemiringVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtSemiringVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtSemiringVTable, interface_version),
+                4,
+            ),
+            ("reserved", offset_of!(VtSemiringVTable, reserved), 4),
+            ("flags", offset_of!(VtSemiringVTable, flags), 8),
+            ("domain_id", offset_of!(VtSemiringVTable, domain_id), 16),
+            ("zero", offset_of!(VtSemiringVTable, zero), fnp),
+            ("one", offset_of!(VtSemiringVTable, one), fnp),
+            (
+                "clone_value",
+                offset_of!(VtSemiringVTable, clone_value),
+                fnp,
+            ),
+            (
+                "release_values",
+                offset_of!(VtSemiringVTable, release_values),
+                fnp,
+            ),
+            ("plus", offset_of!(VtSemiringVTable, plus), fnp),
+            ("times", offset_of!(VtSemiringVTable, times), fnp),
+            ("equal", offset_of!(VtSemiringVTable, equal), fnp),
+            (
+                "approx_equal",
+                offset_of!(VtSemiringVTable, approx_equal),
+                fnp,
+            ),
+            (
+                "natural_order",
+                offset_of!(VtSemiringVTable, natural_order),
+                fnp,
+            ),
+            (
+                "stable_bytes",
+                offset_of!(VtSemiringVTable, stable_bytes),
+                fnp,
+            ),
+            ("diagnostic", offset_of!(VtSemiringVTable, diagnostic), fnp),
+            ("plus_many", offset_of!(VtSemiringVTable, plus_many), fnp),
+            ("times_many", offset_of!(VtSemiringVTable, times_many), fnp),
+        ],
+    );
+    assert_packed_in_order(
+        "VtSemiringDivisionVTable",
+        size_of::<VtSemiringDivisionVTable>(),
+        align_of::<VtSemiringDivisionVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtSemiringDivisionVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtSemiringDivisionVTable, interface_version),
+                4,
+            ),
+            (
+                "reserved",
+                offset_of!(VtSemiringDivisionVTable, reserved),
+                4,
+            ),
+            ("divide", offset_of!(VtSemiringDivisionVTable, divide), fnp),
+            (
+                "left_divide",
+                offset_of!(VtSemiringDivisionVTable, left_divide),
+                fnp,
+            ),
+        ],
+    );
+    assert_packed_in_order(
+        "VtSemiringStarVTable",
+        size_of::<VtSemiringStarVTable>(),
+        align_of::<VtSemiringStarVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtSemiringStarVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtSemiringStarVTable, interface_version),
+                4,
+            ),
+            ("reserved", offset_of!(VtSemiringStarVTable, reserved), 4),
+            ("star", offset_of!(VtSemiringStarVTable, star), fnp),
+        ],
+    );
+    assert_packed_in_order(
+        "VtSemiringNumericVTable",
+        size_of::<VtSemiringNumericVTable>(),
+        align_of::<VtSemiringNumericVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtSemiringNumericVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtSemiringNumericVTable, interface_version),
+                4,
+            ),
+            ("reserved", offset_of!(VtSemiringNumericVTable, reserved), 4),
+            (
+                "numerical_value",
+                offset_of!(VtSemiringNumericVTable, numerical_value),
+                fnp,
+            ),
+            (
+                "quantize",
+                offset_of!(VtSemiringNumericVTable, quantize),
+                fnp,
+            ),
+            (
+                "to_probability",
+                offset_of!(VtSemiringNumericVTable, to_probability),
+                fnp,
+            ),
+        ],
+    );
+    assert_packed_in_order(
+        "VtSemiringPropertiesVTable",
+        size_of::<VtSemiringPropertiesVTable>(),
+        align_of::<VtSemiringPropertiesVTable>(),
+        &[
+            (
+                "struct_size",
+                offset_of!(VtSemiringPropertiesVTable, struct_size),
+                WORD,
+            ),
+            (
+                "interface_version",
+                offset_of!(VtSemiringPropertiesVTable, interface_version),
+                4,
+            ),
+            (
+                "reserved",
+                offset_of!(VtSemiringPropertiesVTable, reserved),
+                4,
+            ),
+            (
+                "properties",
+                offset_of!(VtSemiringPropertiesVTable, properties),
+                8,
+            ),
+            (
+                "closure_bound",
+                offset_of!(VtSemiringPropertiesVTable, closure_bound),
+                fnp,
+            ),
+        ],
+    );
 }
 
 // ── exact pins: required 64-bit tier ────────────────────────────────────────
@@ -693,6 +906,66 @@ mod exact_64 {
         assert_eq!(offset_of!(VtWfstVTable, state_info), 56);
         assert_eq!(offset_of!(VtWfstVTable, state_arcs), 64);
     }
+
+    #[test]
+    fn vt_lattice_vtable_layout() {
+        assert_eq!(size_of::<VtLatticeVTable>(), 96);
+        assert_eq!(align_of::<VtLatticeVTable>(), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, struct_size), 0);
+        assert_eq!(offset_of!(VtLatticeVTable, interface_version), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, reserved), 12);
+        assert_eq!(offset_of!(VtLatticeVTable, flags), 16);
+        assert_eq!(offset_of!(VtLatticeVTable, domain_id), 24);
+        assert_eq!(offset_of!(VtLatticeVTable, join), 40);
+        assert_eq!(offset_of!(VtLatticeVTable, meet), 48);
+        assert_eq!(offset_of!(VtLatticeVTable, equal), 56);
+        assert_eq!(offset_of!(VtLatticeVTable, stable_bytes), 64);
+        assert_eq!(offset_of!(VtLatticeVTable, diagnostic), 72);
+        assert_eq!(offset_of!(VtLatticeVTable, join_many), 80);
+        assert_eq!(offset_of!(VtLatticeVTable, meet_many), 88);
+    }
+
+    #[test]
+    fn vt_semiring_layouts() {
+        assert_eq!(size_of::<VtSemiringValue>(), 16);
+        assert_eq!(align_of::<VtSemiringValue>(), 8);
+        assert_eq!(offset_of!(VtSemiringValue, word0), 0);
+        assert_eq!(offset_of!(VtSemiringValue, word1), 8);
+
+        assert_eq!(size_of::<VtSemiringVTable>(), 144);
+        assert_eq!(align_of::<VtSemiringVTable>(), 8);
+        assert_eq!(offset_of!(VtSemiringVTable, struct_size), 0);
+        assert_eq!(offset_of!(VtSemiringVTable, interface_version), 8);
+        assert_eq!(offset_of!(VtSemiringVTable, reserved), 12);
+        assert_eq!(offset_of!(VtSemiringVTable, flags), 16);
+        assert_eq!(offset_of!(VtSemiringVTable, domain_id), 24);
+        assert_eq!(offset_of!(VtSemiringVTable, zero), 40);
+        assert_eq!(offset_of!(VtSemiringVTable, one), 48);
+        assert_eq!(offset_of!(VtSemiringVTable, clone_value), 56);
+        assert_eq!(offset_of!(VtSemiringVTable, release_values), 64);
+        assert_eq!(offset_of!(VtSemiringVTable, plus), 72);
+        assert_eq!(offset_of!(VtSemiringVTable, times), 80);
+        assert_eq!(offset_of!(VtSemiringVTable, equal), 88);
+        assert_eq!(offset_of!(VtSemiringVTable, approx_equal), 96);
+        assert_eq!(offset_of!(VtSemiringVTable, natural_order), 104);
+        assert_eq!(offset_of!(VtSemiringVTable, stable_bytes), 112);
+        assert_eq!(offset_of!(VtSemiringVTable, diagnostic), 120);
+        assert_eq!(offset_of!(VtSemiringVTable, plus_many), 128);
+        assert_eq!(offset_of!(VtSemiringVTable, times_many), 136);
+
+        assert_eq!(size_of::<VtSemiringDivisionVTable>(), 32);
+        assert_eq!(offset_of!(VtSemiringDivisionVTable, divide), 16);
+        assert_eq!(offset_of!(VtSemiringDivisionVTable, left_divide), 24);
+        assert_eq!(size_of::<VtSemiringStarVTable>(), 24);
+        assert_eq!(offset_of!(VtSemiringStarVTable, star), 16);
+        assert_eq!(size_of::<VtSemiringNumericVTable>(), 40);
+        assert_eq!(offset_of!(VtSemiringNumericVTable, numerical_value), 16);
+        assert_eq!(offset_of!(VtSemiringNumericVTable, quantize), 24);
+        assert_eq!(offset_of!(VtSemiringNumericVTable, to_probability), 32);
+        assert_eq!(size_of::<VtSemiringPropertiesVTable>(), 32);
+        assert_eq!(offset_of!(VtSemiringPropertiesVTable, properties), 16);
+        assert_eq!(offset_of!(VtSemiringPropertiesVTable, closure_bound), 24);
+    }
 }
 
 // ── exact pins: 32-bit ARM EABI tier (CI linux-armv7-experimental) ──────────
@@ -707,6 +980,66 @@ mod exact_32_arm {
         assert_eq!(align_of::<VtResource>(), 4);
         assert_eq!(offset_of!(VtResource, context), 0);
         assert_eq!(offset_of!(VtResource, vtable), 4);
+    }
+
+    #[test]
+    fn vt_lattice_vtable_layout() {
+        assert_eq!(size_of::<VtLatticeVTable>(), 72);
+        assert_eq!(align_of::<VtLatticeVTable>(), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, struct_size), 0);
+        assert_eq!(offset_of!(VtLatticeVTable, interface_version), 4);
+        assert_eq!(offset_of!(VtLatticeVTable, reserved), 8);
+        assert_eq!(offset_of!(VtLatticeVTable, flags), 16);
+        assert_eq!(offset_of!(VtLatticeVTable, domain_id), 24);
+        assert_eq!(offset_of!(VtLatticeVTable, join), 40);
+        assert_eq!(offset_of!(VtLatticeVTable, meet), 44);
+        assert_eq!(offset_of!(VtLatticeVTable, equal), 48);
+        assert_eq!(offset_of!(VtLatticeVTable, stable_bytes), 52);
+        assert_eq!(offset_of!(VtLatticeVTable, diagnostic), 56);
+        assert_eq!(offset_of!(VtLatticeVTable, join_many), 60);
+        assert_eq!(offset_of!(VtLatticeVTable, meet_many), 64);
+    }
+
+    #[test]
+    fn vt_semiring_layouts() {
+        assert_eq!(size_of::<VtSemiringValue>(), 16);
+        assert_eq!(align_of::<VtSemiringValue>(), 8);
+        assert_eq!(offset_of!(VtSemiringValue, word0), 0);
+        assert_eq!(offset_of!(VtSemiringValue, word1), 8);
+
+        assert_eq!(size_of::<VtSemiringVTable>(), 96);
+        assert_eq!(align_of::<VtSemiringVTable>(), 8);
+        assert_eq!(offset_of!(VtSemiringVTable, struct_size), 0);
+        assert_eq!(offset_of!(VtSemiringVTable, interface_version), 4);
+        assert_eq!(offset_of!(VtSemiringVTable, reserved), 8);
+        assert_eq!(offset_of!(VtSemiringVTable, flags), 16);
+        assert_eq!(offset_of!(VtSemiringVTable, domain_id), 24);
+        assert_eq!(offset_of!(VtSemiringVTable, zero), 40);
+        assert_eq!(offset_of!(VtSemiringVTable, one), 44);
+        assert_eq!(offset_of!(VtSemiringVTable, clone_value), 48);
+        assert_eq!(offset_of!(VtSemiringVTable, release_values), 52);
+        assert_eq!(offset_of!(VtSemiringVTable, plus), 56);
+        assert_eq!(offset_of!(VtSemiringVTable, times), 60);
+        assert_eq!(offset_of!(VtSemiringVTable, equal), 64);
+        assert_eq!(offset_of!(VtSemiringVTable, approx_equal), 68);
+        assert_eq!(offset_of!(VtSemiringVTable, natural_order), 72);
+        assert_eq!(offset_of!(VtSemiringVTable, stable_bytes), 76);
+        assert_eq!(offset_of!(VtSemiringVTable, diagnostic), 80);
+        assert_eq!(offset_of!(VtSemiringVTable, plus_many), 84);
+        assert_eq!(offset_of!(VtSemiringVTable, times_many), 88);
+
+        assert_eq!(size_of::<VtSemiringDivisionVTable>(), 20);
+        assert_eq!(offset_of!(VtSemiringDivisionVTable, divide), 12);
+        assert_eq!(offset_of!(VtSemiringDivisionVTable, left_divide), 16);
+        assert_eq!(size_of::<VtSemiringStarVTable>(), 16);
+        assert_eq!(offset_of!(VtSemiringStarVTable, star), 12);
+        assert_eq!(size_of::<VtSemiringNumericVTable>(), 24);
+        assert_eq!(offset_of!(VtSemiringNumericVTable, numerical_value), 12);
+        assert_eq!(offset_of!(VtSemiringNumericVTable, quantize), 16);
+        assert_eq!(offset_of!(VtSemiringNumericVTable, to_probability), 20);
+        assert_eq!(size_of::<VtSemiringPropertiesVTable>(), 32);
+        assert_eq!(offset_of!(VtSemiringPropertiesVTable, properties), 16);
+        assert_eq!(offset_of!(VtSemiringPropertiesVTable, closure_bound), 24);
     }
 
     #[test]
@@ -988,6 +1321,18 @@ fn interface_identifiers_are_exact_sixteen_byte_strings() {
         b"vt.snapshot.id.1"
     );
     assert_eq!(&VT_WFST_INTERFACE_ID.bytes, b"vt.scalar-wfst.1");
+    assert_eq!(&VT_LATTICE_INTERFACE_ID.bytes, b"vt.lattice.val.1");
+    assert_eq!(&VT_SEMIRING_INTERFACE_ID.bytes, b"vt.semiring.val1");
+    assert_eq!(
+        &VT_SEMIRING_DIVISION_INTERFACE_ID.bytes,
+        b"vt.semiring.div1"
+    );
+    assert_eq!(&VT_SEMIRING_STAR_INTERFACE_ID.bytes, b"vt.semiring.str1");
+    assert_eq!(&VT_SEMIRING_NUMERIC_INTERFACE_ID.bytes, b"vt.semiring.num1");
+    assert_eq!(
+        &VT_SEMIRING_PROPERTIES_INTERFACE_ID.bytes,
+        b"vt.semiring.prp1"
+    );
     let ids = [
         VT_DICTIONARY_INTERFACE_ID,
         VT_DICTIONARY_VISIT_INTERFACE_ID,
@@ -995,6 +1340,12 @@ fn interface_identifiers_are_exact_sixteen_byte_strings() {
         VT_DICTIONARY_ENTRIES_INTERFACE_ID,
         VT_SNAPSHOT_IDENTITY_INTERFACE_ID,
         VT_WFST_INTERFACE_ID,
+        VT_LATTICE_INTERFACE_ID,
+        VT_SEMIRING_INTERFACE_ID,
+        VT_SEMIRING_DIVISION_INTERFACE_ID,
+        VT_SEMIRING_STAR_INTERFACE_ID,
+        VT_SEMIRING_NUMERIC_INTERFACE_ID,
+        VT_SEMIRING_PROPERTIES_INTERFACE_ID,
     ];
     for (index, left) in ids.iter().enumerate() {
         for right in &ids[index + 1..] {
@@ -1015,6 +1366,14 @@ fn published_constants_are_pinned() {
     assert_eq!(VT_WFST_INTERFACE_VERSION, 1);
     assert_eq!(VT_RECOMMENDED_EDGE_BATCH, 256);
     assert_eq!(VT_RECOMMENDED_ARC_BATCH, 256);
+    assert_eq!(VT_RECOMMENDED_LATTICE_BATCH, 256);
+    assert_eq!(VT_LATTICE_INTERFACE_VERSION, 1);
+    assert_eq!(VT_SEMIRING_INTERFACE_VERSION, 1);
+    assert_eq!(VT_SEMIRING_DIVISION_INTERFACE_VERSION, 1);
+    assert_eq!(VT_SEMIRING_STAR_INTERFACE_VERSION, 1);
+    assert_eq!(VT_SEMIRING_NUMERIC_INTERFACE_VERSION, 1);
+    assert_eq!(VT_SEMIRING_PROPERTIES_INTERFACE_VERSION, 1);
+    assert_eq!(VT_RECOMMENDED_SEMIRING_BATCH, 256);
 }
 
 // ── the load-bearing Option<extern fn> null niche ───────────────────────────

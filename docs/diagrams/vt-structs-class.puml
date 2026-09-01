@@ -5,7 +5,8 @@
 ' payload types that cross in caller-owned pages, and the shared enums.
 ' Color: VtResource handle concept = #DCEDC8 (border #33691E); the dictionary
 '   interface = dictionary-backend green #C8E6C9 (#2E7D32); the scalar-WFST
-'   interface = WFST blue #B3E5FC (#0277BD); caller-owned (leased) page
+'   interface = WFST blue #B3E5FC (#0277BD); lattice values = violet
+'   #D1C4E9 (#512DA8); caller-owned (leased) page
 '   payloads = #FFECB3 (border #FF6F00); shared enums / identifiers =
 '   serialization-bindings lime #F9FBE7 (#9E9D24).
 ' Source of truth: vinary-tree-interop/src/lib.rs and
@@ -32,7 +33,7 @@ skinparam note {
 skinparam ArrowColor #37474F
 skinparam ArrowThickness 2
 
-title vinary-tree-interop — the published ABI surface (base, dictionary capabilities, and WFST)
+title vinary-tree-interop — resource, dictionary, WFST, and lattice capabilities
 
 class "VtResource" as Resource #DCEDC8 {
   context : void*
@@ -72,6 +73,7 @@ note bottom of Id #F9FBE7
   "vt.dict.graph.v1" — immutable compact graph
   "vt.snapshot.id.1" — revision identity
   "vt.scalar-wfst.1" — scalar-WFST interface
+  "vt.lattice.val.1" — immutable lattice value
   (exactly 16 bytes, no NUL terminator)
 end note
 
@@ -85,6 +87,7 @@ enum "VtStatus : uint32_t" as Status #F9FBE7 {
   Closed = 6
   LimitExceeded = 7
   ProviderError = 8
+  BatchInUse = 9
 }
 
 class "VtDictionaryVTable" as Dict #C8E6C9 {
@@ -160,6 +163,29 @@ class "VtWfstVTable" as Wfst #B3E5FC {
   state_info(context, state, out_valid, out_is_final, out_final_weight) : VtStatus
   state_arcs(context, state, start, out, capacity, out_written, out_total) : VtStatus
 }
+
+class "VtLatticeVTable" as Lattice #D1C4E9 {
+  struct_size : size_t
+  interface_version : uint32_t
+  reserved : uint32_t «must be 0»
+  flags : uint64_t «THREAD_BOUND | PARALLEL_REENTRANT | STABLE_BYTES | BATCH»
+  domain_id : VtInterfaceId
+  --
+  join(context, other, out_value) : VtStatus
+  meet(context, other, out_value) : VtStatus
+  equal(context, other, out_equal) : VtStatus
+  stable_bytes(context, buffer, capacity, written, required) : VtStatus
+  diagnostic(context, buffer, capacity, written, required) : VtStatus
+  join_many(context, others, count, out_value) : VtStatus
+  meet_many(context, others, count, out_value) : VtStatus
+}
+note right of Lattice #EDE7F6
+  <b>Immutable value law</b>
+  Every successful operation returns one owned
+  resource. Operands share one domain_id.
+  Batch callbacks are associative left folds;
+  empty input returns an independent retain.
+end note
 
 enum "VtUnitDomain : uint32_t" as Unit #F9FBE7 {
   Byte = 1
@@ -239,6 +265,7 @@ Base .[#558B2F].> Visit : query_interface\n("vt.dict.visit.v1", ≥1)
 Base .[#33691E].> Graph : query_interface\n("vt.dict.graph.v1", ≥1)
 Base .[#827717].> Identity : query_interface\n("vt.snapshot.id.1", ≥1)
 Base .[#0277BD].> Wfst : query_interface\n("vt.scalar-wfst.1", ≥1)
+Base .[#512DA8].> Lattice : query_interface\n("vt.lattice.val.1", ≥1)
 Base .[#9E9D24].> Status : returns
 Dict -[#2E7D32]-> Unit : labels
 Dict -[#2E7D32]-> Value : values
@@ -258,4 +285,7 @@ Wfst -[#0277BD]-> Unit : labels
 Wfst -[#0277BD]-> Weight : scalar semiring
 Wfst .[#FF6F00].> Arc : state_arcs pages
 Wfst .[#9E9D24].> Status : every op returns
+Lattice -[#512DA8]-> Id : domain identity
+Lattice .[#33691E].> Resource : owned operands / results
+Lattice .[#9E9D24].> Status : every op returns
 @enduml
