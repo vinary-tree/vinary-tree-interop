@@ -1,6 +1,6 @@
 (lang dune 3.20)
 (name vinary-tree-interop)
-(version 4.0.0~rc4)
+(version 4.0.0~rc6)
 (generate_opam_files true)
 (source (github vinary-tree/vinary-tree-interop))
 (authors "Dylon Edwards <dylon.devo@gmail.com>")

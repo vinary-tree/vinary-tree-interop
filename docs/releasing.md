@@ -20,11 +20,11 @@ The synchronizer also owns the `vinary-tree-interop` entry in `Cargo.lock`.
 Both `cargo package --locked` and a byte-for-byte post-build lock check are
 required; a release job never repairs a stale lock after checkout.
 
-The `4.0.0-rc.4` train uses `4.0.0rc4` on PyPI, `4.0.0~rc4` in opam, and a
+The `4.0.0-rc.6` train uses `4.0.0rc6` on PyPI, `4.0.0~rc6` in opam, and a
 `/v4` Go module path. Cabal and fpm accept numeric package versions only, so CI
 builds their `4.0.0` source candidates but the release workflow cannot upload
 either candidate to Hackage or the fpm registry until the final `4.0.0`
-release. The Haskell manifest records `x-release-candidate: rc.4`; the Fortran
+release. The Haskell manifest records `x-release-candidate: rc.6`; the Fortran
 candidate identity remains in `release/version.json` and the release tag.
 
 ## Pipeline
@@ -40,7 +40,7 @@ candidate identity remains in `release/version.json` and the release tag.
 
 ### Exact-tag dispatch protocol
 
-Pushing `v4.0.0-rc.4` creates only the immutable source ref. The release
+Pushing `v4.0.0-rc.6` creates only the immutable source ref. The release
 workflow is deliberately manual: `validate-only` stages every candidate and
 creates the checksummed GitHub prerelease, while a later registry dispatch at
 the same tag enables exactly one protected uploader.
@@ -48,12 +48,12 @@ the same tag enables exactly one protected uploader.
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4 \
+  --ref v4.0.0-rc.6 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4 \
+  --ref v4.0.0-rc.6 \
   -f registry=npm
 ```
 
@@ -73,15 +73,15 @@ job-scoped `GITHUB_TOKEN` supplied by GitHub.
 The canonical RC.4 source already published its crate and npm package, but its
 nested JReleaser invocation omitted Git-root discovery and therefore cannot
 publish the still-unpublished Maven coordinate. The append-only corrective
-source tag `v4.0.0-rc.4-release.1` contains release automation, release
+source tag `v4.0.0-rc.6-release.1` contains release automation, release
 identity validation, and documentation changes only. Its workflow guard
 permits exactly `validate-only` and `maven-central`; it rejects crate, npm,
 PyPI, NuGet, Go, and opam publication so no public RC.4 coordinate can be
-rebuilt or overwritten. The package version remains `4.0.0-rc.4`, and the
+rebuilt or overwritten. The package version remains `4.0.0-rc.6`, and the
 canonical tag remains immutable.
 
 NuGet subsequently introduced keyless trusted publishing. Corrective source
-`v4.0.0-rc.4-release.2` replaces the long-lived NuGet API key with
+`v4.0.0-rc.6-release.2` replaces the long-lived NuGet API key with
 `NuGet/login@v1`, grants `id-token: write` only to the upload job, and consumes
 the one-use temporary key returned by nuget.org. It additionally authorizes the
 still-unpublished `nuget` and `opam` lanes while continuing to reject crate and
@@ -89,7 +89,7 @@ npm republication. PyPI and Go remain available from the already-validated
 canonical source; Maven remains available from the already-validated first
 corrective source.
 
-The opam lane contributes `vinary-tree-interop.4.0.0~rc4` through the fixed
+The opam lane contributes `vinary-tree-interop.4.0.0~rc6` through the fixed
 organization fork `vinary-tree/opam-repository`. Store a short-lived classic
 GitHub token with only `public_repo` as `OPAM_GITHUB_TOKEN` in the protected
 `opam` environment. The uploader uses Git's credential helper, reads the
@@ -109,7 +109,7 @@ stored `CARGO_REGISTRY_TOKEN`. The corrective guard continues to reject the
 crate lane for RC.4 because that immutable crate version is already public;
 the OIDC path first becomes eligible for a later, unused crate version.
 
-Corrective source `v4.0.0-rc.4-release.3` normalizes the Windows Gradle
+Corrective source `v4.0.0-rc.6-release.3` normalizes the Windows Gradle
 launcher in Git's object database. The `.gitattributes` contract continues to
 materialize that launcher with CRLF line endings on every platform, while the
 stored text uses Git's canonical LF representation. This prevents an exact-tag
@@ -118,7 +118,7 @@ verification gate rejects every tracked text blob whose index representation
 is CRLF or mixed, so the invariant applies to all present and future text
 files—not only `gradlew.bat`. Use this latest corrective source for remaining
 validation and still-unpublished Maven, NuGet, and opam lanes. Package versions
-remain `4.0.0-rc.4`; already-published registry coordinates are not rebuilt.
+remain `4.0.0-rc.6`; already-published registry coordinates are not rebuilt.
 
 Before dispatching `maven-central`, the Central Portal must show
 `io.vinarytree` as a verified namespace available to the publishing token.
@@ -135,12 +135,12 @@ After the corrective validation run succeeds, publish only the Maven artifact:
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.3 \
+  --ref v4.0.0-rc.6-release.3 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.3 \
+  --ref v4.0.0-rc.6-release.3 \
   -f registry=maven-central
 ```
 
@@ -149,27 +149,27 @@ Validate the second corrective source before its NuGet-only dispatch:
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.3 \
+  --ref v4.0.0-rc.6-release.3 \
   -f registry=validate-only
 
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4-release.3 \
+  --ref v4.0.0-rc.6-release.3 \
   -f registry=nuget
 ```
 
-The release tag is `v4.0.0-rc.4`. Go uses the additional immutable, annotated
-submodule tag `bindings/go/v4.0.0-rc.4`. Repository tag protection correctly
+The release tag is `v4.0.0-rc.6`. Go uses the additional immutable, annotated
+submodule tag `bindings/go/v4.0.0-rc.6`. Repository tag protection correctly
 prevents a workflow `GITHUB_TOKEN` from creating that ref. After the canonical
 release commit and package have passed validation, an authorized maintainer
 creates and reviews the local tag, requests explicit approval for the exact
 remote ref, and then pushes only that tag:
 
 ```bash
-git tag -a bindings/go/v4.0.0-rc.4 v4.0.0-rc.4 \
-  -m "Release Vinary Tree interop Go module 4.0.0-rc.4"
-git show --no-patch --decorate bindings/go/v4.0.0-rc.4
-git push origin refs/tags/bindings/go/v4.0.0-rc.4
+git tag -a bindings/go/v4.0.0-rc.6 v4.0.0-rc.6 \
+  -m "Release Vinary Tree interop Go module 4.0.0-rc.6"
+git show --no-patch --decorate bindings/go/v4.0.0-rc.6
+git push origin refs/tags/bindings/go/v4.0.0-rc.6
 ```
 
 The `go-module` workflow no longer attempts to bypass protection. It fetches
@@ -181,7 +181,7 @@ tag:
 ```bash
 gh workflow run release.yml \
   --repo vinary-tree/vinary-tree-interop \
-  --ref v4.0.0-rc.4 \
+  --ref v4.0.0-rc.6 \
   -f registry=go-module
 ```
 
@@ -189,7 +189,7 @@ npm publishes the release candidate with the `next` distribution tag. npm
 assigned `latest` to the inert `0.0.0`
 coordinate-reservation artifact despite its explicit `bootstrap` tag. After
 the OIDC-published RC passes installed-artifact smoke tests, retarget
-`@vinary-tree/interop@latest` to `4.0.0-rc.4`, remove the `bootstrap`
+`@vinary-tree/interop@latest` to `4.0.0-rc.6`, remove the `bootstrap`
 dist-tag, and deprecate `0.0.0` as a reservation-only artifact. This scoped
 repair is distinct from promoting the legacy unscoped `liblevenshtein`
 package, whose `latest` pointer remains `2.0.4` during the RC.
