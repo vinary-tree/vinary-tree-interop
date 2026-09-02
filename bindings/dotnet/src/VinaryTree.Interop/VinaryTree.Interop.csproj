@@ -3,7 +3,7 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>VinaryTree.Interop</PackageId>
     <Version>4.0.0-rc.6</Version>
-    <Description>Retained resource ABI shared by modular Vinary Tree .NET bindings</Description>
+    <Description>A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.</Description>
     <Authors>Dylon Edwards</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/vinary-tree/vinary-tree-interop</RepositoryUrl>

@@ -1,7 +1,7 @@
 project:
   name: vinary-tree-interop
   version: 4.0.0-rc.6
-  description: Shared retained-resource layouts for modular Vinary Tree JVM bindings
+  description: A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.
   authors:
     - Dylon Edwards
   license: Apache-2.0

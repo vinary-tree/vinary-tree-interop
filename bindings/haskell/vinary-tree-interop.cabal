@@ -2,8 +2,8 @@ cabal-version: 3.0
 name: vinary-tree-interop
 version: 4.0.0
 x-release-candidate: rc.6
-synopsis: Stable resources for modular vinary-tree Haskell bindings
-description: Stable retained-resource values shared by modular Vinary Tree bindings.
+synopsis: Share live dictionaries and weighted automata safely across languages
+description: A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.
 category: FFI
 license: Apache-2.0
 author: Dylon Edwards

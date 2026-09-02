@@ -40,7 +40,7 @@ publishing {
             from(components["java"])
             pom {
                 name = "vinary-tree interop ABI"
-                description = "Shared retained-resource layouts for modular vinary-tree JVM bindings"
+                description = "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages."
                 url = "https://github.com/vinary-tree/vinary-tree-interop"
                 licenses {
                     license {

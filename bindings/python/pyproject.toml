@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vinary-tree-interop"
 version = "4.0.0rc6"
-description = "Shared retained-resource ABI for modular vinary-tree Python bindings"
+description = "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages."
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [{ name = "Dylon Edwards", email = "dylon.devo@gmail.com" }]

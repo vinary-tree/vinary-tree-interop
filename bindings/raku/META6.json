@@ -3,7 +3,7 @@
   "version": "4.0.0-rc.6",
   "auth": "zef:vinary-tree",
   "api": "1",
-  "description": "Safe NativeCall access to Vinary Tree's stable resource ABI",
+  "description": "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.",
   "license": "Apache-2.0",
   "source-url": "https://github.com/vinary-tree/vinary-tree-interop.git",
   "provides": {

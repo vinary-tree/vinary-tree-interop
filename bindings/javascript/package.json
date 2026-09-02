@@ -1,7 +1,7 @@
 {
   "name": "@vinary-tree/vinary-tree-interop",
   "version": "4.0.0-rc.6",
-  "description": "Shared resource contracts for modular Vinary Tree JavaScript bindings",
+  "description": "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.",
   "author": {
     "name": "Dylon Edwards",
     "email": "dylon.devo@gmail.com"

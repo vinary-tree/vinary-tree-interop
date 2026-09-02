@@ -32,6 +32,7 @@ def canonical_versions(model: dict[str, object]) -> dict[str, str]:
         "fpm": base,
         "goTag": f"v{canonical}",
         "hackage": base,
+        "julia": canonical,
         "maven": canonical,
         "npm": canonical,
         "nuget": canonical,
@@ -39,6 +40,7 @@ def canonical_versions(model: dict[str, object]) -> dict[str, str]:
         "pkgConfig": canonical,
         "pypi": f"{base}rc{candidate}",
         "swiftTag": canonical,
+        "zef": canonical,
     }
 
 
@@ -65,7 +67,9 @@ def rewrite_candidate_tokens(patterns: tuple[str, ...], canonical: str) -> None:
     for pattern in patterns:
         for target in ROOT.glob(pattern):
             relative = target.relative_to(ROOT)
-            if not target.is_file() or GENERATED_TREE_PARTS.intersection(relative.parts):
+            if not target.is_file() or GENERATED_TREE_PARTS.intersection(
+                relative.parts
+            ):
                 continue
             source = target.read_text(encoding="utf-8")
             for version_pattern, replacement in replacements:
@@ -82,8 +86,7 @@ def release_coordinates(model: dict[str, object]) -> tuple[str, str, str, str]:
     java_package = coordinates.get("javaPackage")
     npm_package = coordinates.get("npmPackage")
     if not all(
-        isinstance(value, str)
-        for value in (group, artifact, java_package, npm_package)
+        isinstance(value, str) for value in (group, artifact, java_package, npm_package)
     ):
         raise TypeError(
             "release/version.json requires string coordinates.mavenGroup and "
@@ -94,9 +97,9 @@ def release_coordinates(model: dict[str, object]) -> tuple[str, str, str, str]:
 
 
 def forbidden_npm_coordinates() -> tuple[tuple[str, str], ...]:
-    legacy_interop = "/".join(("@vinary-tree", "interop"))
-    legacy_runtime = "/".join(("@vinary-tree", "vinary-tree"))
-    malformed_composition = "/".join(
+    legacy_interop = "/".join(("@vinary-tree", "interop"))  # noqa: FLY002
+    legacy_runtime = "/".join(("@vinary-tree", "vinary-tree"))  # noqa: FLY002
+    malformed_composition = "/".join(  # noqa: FLY002
         ("@vinary-tree", "javascript-runtime-interop")
     )
     return (
@@ -157,11 +160,13 @@ def write_versions(
     maven_group: str,
     maven_artifact: str,
     npm_package: str,
+    metadata: dict[str, str],
 ) -> None:
     package_path = ROOT / "bindings/javascript/package.json"
     package = json.loads(package_path.read_text(encoding="utf-8"))
     package["name"] = npm_package
     package["version"] = expected["npm"]
+    package["description"] = metadata["description"]
     package.setdefault("publishConfig", {})["tag"] = dist_tag
     package_path.write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
 
@@ -175,9 +180,14 @@ def write_versions(
 
     replace("Cargo.toml", r'^version = "[^"]+"$', f'version = "{expected["cargo"]}"')
     replace(
+        "Cargo.toml",
+        r'^description = "[^"]+"$',
+        f'description = "{metadata["description"]}"',
+    )
+    replace(
         "Cargo.lock",
         r'(\[\[package\]\]\nname = "vinary-tree-interop"\nversion = ")[^"]+',
-        rf'\g<1>{expected["cargo"]}',
+        rf"\g<1>{expected['cargo']}",
     )
     replace(
         "bindings/python/pyproject.toml",
@@ -185,13 +195,19 @@ def write_versions(
         f'version = "{expected["pypi"]}"',
     )
     replace(
+        "bindings/python/pyproject.toml",
+        r'^description = "[^"]+"$',
+        f'description = "{metadata["description"]}"',
+    )
+    replace(
         "bindings/julia/VinaryTreeInterop/Project.toml",
         r'^version = "[^"]+"$',
-        f'version = "{expected["cargo"]}"',
+        f'version = "{expected["julia"]}"',
     )
     raku_path = ROOT / "bindings/raku/META6.json"
     raku = json.loads(raku_path.read_text(encoding="utf-8"))
-    raku["version"] = expected["cargo"]
+    raku["version"] = expected["zef"]
+    raku["description"] = metadata["description"]
     raku_path.write_text(json.dumps(raku, indent=2) + "\n", encoding="utf-8")
     replace(
         "bindings/jvm/build.gradle.kts",
@@ -207,6 +223,16 @@ def write_versions(
         "bindings/jvm/jreleaser.yml",
         r"^  version: \S+$",
         f"  version: {expected['maven']}",
+    )
+    replace(
+        "bindings/jvm/build.gradle.kts",
+        r'^( {16}description = )"[^"]+"$',
+        rf'\g<1>"{metadata["description"]}"',
+    )
+    replace(
+        "bindings/jvm/jreleaser.yml",
+        r"^  description: .+$",
+        f"  description: {metadata['description']}",
     )
     replace(
         "bindings/jvm/jreleaser.yml",
@@ -229,9 +255,24 @@ def write_versions(
         f"    <Version>{expected['nuget']}</Version>",
     )
     replace(
+        "bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj",
+        r"^    <Description>[^<]+</Description>$",
+        f"    <Description>{metadata['description']}</Description>",
+    )
+    replace(
         "bindings/haskell/vinary-tree-interop.cabal",
         r"^version: \S+$",
         f"version: {expected['hackage']}",
+    )
+    replace(
+        "bindings/haskell/vinary-tree-interop.cabal",
+        r"^synopsis: .+$",
+        f"synopsis: {metadata['summary']}",
+    )
+    replace(
+        "bindings/haskell/vinary-tree-interop.cabal",
+        r"^description: .+$",
+        f"description: {metadata['description']}",
     )
     candidate = expected["opam"].split("~", 1)[1].replace("rc", "rc.")
     replace(
@@ -244,6 +285,21 @@ def write_versions(
         r'^version = "[^"]+"$',
         f'version = "{expected["fpm"]}"',
     )
+    replace(
+        "bindings/fortran/fpm.toml",
+        r'^description = "[^"]+"$',
+        f'description = "{metadata["description"]}"',
+    )
+    for path in (
+        "bindings/ocaml/vinary-tree-interop.opam",
+        "bindings/ocaml/vinary-tree-interop.opam.template",
+    ):
+        replace(path, r'^synopsis: "[^"]+"$', f'synopsis: "{metadata["summary"]}"')
+        replace(
+            path,
+            r'^description: "[^"]+"$',
+            f'description: "{metadata["description"]}"',
+        )
     replace(
         "bindings/ocaml/dune-project",
         r"^\(version [^)]+\)$",
@@ -264,6 +320,11 @@ def write_versions(
         "pkgconfig/vinary-tree-interop.pc",
         r"^Version: \S+$",
         f"Version: {expected['pkgConfig']}",
+    )
+    replace(
+        "pkgconfig/vinary-tree-interop.pc",
+        r"^Description: .+$",
+        f"Description: {metadata['summary']}",
     )
     replace(
         "README.md", r"^\| Version \| [^|]+\|$", f"| Version | {expected['cargo']} |"
@@ -315,9 +376,7 @@ def actual_versions() -> dict[str, str]:
             "bindings/julia/VinaryTreeInterop/Project.toml",
             r'^version = "([^"]+)"$',
         ),
-        "mavenGroup": capture(
-            "bindings/jvm/build.gradle.kts", r'^group = "([^"]+)"$'
-        ),
+        "mavenGroup": capture("bindings/jvm/build.gradle.kts", r'^group = "([^"]+)"$'),
         "mavenJReleaser": capture("bindings/jvm/jreleaser.yml", r"^  version: (\S+)$"),
         "mavenJReleaserGroup": capture(
             "bindings/jvm/jreleaser.yml", r"^      groupId: (\S+)$"
@@ -346,13 +405,20 @@ def actual_versions() -> dict[str, str]:
             json.loads((ROOT / "bindings/raku/META6.json").read_text())["version"]
         ),
         "releaseDocsCandidate": capture(
-            "docs/releasing.md", r"Haskell manifest records `x-release-candidate: (rc\.\d+)`"
+            "docs/releasing.md",
+            r"Haskell manifest records `x-release-candidate: (rc\.\d+)`",
         ),
     }
 
 
 def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
     failures: list[str] = []
+    expected_metadata = {
+        "summary": "Share live dictionaries and weighted automata safely across languages",
+        "description": "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.",
+    }
+    if model.get("metadata") != expected_metadata:
+        failures.append("canonical package metadata is missing or has drifted")
     declared = model.get("registries")
     if declared != expected:
         failures.append(
@@ -402,13 +468,77 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "environment: opam-interop",
     ):
         if forbidden in release_workflow:
-            failures.append(f"release workflow retains forbidden opam logic: {forbidden}")
+            failures.append(
+                f"release workflow retains forbidden opam logic: {forbidden}"
+            )
     package = json.loads((ROOT / "bindings/javascript/package.json").read_text())
     publication = model.get("publication", {})
     if not isinstance(publication, dict) or publication.get("distTag") != "next":
         failures.append("npm release candidates must use the next dist-tag")
     if package.get("publishConfig", {}).get("tag") != "next":
         failures.append("npm package publishConfig must protect latest with tag=next")
+    description_surfaces = {
+        "Cargo": ("Cargo.toml", f'description = "{expected_metadata["description"]}"'),
+        "npm": (
+            "bindings/javascript/package.json",
+            f'"description": "{expected_metadata["description"]}"',
+        ),
+        "PyPI": (
+            "bindings/python/pyproject.toml",
+            f'description = "{expected_metadata["description"]}"',
+        ),
+        "Maven": (
+            "bindings/jvm/build.gradle.kts",
+            f'description = "{expected_metadata["description"]}"',
+        ),
+        "JReleaser": (
+            "bindings/jvm/jreleaser.yml",
+            f"description: {expected_metadata['description']}",
+        ),
+        "NuGet": (
+            "bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj",
+            f"<Description>{expected_metadata['description']}</Description>",
+        ),
+        "Fortran": (
+            "bindings/fortran/fpm.toml",
+            f'description = "{expected_metadata["description"]}"',
+        ),
+        "Hackage summary": (
+            "bindings/haskell/vinary-tree-interop.cabal",
+            f"synopsis: {expected_metadata['summary']}",
+        ),
+        "Hackage description": (
+            "bindings/haskell/vinary-tree-interop.cabal",
+            f"description: {expected_metadata['description']}",
+        ),
+        "opam summary": (
+            "bindings/ocaml/vinary-tree-interop.opam",
+            f'synopsis: "{expected_metadata["summary"]}"',
+        ),
+        "opam description": (
+            "bindings/ocaml/vinary-tree-interop.opam",
+            f'description: "{expected_metadata["description"]}"',
+        ),
+        "opam template summary": (
+            "bindings/ocaml/vinary-tree-interop.opam.template",
+            f'synopsis: "{expected_metadata["summary"]}"',
+        ),
+        "opam template description": (
+            "bindings/ocaml/vinary-tree-interop.opam.template",
+            f'description: "{expected_metadata["description"]}"',
+        ),
+        "Raku": (
+            "bindings/raku/META6.json",
+            f'"description": "{expected_metadata["description"]}"',
+        ),
+        "pkg-config": (
+            "pkgconfig/vinary-tree-interop.pc",
+            f"Description: {expected_metadata['summary']}",
+        ),
+    }
+    for surface, (path, marker) in description_surfaces.items():
+        if marker not in (ROOT / path).read_text(encoding="utf-8"):
+            failures.append(f"{surface} description differs from release metadata")
     checks = {
         "cargo": expected["cargo"],
         "cargoLock": expected["cargo"],
@@ -418,7 +548,7 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "hackage": expected["hackage"],
         "hackageCandidate": "rc." + expected["opam"].rsplit("rc", 1)[1],
         "maven": expected["maven"],
-        "julia": expected["cargo"],
+        "julia": expected["julia"],
         "mavenGroup": maven_group,
         "mavenJReleaser": expected["maven"],
         "mavenJReleaserGroup": maven_group,
@@ -435,7 +565,7 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         "pkgConfig": expected["pkgConfig"],
         "pypi": expected["pypi"],
         "readme": expected["cargo"],
-        "raku": expected["cargo"],
+        "raku": expected["zef"],
         "releaseDocsCandidate": "rc." + expected["opam"].rsplit("rc", 1)[1],
     }
     for name, wanted in checks.items():
@@ -460,12 +590,20 @@ def main() -> int:
     ):
         raise TypeError("release/version.json requires string publication.distTag")
     if args.write:
+        metadata = model.get("metadata")
+        if not isinstance(metadata, dict) or not all(
+            isinstance(metadata.get(field), str) for field in ("summary", "description")
+        ):
+            raise TypeError(
+                "release/version.json requires metadata summary and description"
+            )
         write_versions(
             expected,
             publication["distTag"],
             maven_group,
             maven_artifact,
             npm_package,
+            metadata,
         )
     failures = validate(expected, model)
     if failures:

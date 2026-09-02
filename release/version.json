@@ -9,19 +9,25 @@
     "javaPackage": "io.vinarytree.interop",
     "npmPackage": "@vinary-tree/vinary-tree-interop"
   },
+  "metadata": {
+    "summary": "Share live dictionaries and weighted automata safely across languages",
+    "description": "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages."
+  },
   "registries": {
     "cargo": "4.0.0-rc.6",
     "cmake": "4.0.0-rc.6",
     "fpm": "4.0.0",
     "goTag": "v4.0.0-rc.6",
     "hackage": "4.0.0",
+    "julia": "4.0.0-rc.6",
     "maven": "4.0.0-rc.6",
     "npm": "4.0.0-rc.6",
     "nuget": "4.0.0-rc.6",
     "opam": "4.0.0~rc6",
     "pkgConfig": "4.0.0-rc.6",
     "pypi": "4.0.0rc6",
-    "swiftTag": "4.0.0-rc.6"
+    "swiftTag": "4.0.0-rc.6",
+    "zef": "4.0.0-rc.6"
   },
   "publication": {
     "distTag": "next",

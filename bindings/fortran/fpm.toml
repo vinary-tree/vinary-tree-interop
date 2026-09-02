@@ -3,7 +3,7 @@ version = "4.0.0"
 license = "Apache-2.0"
 author = "Dylon Edwards"
 maintainer = "Dylon Edwards <dylon.devo@gmail.com>"
-description = "Retained resource ABI shared by modular Vinary Tree Fortran bindings"
+description = "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages."
 
 [library]
 source-dir = "src"
