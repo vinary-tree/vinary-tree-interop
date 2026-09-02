@@ -1,0 +1,31 @@
+@startuml
+skinparam backgroundColor #F8FAFC
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #334155
+skinparam defaultFontName DejaVu Sans
+
+actor "C++ application" as app #DBEAFE
+component "Typed provider\nvalue or snapshot" as provider #BFDBFE
+component "Header-only adapter\nexception barrier + atomic retains" as adapter #99F6E4
+collections "VtResource\nand capability vtables" as abi #FDE68A
+component "Validated dynamic adapter\nin lling-llang" as consumer #BBF7D0
+component "Native Rust algorithm" as algorithm #86EFAC
+
+app --> provider : implements ordinary C++ methods
+app --> adapter : make_scalar_wfst_snapshot /\nmake_lattice_value /\nmake_semiring_context
+provider --> adapter : owned implementation
+adapter --> abi : publishes two-word handle
+consumer --> abi : retain + query_interface
+abi --> adapter : bounded callback
+adapter --> provider : typed call
+provider --> adapter : value, span, or exception
+adapter --> abi : status + caller-owned output
+consumer --> algorithm : validated value or transition
+
+note bottom of adapter
+  No process-wide or resource-wide mutex.
+  Small semiring values travel inline;
+  larger values use provider-scoped tokens.
+end note
+@enduml

@@ -21,6 +21,16 @@ cargo clippy --all-targets -- -D warnings
 
 cc -std=c17 -Wall -Wextra -Werror -Iinclude -x c -fsyntax-only include/vinary_tree_interop.h
 c++ -std=c++23 -Wall -Wextra -Werror -Iinclude -x c++ -fsyntax-only include/vinary_tree_interop.h
+cpp_work=$(mktemp -d "$TMPDIR/vinary-tree-interop-cpp.XXXXXX")
+trap 'rm -rf "$cpp_work"' EXIT
+c++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude \
+  tests/cpp/providers.cpp -o "$cpp_work/providers"
+"$cpp_work/providers"
+package_prefix=$(./scripts/stage-native-package.sh "$cpp_work/staged")
+cmake -S tests/cpp/package -B "$cpp_work/build" \
+  -DCMAKE_PREFIX_PATH="$package_prefix"
+cmake --build "$cpp_work/build"
+ctest --test-dir "$cpp_work/build" --output-on-failure
 cmp include/vinary_tree_interop.h bindings/ocaml/vinary_tree_interop.h
 cc -std=c17 -Wall -Wextra -Werror -Iinclude -Ibindings/lua \
   -x c -fsyntax-only bindings/lua/vinary_tree_lua.h

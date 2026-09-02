@@ -3,11 +3,14 @@
 **One ABI, zero algorithms.** `vinary-tree-interop` is the stable C ABI the
 vinary-tree family uses to hand *live* resources — dictionaries and weighted
 finite-state transducers — between independently built libraries and
-language bindings. The crate is `#![no_std]`, dependency-free, and contains
-**layouts and constants only**: no functions, no allocator, no I/O, nothing
-executable. Every function that exists at this boundary is a pointer inside
-a provider-supplied vtable. Project crates own the safe wrappers and the
-concrete resource implementations; this crate owns the bytes they agree on.
+language bindings. The Rust crate is `#![no_std]`, dependency-free, and
+contains **layouts and constants only**: no functions, allocator, or I/O. The
+native distribution also includes an optional header-only C++20 facade; it
+implements ownership and provider adaptation without adding a linked runtime.
+Every function at the binary boundary remains a pointer inside a
+provider-supplied vtable. Project crates own concrete algorithms, while this
+repository owns the bytes they agree on and the language-neutral adapters for
+those bytes.
 
 That inversion is what makes the family modular: a consumer that reads only
 [`include/vinary_tree_interop.h`](include/vinary_tree_interop.h) (or the
@@ -92,6 +95,7 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 | [docs/abi-evolution.md](docs/abi-evolution.md) | The four version counters and their jurisdictions, additive-versus-breaking rules per construct, worked examples (add an op, add a weight domain, retire a flag), the decision table, and the current family compatibility matrix. |
 | [docs/security-model.md](docs/security-model.md) | The family trust model: zones, the panic/exception containment law with file:line evidence, threading-by-claim, the input-validation duty table grounded in confirmed findings, exhaustion vectors, WASI capability policy, and explicit non-goals. |
 | [docs/npm-coordinate-migration.md](docs/npm-coordinate-migration.md) | The RC5 canonical npm identity, immutable RC4 compatibility policy, fail-closed publication sequence, and consumer migration. |
+| [bindings/cpp/README.md](bindings/cpp/README.md) | C++20 RAII consumption and mutex-free host-provider adapters for scalar WFSTs, lattice values, and generic semirings, with complete examples and failure/threading contracts. |
 
 ## Language packages
 
@@ -103,6 +107,12 @@ Twelve language-native mirrors of the interop structs and constants live under
 [Julia](bindings/julia/VinaryTreeInterop) · [JVM](bindings/jvm) ·
 [Lua](bindings/lua) · [OCaml](bindings/ocaml) · [Python](bindings/python) ·
 [Raku](bindings/raku) · [Swift](bindings/swift)
+
+C++ additionally has a header-only
+[`vinary_tree::interop`](bindings/cpp/README.md) facade for RAII resource
+ownership and customer-implemented scalar WFST, lattice, and semiring
+providers. It is packaged beside the canonical C header and requires no linked
+runtime.
 
 The C header is the stable authority. The Raku generator at
 [`scripts/generate-bindings.raku`](scripts/generate-bindings.raku) derives the
@@ -158,14 +168,15 @@ The generated [`dictionary_entries_v1.tsv`](conformance/dictionary_entries_v1.ts
 
 | Language/runtime | Distribution | Guide |
 |---|---|---|
-| C/C++ | Native header and CMake/pkg-config package | This README and `docs/abi-reference.md` |
-| Python 3.10+ | `PyPI package `vinary-tree-interop`` | [`bindings/python/README.md`](bindings/python/README.md) |
+| C | Native header and CMake/pkg-config package | This README and `docs/abi-reference.md` |
+| C++20+ | Header-only native facade and CMake/pkg-config package | [`bindings/cpp/README.md`](bindings/cpp/README.md) |
+| Python 3.10+ | PyPI package `vinary-tree-interop` | [`bindings/python/README.md`](bindings/python/README.md) |
 | Java 22+, Kotlin, and Scala | Maven coordinate `io.vinarytree:vinary-tree-interop` | [`bindings/jvm/README.md`](bindings/jvm/README.md) |
-| JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | `npm package `@vinary-tree/vinary-tree-interop`` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
+| JavaScript, TypeScript, and ClojureScript on Node.js, browsers, or WASI | npm package `@vinary-tree/vinary-tree-interop` | [`bindings/javascript/README.md`](bindings/javascript/README.md) |
 | Go 1.25+ with cgo | Go module `github.com/vinary-tree/vinary-tree-interop/bindings/go/v4` | [`bindings/go/README.md`](bindings/go/README.md) |
-| Swift 6+ through Swift Package Manager | `SwiftPM product `VinaryTreeInterop`` | [`bindings/swift/README.md`](bindings/swift/README.md) |
+| Swift 6+ through Swift Package Manager | SwiftPM product `VinaryTreeInterop` | [`bindings/swift/README.md`](bindings/swift/README.md) |
 | Fortran 2018 through fpm | fpm package `vinary-tree-interop` (final-version candidate during RC) | [`bindings/fortran/README.md`](bindings/fortran/README.md) |
-| OCaml 5 through dune/opam | `opam package `vinary-tree-interop`` | [`bindings/ocaml/README.md`](bindings/ocaml/README.md) |
+| OCaml 5 through dune/opam | opam package `vinary-tree-interop` | [`bindings/ocaml/README.md`](bindings/ocaml/README.md) |
 | GHC through Cabal | Hackage package `vinary-tree-interop` (final-version candidate during RC) | [`bindings/haskell/README.md`](bindings/haskell/README.md) |
 | Lua 5.4+ | `C adapter header bundled by dependent LuaRocks packages` | [`bindings/lua/README.md`](bindings/lua/README.md) |
 

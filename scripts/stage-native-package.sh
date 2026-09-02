@@ -16,7 +16,7 @@ version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)
 package="vinary-tree-interop-$version"
 prefix="$output/$package"
 mkdir -p "$prefix/include" "$prefix/lib/cmake/vinary-tree-interop" "$prefix/lib/pkgconfig"
-cp include/vinary_tree_interop.h "$prefix/include/"
+cp -R include/. "$prefix/include/"
 cp cmake/vinary-tree-interopConfig.cmake cmake/vinary-tree-interopConfigVersion.cmake \
   "$prefix/lib/cmake/vinary-tree-interop/"
 cp pkgconfig/vinary-tree-interop.pc "$prefix/lib/pkgconfig/"
