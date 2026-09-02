@@ -9,6 +9,12 @@ public readonly struct NativeResource
     internal readonly nint Context;
     internal readonly nint VTable;
 
+    internal NativeResource(nint context, nint vtable)
+    {
+        Context = context;
+        VTable = vtable;
+    }
+
     /// <summary>True when either required ABI word is null.</summary>
     public bool IsNull => Context == 0 || VTable == 0;
 }

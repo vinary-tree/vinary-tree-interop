@@ -1,0 +1,46 @@
+@startuml
+skinparam backgroundColor #FCFCFF
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam ArrowColor #334155
+skinparam sequence {
+  LifeLineBorderColor #334155
+  ParticipantBorderColor #334155
+  ParticipantFontColor #0F172A
+}
+
+participant "C# or F#\nprovider" as Host #DBEAFE
+participant "HostedResource\n(IDisposable)" as Owner #DCFCE7
+participant "ProviderContext\nGCHandle + atomic retains" as Context #FEF3C7
+participant "immutable native\nvtable" as VTable #F3E8FF
+participant "Rust/C/C++\nconsumer" as Consumer #FFE4E6
+
+Host -> Owner: HostProviders.Create…(provider, options)
+Owner -> Context: allocate provider-scoped context
+Context -> VTable: allocate and populate callbacks
+Context --> Owner: owned retain + two-word resource
+
+Consumer -> VTable: query_interface(interface ID, version)
+VTable -> Context: type-erased dispatch
+Context --> Consumer: capability vtable
+
+Consumer -> VTable: retain(context)
+VTable -> Context: atomic increment
+Consumer -> VTable: operation(context, inputs, outputs)
+VTable -> Context: validate, invoke provider, contain exceptions
+Context -> Host: typed managed call
+Host --> Context: immutable result
+Context --> Consumer: status + owned output
+
+Owner -> VTable: Dispose() / F# use scope
+VTable -> Context: atomic decrement
+Consumer -> VTable: release(context)
+VTable -> Context: final atomic decrement
+Context -> VTable: free context-owned tables
+Context -> Context: free GCHandle
+
+note over Context,VTable #E0F2FE
+No global provider registry.
+No monitor, mutex, or sequential callback gate.
+end note
+@enduml

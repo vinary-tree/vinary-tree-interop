@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -883,9 +884,9 @@ internal unsafe struct NativeResourceVTable
     internal nuint StructSize;
     internal uint AbiVersion;
     internal uint Reserved;
-    internal delegate* unmanaged<nint, void> Retain;
-    internal delegate* unmanaged<nint, void> Release;
-    internal delegate* unmanaged<nint, byte*, uint, nint*, DictionaryInteropStatus> QueryInterface;
+    internal delegate* unmanaged[Cdecl]<nint, void> Retain;
+    internal delegate* unmanaged[Cdecl]<nint, void> Release;
+    internal delegate* unmanaged[Cdecl]<nint, byte*, uint, nint*, DictionaryInteropStatus> QueryInterface;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -948,10 +949,10 @@ internal unsafe struct NativeEntriesVTable
     internal nuint StructSize;
     internal uint InterfaceVersion;
     internal uint Reserved;
-    internal delegate* unmanaged<nint, NativeEntriesCursor*, NativeEntriesInfo*, DictionaryInteropStatus> Open;
-    internal delegate* unmanaged<NativeEntriesCursor*, NativeEntriesBatchLimits*, NativeEntriesBatch*, DictionaryInteropStatus> NextBatch;
-    internal delegate* unmanaged<NativeEntriesCursor*, ulong, DictionaryInteropStatus> ReleaseBatch;
+    internal delegate* unmanaged[Cdecl]<nint, NativeEntriesCursor*, NativeEntriesInfo*, DictionaryInteropStatus> Open;
+    internal delegate* unmanaged[Cdecl]<NativeEntriesCursor*, NativeEntriesBatchLimits*, NativeEntriesBatch*, DictionaryInteropStatus> NextBatch;
+    internal delegate* unmanaged[Cdecl]<NativeEntriesCursor*, ulong, DictionaryInteropStatus> ReleaseBatch;
     internal nint Reduce;
-    internal delegate* unmanaged<NativeEntriesCursor*, DictionaryInteropStatus> Cancel;
-    internal delegate* unmanaged<NativeEntriesCursor*, DictionaryInteropStatus> Close;
+    internal delegate* unmanaged[Cdecl]<NativeEntriesCursor*, DictionaryInteropStatus> Cancel;
+    internal delegate* unmanaged[Cdecl]<NativeEntriesCursor*, DictionaryInteropStatus> Close;
 }

@@ -96,6 +96,7 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 | [docs/security-model.md](docs/security-model.md) | The family trust model: zones, the panic/exception containment law with file:line evidence, threading-by-claim, the input-validation duty table grounded in confirmed findings, exhaustion vectors, WASI capability policy, and explicit non-goals. |
 | [docs/npm-coordinate-migration.md](docs/npm-coordinate-migration.md) | The RC5 canonical npm identity, immutable RC4 compatibility policy, fail-closed publication sequence, and consumer migration. |
 | [bindings/cpp/README.md](bindings/cpp/README.md) | C++20 RAII consumption and mutex-free host-provider adapters for scalar WFSTs, lattice values, and generic semirings, with complete examples and failure/threading contracts. |
+| [bindings/dotnet/README.md](bindings/dotnet/README.md) | C# and F# collection usage plus lock-free managed host providers for scalar WFSTs, lattice values, and generic semirings, including optional algebraic capabilities and executable examples. |
 
 ## Language packages
 

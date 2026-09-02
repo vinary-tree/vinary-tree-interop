@@ -44,6 +44,12 @@ if [[ "${1:-}" == "--full" ]]; then
   raku scripts/generate-bindings.raku --check
   dotnet build bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj \
     --configuration Release -p:NuGetAudit=false -m:1
+  dotnet run \
+    --project bindings/dotnet/tests/VinaryTree.Interop.ProviderTests/VinaryTree.Interop.ProviderTests.csproj \
+    --configuration Release -p:NuGetAudit=false -m:1
+  dotnet run \
+    --project bindings/dotnet/tests/VinaryTree.Interop.FSharpProviders/VinaryTree.Interop.FSharpProviders.fsproj \
+    --configuration Release -p:NuGetAudit=false -m:1
   bindings/jvm/gradlew --no-daemon -p bindings/jvm test javadoc
   swift build
   fpm test -C bindings/fortran
