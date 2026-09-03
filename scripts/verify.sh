@@ -50,7 +50,7 @@ if [[ "${1:-}" == "--full" ]]; then
   dotnet run \
     --project bindings/dotnet/tests/VinaryTree.Interop.FSharpProviders/VinaryTree.Interop.FSharpProviders.fsproj \
     --configuration Release -p:NuGetAudit=false -m:1
-  bindings/jvm/gradlew --no-daemon -p bindings/jvm test javadoc
+  bindings/jvm/gradlew --no-daemon -p bindings/jvm check javadoc
   swift build
   fpm test -C bindings/fortran
   dune build --root bindings/ocaml @install @runtest

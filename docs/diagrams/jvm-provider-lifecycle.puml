@@ -1,0 +1,64 @@
+@startuml
+title JVM host provider: ownership, negotiation, and callback lifecycle
+
+skinparam backgroundColor #FCFCFF
+skinparam shadowing false
+skinparam sequence {
+  ArrowColor #37474F
+  ActorBorderColor #37474F
+  ActorBackgroundColor #FFF3E0
+  LifeLineBorderColor #455A64
+  LifeLineBackgroundColor #ECEFF1
+  ParticipantBorderColor #37474F
+  ParticipantFontColor #102027
+}
+
+actor "Java / Kotlin /\nScala / Clojure caller" as Caller #FFE0B2
+participant "Provider object" as Provider #FFCC80
+participant "HostProviders" as Facade #90CAF9
+participant "Generation-stamped\nprovider registry" as Registry #B39DDB
+participant "VtResource +\ncapability vtable" as ABI #80CBC4
+participant "lling-llang /\nllattice adapter" as Consumer #A5D6A7
+
+Caller -> Provider : implement WFST, lattice,\nor semiring interface
+Caller -> Facade : export(provider, options)
+activate Facade
+Facade -> Registry : reserve slot and generation
+Registry --> Facade : opaque context handle
+Facade -> ABI : publish descriptor only after\ncontext and vtable are complete
+Facade --> Caller : HostedResource (one owned retain)
+deactivate Facade
+
+Caller -> ABI : pass borrowed descriptor\ninside withResourceSegment
+ABI -> ABI : retain independent call lease
+ABI -> Consumer : synchronous handoff
+Consumer -> ABI : query_interface(exact ID, minimum version)
+ABI --> Consumer : validated capability vtable
+Consumer -> ABI : bounded operation
+ABI -> Provider : typed callback
+activate Provider
+Provider --> ABI : immutable result or exception
+deactivate Provider
+ABI --> Consumer : status + atomically published output
+Consumer --> Caller : result / typed failure
+ABI -> ABI : release call lease
+
+Caller -> Facade : close / use / try-with-resources
+Facade -> Registry : release wrapper retain
+alt final retain
+  Registry -> Registry : remove exact generation
+  Registry -> ABI : close provider arena
+else native consumer still retains
+  Registry --> ABI : keep provider live
+end
+
+legend right
+|= Color |= Responsibility |
+|<#FFE0B2>| target-language caller |
+|<#FFCC80>| customer implementation |
+|<#90CAF9>| JVM ownership facade |
+|<#B39DDB>| stale-handle defense |
+|<#80CBC4>| stable cross-language ABI |
+|<#A5D6A7>| optimized Rust consumer |
+endlegend
+@enduml

@@ -13,6 +13,7 @@ import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.ref.Cleaner;
+import java.lang.ref.Reference;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.NoSuchElementException;
@@ -194,6 +195,8 @@ public final class DictionaryEntryIterator
                 arena.close();
             }
             throw rethrow(failure);
+        } finally {
+            Reference.reachabilityFence(resource);
         }
     }
 

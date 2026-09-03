@@ -2,6 +2,7 @@ package io.vinarytree.interop;
 
 import static java.lang.foreign.ValueLayout.ADDRESS;
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
+import static java.lang.foreign.ValueLayout.JAVA_DOUBLE;
 import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 
@@ -91,6 +92,73 @@ public final class InteropLayouts {
             ADDRESS.withName("reduce"),
             ADDRESS.withName("cancel"),
             ADDRESS.withName("close"));
+    /** Exact 16-byte capability or algebra-domain identity. */
+    public static final MemoryLayout INTERFACE_ID =
+            MemoryLayout.sequenceLayout(16, JAVA_BYTE).withName("bytes");
+    /** One scalar weighted transition. */
+    public static final MemoryLayout WFST_ARC = MemoryLayout.structLayout(
+            JAVA_LONG.withName("input_label"),
+            JAVA_LONG.withName("output_label"),
+            JAVA_LONG.withName("target_state"),
+            JAVA_DOUBLE.withName("weight"),
+            JAVA_BYTE.withName("has_input"),
+            JAVA_BYTE.withName("has_output"),
+            MemoryLayout.sequenceLayout(6, JAVA_BYTE).withName("reserved"));
+    /** Complete immutable scalar-WFST vtable. */
+    public static final MemoryLayout WFST_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"),
+            JAVA_INT.withName("interface_version"),
+            JAVA_INT.withName("unit_domain"),
+            JAVA_INT.withName("weight_domain"),
+            JAVA_INT.withName("reserved"),
+            JAVA_LONG.withName("flags"),
+            ADDRESS.withName("snapshot"),
+            ADDRESS.withName("start"),
+            ADDRESS.withName("num_states"),
+            ADDRESS.withName("state_info"),
+            ADDRESS.withName("state_arcs"));
+    /** Complete immutable lattice-value vtable. */
+    public static final MemoryLayout LATTICE_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"),
+            JAVA_INT.withName("interface_version"),
+            JAVA_INT.withName("reserved"),
+            JAVA_LONG.withName("flags"),
+            INTERFACE_ID.withName("domain_id"),
+            ADDRESS.withName("join"),
+            ADDRESS.withName("meet"),
+            ADDRESS.withName("equal"),
+            ADDRESS.withName("stable_bytes"),
+            ADDRESS.withName("diagnostic"),
+            ADDRESS.withName("join_many"),
+            ADDRESS.withName("meet_many"));
+    /** Compact two-word dynamic-semiring value. */
+    public static final MemoryLayout SEMIRING_VALUE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("word0"), JAVA_LONG.withName("word1"));
+    /** Complete base dynamic-semiring vtable. */
+    public static final MemoryLayout SEMIRING_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"), JAVA_INT.withName("interface_version"), JAVA_INT.withName("reserved"),
+            JAVA_LONG.withName("flags"), INTERFACE_ID.withName("domain_id"),
+            ADDRESS.withName("zero"), ADDRESS.withName("one"), ADDRESS.withName("clone_value"),
+            ADDRESS.withName("release_values"), ADDRESS.withName("plus"), ADDRESS.withName("times"),
+            ADDRESS.withName("equal"), ADDRESS.withName("approx_equal"), ADDRESS.withName("natural_order"),
+            ADDRESS.withName("stable_bytes"), ADDRESS.withName("diagnostic"),
+            ADDRESS.withName("plus_many"), ADDRESS.withName("times_many"));
+    /** Optional quotient-operation vtable. */
+    public static final MemoryLayout SEMIRING_DIVISION_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"), JAVA_INT.withName("interface_version"), JAVA_INT.withName("reserved"),
+            ADDRESS.withName("divide"), ADDRESS.withName("left_divide"));
+    /** Optional Kleene-closure vtable. */
+    public static final MemoryLayout SEMIRING_STAR_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"), JAVA_INT.withName("interface_version"), JAVA_INT.withName("reserved"),
+            ADDRESS.withName("star"));
+    /** Optional numeric-projection vtable. */
+    public static final MemoryLayout SEMIRING_NUMERIC_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"), JAVA_INT.withName("interface_version"), JAVA_INT.withName("reserved"),
+            ADDRESS.withName("numerical_value"), ADDRESS.withName("quantize"), ADDRESS.withName("to_probability"));
+    /** Optional declared-law and closure-bound vtable. */
+    public static final MemoryLayout SEMIRING_PROPERTIES_VTABLE = MemoryLayout.structLayout(
+            JAVA_LONG.withName("struct_size"), JAVA_INT.withName("interface_version"), JAVA_INT.withName("reserved"),
+            JAVA_LONG.withName("properties"), ADDRESS.withName("closure_bound"));
     /** Current shared base ABI version. */
     public static final int ABI_VERSION = 1;
     /** Current dictionary interface version. */

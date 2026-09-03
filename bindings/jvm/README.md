@@ -36,7 +36,7 @@ expose only managed copies.
 | Property | Contract |
 |---|---|
 | Binding | JVM |
-| Languages/runtime | Java 22+, Kotlin, and Scala |
+| Languages/runtime | Java 22+, Kotlin, Scala, and Clojure |
 | Support tier | Tier 1 |
 | Distribution | Maven coordinate `io.vinarytree:vinary-tree-interop` |
 | Native boundary | This adapter represents the two-word `VtResource` capability and its versioned interfaces; it does not implement a dictionary or automaton. |
@@ -46,6 +46,9 @@ The checked-in Gradle wrapper selects Java 22 by default because that is the
 minimum release containing the stable Foreign Function and Memory API. Release
 CI also compiles with Java 25 through `-PjavaToolchain=25`; Gradle's
 `options.release = 22` gate preserves Java 22 bytecode and API compatibility.
+The JAR pins the automatic module name `io.vinarytree.interop`. Classpath users
+must pass `--enable-native-access=ALL-UNNAMED`; module-path users pass
+`--enable-native-access=io.vinarytree.interop`.
 
 The support tier controls release gating, not semantic quality: every tier has
 the same snapshot, ownership, status, and ABI compatibility laws. Consult the
@@ -61,7 +64,7 @@ The wrapper compiles their FFM layouts, collection facades, and generated
 Javadoc against the Java 22 API contract:
 
 ```sh
-bindings/jvm/gradlew --no-daemon -p bindings/jvm test javadoc
+bindings/jvm/gradlew --no-daemon -p bindings/jvm check javadoc
 ```
 
 Project-specific constructors live in their own Maven artifacts; this neutral
@@ -78,6 +81,12 @@ The idiomatic facade groups the stable surface into these concepts:
 | Dictionary interface | Snapshot capture, node paging, finality, optional values, unit/value domains, and capability flags. |
 | Dictionary entries interface | Optional finite lexicographic stream over one captured revision, with bounded arena batches, exact generation leases, cancellation, and a reducer path. |
 | Scalar-WFST interface | Snapshot capture, start state, final weights, paged arcs, label/weight domains, and capability flags. |
+| Lattice interface | Host-defined immutable join/meet values with exact domain identity, optional stable bytes, and bounded batch folds. |
+| Dynamic semiring interfaces | Host-defined zero/one/plus/times operations, compact owned values, declared laws, and optional division, closure, and numeric projections. |
+
+The [JVM host-provider guide](../../docs/language-bindings/jvm-host-providers.md)
+contains complete Java examples, Kotlin/Scala/Clojure idioms, ownership and
+threading rules, performance paths, and the executable verification contract.
 
 Unit and value domains are explicit enum fields on the discovered interface; adapters must never infer them from host container types. Empty terms, embedded zero bytes, non-ASCII text, and the full
 unsigned 64-bit identifier range are represented explicitly; no facade may use
@@ -128,6 +137,9 @@ the host language must not add a weaker promise.
 
 - Pass the two-word resource by value; do not serialize or copy the graph.
 - Capture one immutable snapshot and page nodes/arcs through bounded buffers.
+- Override `UnicodeDictionarySnapshot.transition` and
+  `ScalarWfstProvider.stateArcsPage` when the backing representation supports
+  indexed lookup or native paging; their defaults preserve the simple API.
 - Negotiate entries-v1 when exact lexicographic enumeration is needed; honor all entry/unit/value limits on every batch.
 - Cache a validated optional interface only while the owning resource remains retained.
 - Respect capability flags before enabling parallel callback entry.

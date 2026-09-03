@@ -5,9 +5,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /** A live two-word {@code VtResource} implementing dictionary interface v1. */
-public interface DictionaryResource extends AutoCloseable {
-    /** Borrow the native resource struct for one synchronous FFM call. */
-    MemorySegment resourceSegment();
+public interface DictionaryResource extends InteropResource {
 
     /** Open a bounded streaming iterator over the current immutable revision. */
     default DictionaryEntryIterator entryIterator() {

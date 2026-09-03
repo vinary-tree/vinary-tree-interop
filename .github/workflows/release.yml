@@ -122,9 +122,27 @@ jobs:
           path: dist/*.tgz
           if-no-files-found: error
 
+  jvm-contract:
+    name: JVM providers (Java ${{ matrix.java }})
+    needs: contract
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["22", "25"]
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "${{ matrix.java }}" }
+      - uses: gradle/actions/setup-gradle@v5
+      - run: >-
+          bindings/jvm/gradlew --no-daemon -p bindings/jvm
+          -PjavaToolchain=${{ matrix.java }} check javadoc
+
   jvm-package:
     name: JVM package
-    needs: contract
+    needs: [contract, jvm-contract]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -134,7 +152,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
       - run: >-
           bindings/jvm/gradlew --no-daemon -p bindings/jvm
-          -PjavaToolchain=25 test javadoc
+          -PjavaToolchain=25 check javadoc
           publishMavenJavaPublicationToStagingRepository
       - uses: actions/upload-artifact@v7
         with:

@@ -26,17 +26,26 @@ jobs:
       - run: ./scripts/verify.sh
 
   jvm:
-    name: JVM FFM package
-    runs-on: ubuntu-24.04
+    name: JVM FFM package (${{ matrix.os }}, Java ${{ matrix.java }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, java: "22"}
+          - {os: ubuntu-24.04, java: "25"}
+          - {os: macos-15, java: "22"}
+          - {os: windows-2025, java: "22"}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
         with: {persist-credentials: false}
       - uses: actions/setup-java@v5
-        with: {distribution: temurin, java-version: "25"}
+        with: {distribution: temurin, java-version: "${{ matrix.java }}"}
       - uses: gradle/actions/setup-gradle@v5
       - run: >-
           bindings/jvm/gradlew --no-daemon -p bindings/jvm
-          -PjavaToolchain=25 test javadoc
+          -PjavaToolchain=${{ matrix.java }} check javadoc
+        shell: bash
 
   dotnet:
     name: .NET package

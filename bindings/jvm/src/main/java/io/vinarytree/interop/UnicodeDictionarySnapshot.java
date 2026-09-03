@@ -17,6 +17,19 @@ public interface UnicodeDictionarySnapshot {
     /** Optional unsigned-64 value stored at {@code node}. */
     OptionalLong value(long node);
 
+    /**
+     * Resolve one outgoing transition.
+     *
+     * <p>Providers with an indexed node representation should override this method. The default
+     * implementation preserves compatibility by scanning {@link #edges(long)}.
+     */
+    default OptionalLong transition(long node, int scalar) {
+        for (Edge edge : edges(node)) {
+            if (edge != null && edge.scalar() == scalar) return OptionalLong.of(edge.node());
+        }
+        return OptionalLong.empty();
+    }
+
     /** Stable outgoing edges for {@code node}. */
     List<Edge> edges(long node);
 
