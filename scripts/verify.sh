@@ -8,6 +8,7 @@ mkdir -p "$TMPDIR" "$GOCACHE" "$GOTMPDIR"
 
 python3 scripts/sync-release-version.py
 python3 scripts/check-release-ref.py --self-test
+cmp LICENSE bindings/python/LICENSE
 git ls-files --eol | awk '
   $1 == "i/crlf" || $1 == "i/mixed" {
     print "tracked text is not normalized in the Git object database: " $0 > "/dev/stderr"
@@ -36,8 +37,10 @@ cc -std=c17 -Wall -Wextra -Werror -Iinclude -Ibindings/lua \
   -x c -fsyntax-only bindings/lua/vinary_tree_lua.h
 
 npm --prefix bindings/javascript test
-PYTHONPATH=bindings/python/src python3 -c \
-  'from vinary_tree_interop import UnitDomain; assert UnitDomain.UNICODE_SCALAR.value == 2'
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=bindings/python/src python3 -m unittest discover \
+  -s bindings/python/tests -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=bindings/python/src \
+  python3 bindings/python/examples/host_providers.py
 GOWORK=off go -C bindings/go test ./...
 
 if [[ "${1:-}" == "--full" ]]; then

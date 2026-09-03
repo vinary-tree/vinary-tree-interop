@@ -1,6 +1,6 @@
 # Vinary Tree Python interop binding
 
-This package exposes the language-native representation of the stable Vinary Tree resource ABI. It is the neutral handoff layer used by dictionary, automaton, and WFST packages; it owns no algorithm-specific policy.
+This package exposes the language-native representation of the stable Vinary Tree resource ABI. It is the neutral handoff layer used by dictionary, automaton, WFST, lattice, and semiring packages, and it can export custom Python providers without owning algorithm-specific policy.
 
 <!-- BEGIN GENERATED BINDING OPERATIONS; DO NOT EDIT -->
 
@@ -17,24 +17,31 @@ This package exposes the language-native representation of the stable Vinary Tre
 
 The support tier controls release gating, not semantic quality: every tier has
 the same snapshot, ownership, status, and ABI compatibility laws. Consult the
-[binding architecture](../../docs/abi-reference.md) before implementing a custom provider
-and the [family hub](../../README.md) when combining independently packaged projects.
+[binding architecture](https://github.com/vinary-tree/vinary-tree-interop/blob/master/docs/abi-reference.md)
+before implementing a custom provider and the
+[family hub](https://github.com/vinary-tree/vinary-tree-interop/blob/master/README.md)
+when combining independently packaged projects.
 
-![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](../../docs/diagrams/interface-negotiation-activity.svg)
+![The host-language facade crosses one project ABI and retains a versioned family resource rather than sharing Rust object layouts.](https://raw.githubusercontent.com/vinary-tree/vinary-tree-interop/master/docs/diagrams/interface-negotiation-activity.svg)
 
 ## Package surface and verification
 
 [`src/vinary_tree_interop/__init__.py`](src/vinary_tree_interop/__init__.py)
-is the complete public facade. The smoke gate installs and imports that same
-module:
+is the complete public facade. The wheel carries the standard `py.typed`
+marker so downstream type checkers consume its inline annotations. The
+package includes hosted-provider
+conformance tests and a maintained public example:
 
 ```sh
 python -m pip install ./bindings/python
-python -c "from vinary_tree_interop import UnitDomain; assert UnitDomain.UNICODE_SCALAR.value == 2"
+python bindings/python/examples/host_providers.py
 ```
 
-Project-specific constructors live in their own packages; this neutral module
-only models and validates the shared resource handoff.
+Project-specific consuming constructors live in their own packages. This
+neutral module models and validates the shared handoff and exports Python
+dictionary, WFST, lattice, and semiring providers. See the
+[Python host-provider guide](https://github.com/vinary-tree/vinary-tree-interop/blob/master/docs/language-bindings/python-host-providers.md)
+for complete APIs, semantics, and runnable integration patterns.
 
 ## Public API and data model
 
@@ -47,6 +54,8 @@ The idiomatic facade groups the stable surface into these concepts:
 | Dictionary interface | Snapshot capture, node paging, finality, optional values, unit/value domains, and capability flags. |
 | Dictionary entries interface | Optional finite lexicographic stream over one captured revision, with bounded arena batches, exact generation leases, cancellation, and a reducer path. |
 | Scalar-WFST interface | Snapshot capture, start state, final weights, paged arcs, label/weight domains, and capability flags. |
+| Lattice interface | Host-defined immutable join/meet values with exact domain IDs, borrowed operands, stable bytes, diagnostics, and bounded bulk operations. |
+| Semiring interfaces | Host-defined algebra with provider-scoped value leases, optional division/star/numeric capabilities, declared laws, and bounded folds. |
 
 Unit and value domains are explicit enum fields on the discovered interface; adapters must never infer them from host container types. Empty terms, embedded zero bytes, non-ASCII text, and the full
 unsigned 64-bit identifier range are represented explicitly; no facade may use
@@ -54,13 +63,15 @@ a sentinel value that removes a valid input from the domain.
 
 For the exhaustive native function contract—including exact preconditions,
 returnable statuses, complexity, and thread-safety—use the
-[family resource ABI reference](../../docs/abi-reference.md). The facade
+[family resource ABI reference](https://github.com/vinary-tree/vinary-tree-interop/blob/master/docs/abi-reference.md). The facade
 source linked above is the authoritative idiomatic symbol inventory; its
-exhaustive coverage is pinned by the [canonical C header](../../include/vinary_tree_interop.h) and the Rust layout and discriminant tests.
+exhaustive coverage is pinned by the
+[canonical C header](https://github.com/vinary-tree/vinary-tree-interop/blob/master/include/vinary_tree_interop.h)
+and the Rust layout and discriminant tests.
 
 ## Ownership, snapshots, and resource handoff
 
-Use `with` for `resource` and `resource handle`. Finalizers are leak containment, not a deterministic resource policy. Close every entries cursor, and release its current generation before advancing or closing it.
+Use `with` for every hosted resource. Finalizers are leak containment, not a deterministic resource policy. Close every entries cursor, and release its current generation before advancing or closing it.
 
 A borrowed resource becomes owned only after a successful `retain`. Interface
 discovery does not transfer ownership, and a failed validation must release any
@@ -98,6 +109,8 @@ the host language must not add a weaker promise.
 - Pass the two-word resource by value; do not serialize or copy the graph.
 - Capture one immutable snapshot and page nodes/arcs through bounded buffers.
 - Negotiate entries-v1 when exact lexicographic enumeration is needed; honor all entry/unit/value limits on every batch.
+- Supply hosted lattice and semiring bulk methods to amortize Python/native callback cost.
+- Keep semiring values immutable; the facade uses provider-scoped leases rather than copying Python objects into native memory.
 - Cache a validated optional interface only while the owning resource remains retained.
 - Respect capability flags before enabling parallel callback entry.
 - Prefer a compact immutable graph interface when advertised; retain the paged callback fallback for compatibility.
@@ -108,14 +121,16 @@ Treat a foreign resource provider and all user-controlled queries as untrusted
 inputs. Validate lengths before allocation, preserve paging bounds, reject
 unknown enum values, contain callbacks/panics at the boundary, and never trust
 capability flags until interface negotiation succeeds. The normative duties
-are in the [binding trust model](../../docs/security-model.md).
+are in the
+[binding trust model](https://github.com/vinary-tree/vinary-tree-interop/blob/master/docs/security-model.md).
 
 ## Compatibility and troubleshooting
 
 The project ABI revision, family ABI version, interface identity/version,
 package version, and umbrella-runtime version are independent counters. Follow
-the [ABI evolution policy](../../docs/abi-evolution.md); never infer compatibility from a
-package version alone.
+the
+[ABI evolution policy](https://github.com/vinary-tree/vinary-tree-interop/blob/master/docs/abi-evolution.md);
+never infer compatibility from a package version alone.
 
 When loading fails, check—in order—the documented runtime/toolchain version,
 CPU/OS artifact, native-access permission, loader search path, dependent

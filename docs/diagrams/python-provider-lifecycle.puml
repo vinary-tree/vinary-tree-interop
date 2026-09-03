@@ -1,0 +1,63 @@
+@startuml python-provider-lifecycle
+' Python provider construction, negotiation, callback, and teardown.
+' Colors: Python application = blue; shared Python ABI facade = green;
+' native consumer = purple; bounded lifecycle/token synchronization = amber.
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam sequence {
+  ArrowColor #37474F
+  ArrowThickness 2
+  LifeLineBorderColor #455A64
+  LifeLineBackgroundColor #FAFAFA
+  ParticipantBorderThickness 2
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #F57F17
+  FontColor #263238
+}
+
+title Python-hosted provider — retained ABI resource lifecycle
+
+actor "Python application" as App #BBDEFB
+participant "Provider facade\n(resource owner)" as Facade #C8E6C9
+database "Lifecycle registry /\nper-context token arena" as State #FFE0B2
+participant "Native Vinary Tree\nconsumer" as Native #D1C4E9
+participant "Python provider object" as Provider #BBDEFB
+
+App -> Facade: construct provider + validated options
+Facade -> State: register monotonic context key\n(initial retain = 1)
+Facade --> App: two-word VtResource borrow
+
+App -> Native: call constructor with &VtResource
+Native -> Facade: retain(context)
+Facade -> State: increment retain under short lifecycle lock
+Native -> Facade: query_interface(16-byte ID, version)
+Facade --> Native: provider-owned immutable vtable
+
+group synchronous algebra or graph callback
+  Native -> Facade: invoke callback(context, borrowed inputs, out)
+  Facade -> State: lock-free live-context lookup
+  Facade -> State: validate/copy input leases\n(per-context lock when tokens are involved)
+  Facade -> Provider: call user method with no registry/token lock held
+  Provider --> Facade: immutable result or exception
+  alt valid result
+    Facade -> State: publish owned output lease\n(per-context lock, bounded batch)
+    Facade --> Native: OK + initialized output
+  else exception or malformed result
+    Facade --> Native: typed status; output remains untouched
+  end
+end
+
+Native -> Facade: release_values(owned leases)
+Facade -> State: validate entire batch, then release atomically
+Native -> Facade: release(context)
+Facade -> State: decrement native retain
+App -> Facade: close() / with-scope exit
+Facade -> State: remove context on final retain
+note over App,Native
+  GC finalization is leak containment only.
+  Deterministic close defines the normal lifecycle.
+end note
+@enduml

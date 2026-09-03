@@ -88,11 +88,10 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@v6
         with: { python-version: "3.14" }
-      - run: python -m pip install build
-      - run: python -m build --wheel --sdist --outdir "$GITHUB_WORKSPACE/dist"
-        working-directory: bindings/python
-      - run: python -m pip install dist/*.whl
-      - run: python -c 'from vinary_tree_interop import UnitDomain; assert UnitDomain.UNICODE_SCALAR.value == 2'
+      - run: python -m pip install build==1.6.0 twine==6.2.0
+      - name: Build and round-trip both Python distribution formats
+        run: ./scripts/verify-python-package.sh python "$GITHUB_WORKSPACE/dist"
+      - run: python -m twine check dist/*
       - uses: actions/upload-artifact@v7
         with:
           name: python-package

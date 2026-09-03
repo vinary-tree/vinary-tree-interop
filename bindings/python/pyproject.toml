@@ -6,17 +6,20 @@ build-backend = "setuptools.build_meta"
 name = "vinary-tree-interop"
 version = "4.0.0rc6"
 description = "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages."
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Dylon Edwards", email = "dylon.devo@gmail.com" }]
 
 [project.urls]
 Homepage = "https://github.com/vinary-tree/vinary-tree-interop"
 Repository = "https://github.com/vinary-tree/vinary-tree-interop"
+Documentation = "https://github.com/vinary-tree/vinary-tree-interop/tree/master/docs"
 Issues = "https://github.com/vinary-tree/vinary-tree-interop/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-vinary_tree_interop = ["LICENSE"]
+vinary_tree_interop = ["py.typed"]
