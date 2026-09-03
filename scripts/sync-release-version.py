@@ -200,6 +200,11 @@ def write_versions(
         f'description = "{metadata["description"]}"',
     )
     replace(
+        "bindings/python/pyproject.toml",
+        r'^(Documentation = "https://github.com/vinary-tree/vinary-tree-interop/tree/)[^/]+(/docs")$',
+        rf"\g<1>v{expected['cargo']}\2",
+    )
+    replace(
         "bindings/julia/VinaryTreeInterop/Project.toml",
         r'^version = "[^"]+"$',
         f'version = "{expected["julia"]}"',
@@ -477,6 +482,22 @@ def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
         failures.append("npm release candidates must use the next dist-tag")
     if package.get("publishConfig", {}).get("tag") != "next":
         failures.append("npm package publishConfig must protect latest with tag=next")
+    python_documentation_match = re.search(
+        r'^Documentation = "([^"]+)"$',
+        (ROOT / "bindings/python/pyproject.toml").read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    python_documentation = (
+        python_documentation_match.group(1)
+        if python_documentation_match is not None
+        else None
+    )
+    expected_python_documentation = (
+        "https://github.com/vinary-tree/vinary-tree-interop/tree/"
+        f"v{expected['cargo']}/docs"
+    )
+    if python_documentation != expected_python_documentation:
+        failures.append("Python documentation URL is not pinned to the release tag")
     description_surfaces = {
         "Cargo": ("Cargo.toml", f'description = "{expected_metadata["description"]}"'),
         "npm": (

@@ -1,4 +1,4 @@
-# Python-hosted resource providers
+# Python resource providers and consumers
 
 The `vinary-tree-interop` Python package turns ordinary Python objects into
 versioned resources that native Vinary Tree libraries can retain and consume.
@@ -7,6 +7,11 @@ transducers (WFSTs), lattice values, and semiring operation contexts. The
 facade contains the Python callbacks and ownership machinery; algorithms stay
 in their owning libraries such as `libdictenstein`, `liblevenshtein`, and
 `lling-llang`.
+
+The same package also provides `ScalarWfst`, an ownership-safe consuming view
+for inspecting a compatible scalar WFST produced by Python, Rust, or another
+language binding. It centralizes interface negotiation, bounded paging, and
+snapshot lifetime so project packages do not duplicate that logic.
 
 This guide is for application and binding authors who need native algorithms
 to call a custom Python data source or algebra. For the byte-for-byte wire
@@ -113,6 +118,61 @@ The facade caches each immutable state after its first request. A parallel
 provider may calculate the same state twice during a race, but publication is
 atomic and no process-wide callback lock serializes independent expansions.
 State providers must therefore be deterministic for a captured revision.
+
+### Consume any scalar WFST
+
+`ScalarWfst(resource)` borrows a live resource only during construction and
+obtains its own retain. The producer may close immediately afterward. Calling
+`snapshot()` captures another independently owned immutable revision.
+
+```python
+from vinary_tree_interop import (
+    ScalarWfst,
+    ScalarWfstArc,
+    ScalarWfstResource,
+    ScalarWfstState,
+)
+
+
+class TinyWfst:
+    def start(self) -> int:
+        return 0
+
+    def num_states(self) -> int:
+        return 2
+
+    def state(self, state: int) -> ScalarWfstState | None:
+        if state == 0:
+            return ScalarWfstState(
+                None, (ScalarWfstArc("a", "b", 1, 0.25),)
+            )
+        if state == 1:
+            return ScalarWfstState(0.0, ())
+        return None
+
+
+provider = ScalarWfstResource(lambda: TinyWfst(), acyclic=True)
+with ScalarWfst(provider) as graph:
+    provider.close()
+    assert graph.start == 0
+    assert graph.state_count == 2
+    with graph.snapshot() as frozen:
+        state = frozen.state(frozen.start, batch_size=64)
+        assert state is not None
+```
+
+The view exposes validated `unit_domain`, `weight_domain`, and `flags`
+properties. `state_info(id)` reads finality without copying arcs. `arcs(id,
+batch_size=...)` drains bounded pages and rejects count changes or a page that
+makes no progress. `state(id, batch_size=...)` combines both operations.
+`state_count` is `None` for a genuinely lazy unknown-size graph; `len(graph)`
+therefore raises `TypeError` rather than reporting an incomplete frontier.
+
+Application code normally uses the retaining constructor above. A native
+project facade may instead use `ScalarWfst.adopt(raw_resource)` when a C call
+returns a `VtResource` that already transfers exactly one retain. Adoption is
+the zero-copy ownership handoff: it must not be used for an ordinary borrowed
+resource.
 
 ## Lattice values
 
@@ -283,7 +343,8 @@ is published.
 The executable conformance suite is
 [`bindings/python/tests/test_providers.py`](../../bindings/python/tests/test_providers.py).
 It pins LP64 layouts, every semiring capability table, snapshot behavior,
-paging, cross-context rejection, transactional release, optional absence,
+paging, retained consumer views, independent WFST snapshots, cross-context
+rejection, transactional release, optional absence,
 exception translation, malformed results, concurrency, and garbage-collection
 fallback. The maintained public example is
 [`bindings/python/examples/host_providers.py`](../../bindings/python/examples/host_providers.py).

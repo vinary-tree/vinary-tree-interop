@@ -7,11 +7,13 @@ import itertools
 import math
 import threading
 from collections.abc import Callable, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 from typing import Protocol, TypeVar, cast, runtime_checkable
 
 _Pointee_co = TypeVar("_Pointee_co", covariant=True)
+_ScalarWfstT = TypeVar("_ScalarWfstT", bound="ScalarWfst")
 
 
 class _Pointer(Protocol[_Pointee_co]):
@@ -130,10 +132,44 @@ class ProviderStatusError(Exception):
         self.status = portable
 
 
+class InteropError(RuntimeError):
+    """Typed failure reported while consuming a Vinary Tree resource.
+
+    Provider callback authors use :class:`ProviderStatusError` to select a
+    portable callback status. Resource consumers receive ``InteropError`` so
+    application code cannot accidentally reinterpret a consumer failure as a
+    request to return one particular status through another callback.
+    """
+
+    def __init__(self, status: int | Status, operation: str, message: str) -> None:
+        super().__init__(message)
+        try:
+            self.status: Status | int = Status(status)
+        except ValueError:
+            self.status = int(status)
+        self.operation = operation
+
+
 class VtResource(ctypes.Structure):
     """Two-word retained resource passed between native project libraries."""
 
+    context: int | None
+    vtable: int | None
     _fields_ = [("context", ctypes.c_void_p), ("vtable", ctypes.c_void_p)]
+
+
+@runtime_checkable
+class NativeResource(Protocol):
+    """Borrowable live resource implemented by every Python facade owner."""
+
+    @property
+    def native_resource(self) -> VtResource:
+        """Borrow the two-word resource for one synchronous native call."""
+        ...
+
+    def close(self) -> None:
+        """Release this object's owned retain."""
+        ...
 
 
 class UnicodeDictionarySnapshot(Protocol):
@@ -161,7 +197,7 @@ class UnicodeDictionarySnapshot(Protocol):
 
 
 @runtime_checkable
-class DictionaryResource(Protocol):
+class DictionaryResource(NativeResource, Protocol):
     """A live resource implementing dictionary interface v1."""
 
     @property
@@ -1146,6 +1182,384 @@ class ScalarWfstResource(_OwnedProviderResource):
         self.close()
 
 
+@dataclass(frozen=True, slots=True)
+class ScalarWfstStateInfo:
+    """Finality metadata for one valid scalar-WFST state."""
+
+    final: bool
+    final_weight: float
+
+
+def _resource_words(resource: NativeResource | VtResource) -> VtResource:
+    raw = resource if isinstance(resource, VtResource) else resource.native_resource
+    return VtResource(raw.context, raw.vtable)
+
+
+def _consumer_status(raw: int, operation: str) -> None:
+    if raw == Status.OK:
+        return
+    try:
+        status: Status | int = Status(raw)
+        label = status.name
+    except ValueError:
+        status = int(raw)
+        label = f"unknown status {raw}"
+    raise InteropError(status, operation, f"{operation} failed with {label}")
+
+
+class ScalarWfst:
+    """Owned, snapshot-capable view of a scalar-WFST resource.
+
+    Normal construction borrows a live resource and obtains an independent
+    retain. :meth:`adopt` consumes a raw ``VtResource`` that already owns one
+    retain, which is the zero-copy handoff used by project libraries.
+    """
+
+    __slots__ = ("_base", "_resource", "_serial_lock", "_table")
+
+    def __init__(
+        self,
+        resource: NativeResource | VtResource,
+        *,
+        _take_ownership: bool = False,
+    ) -> None:
+        if _take_ownership and not isinstance(resource, VtResource):
+            raise TypeError("ownership transfer requires a raw VtResource")
+        raw = _resource_words(resource)
+        if not raw.context or not raw.vtable:
+            raise InteropError(Status.CLOSED, "wfst_open", "resource is closed")
+        base_pointer = ctypes.cast(raw.vtable, ctypes.POINTER(_ResourceVTable))
+        base = base_pointer.contents
+        if base.struct_size < ctypes.sizeof(_ResourceVTable):
+            raise InteropError(
+                Status.UNSUPPORTED,
+                "wfst_open",
+                "resource base vtable is truncated",
+            )
+        if base.abi_version != ABI_VERSION:
+            raise InteropError(
+                Status.UNSUPPORTED,
+                "wfst_open",
+                f"resource ABI {base.abi_version} is not supported",
+            )
+        if not all(
+            bool(callback)
+            for callback in (base.retain, base.release, base.query_interface)
+        ):
+            raise InteropError(
+                Status.UNSUPPORTED,
+                "wfst_open",
+                "resource base vtable has a null mandatory callback",
+            )
+        if not _take_ownership:
+            base.retain(raw.context)
+        owned = VtResource(raw.context, raw.vtable)
+        try:
+            identifier = _InterfaceId(
+                (ctypes.c_uint8 * 16).from_buffer_copy(WFST_INTERFACE_ID)
+            )
+            output = ctypes.c_void_p()
+            _consumer_status(
+                base.query_interface(
+                    owned.context,
+                    ctypes.byref(identifier),
+                    WFST_INTERFACE_VERSION,
+                    ctypes.byref(output),
+                ),
+                "wfst_query_interface",
+            )
+            if not output.value:
+                raise InteropError(
+                    Status.UNSUPPORTED,
+                    "wfst_query_interface",
+                    "resource did not return the scalar-WFST interface",
+                )
+            table_pointer = ctypes.cast(output, ctypes.POINTER(_WfstVTable))
+            table = table_pointer.contents
+            if table.struct_size < ctypes.sizeof(_WfstVTable):
+                raise InteropError(
+                    Status.UNSUPPORTED,
+                    "wfst_open",
+                    "scalar-WFST vtable is truncated",
+                )
+            if table.interface_version < WFST_INTERFACE_VERSION or table.reserved:
+                raise InteropError(
+                    Status.UNSUPPORTED,
+                    "wfst_open",
+                    "scalar-WFST interface version or reserved field is invalid",
+                )
+            try:
+                UnitDomain(table.unit_domain)
+                WeightDomain(table.weight_domain)
+            except ValueError as error:
+                raise InteropError(
+                    Status.UNSUPPORTED,
+                    "wfst_open",
+                    "scalar-WFST domain discriminant is unknown",
+                ) from error
+            mandatory = (
+                table.snapshot,
+                table.start,
+                table.num_states,
+                table.state_info,
+                table.state_arcs,
+            )
+            if not all(bool(callback) for callback in mandatory):
+                raise InteropError(
+                    Status.UNSUPPORTED,
+                    "wfst_open",
+                    "scalar-WFST vtable has a null mandatory callback",
+                )
+        except BaseException:
+            base.release(owned.context)
+            raise
+        self._resource = owned
+        self._base = base
+        self._table = table_pointer
+        self._serial_lock = (
+            None if table.flags & WfstFlag.PARALLEL_REENTRANT else threading.RLock()
+        )
+
+    @classmethod
+    def adopt(  # noqa: PYI019 - typing.Self requires Python 3.11
+        cls: type[_ScalarWfstT], resource: VtResource
+    ) -> _ScalarWfstT:
+        """Consume one already-owned raw resource without another retain."""
+        return cls(resource, _take_ownership=True)
+
+    @property
+    def native_resource(self) -> VtResource:
+        """Borrow the retained resource for one synchronous native call."""
+        self._ensure_open()
+        return VtResource(self._resource.context, self._resource.vtable)
+
+    def _ensure_open(self) -> None:
+        if not self._resource.context:
+            raise InteropError(Status.CLOSED, "wfst", "scalar WFST is closed")
+
+    def _guard(self):
+        lock = self._serial_lock
+        return nullcontext() if lock is None else lock
+
+    @property
+    def unit_domain(self) -> UnitDomain:
+        """Return the graph's exact edge-label domain."""
+        self._ensure_open()
+        return UnitDomain(self._table.contents.unit_domain)
+
+    @property
+    def weight_domain(self) -> WeightDomain:
+        """Return the graph's exact scalar-weight representation."""
+        self._ensure_open()
+        return WeightDomain(self._table.contents.weight_domain)
+
+    @property
+    def flags(self) -> WfstFlag:
+        """Return validated immutability, laziness, and threading flags."""
+        self._ensure_open()
+        return WfstFlag(self._table.contents.flags)
+
+    def snapshot(  # noqa: PYI019 - typing.Self requires Python 3.11
+        self: _ScalarWfstT,
+    ) -> _ScalarWfstT:
+        """Capture and own one immutable revision at the provider boundary."""
+        self._ensure_open()
+        output = VtResource()
+        with self._guard():
+            _consumer_status(
+                self._table.contents.snapshot(
+                    self._resource.context, ctypes.byref(output)
+                ),
+                "wfst_snapshot",
+            )
+        if not output.context or not output.vtable:
+            raise InteropError(
+                Status.PROVIDER_ERROR,
+                "wfst_snapshot",
+                "provider returned a null successful snapshot",
+            )
+        return type(self).adopt(output)
+
+    @property
+    def start(self) -> int:
+        """Return the start-state identifier."""
+        self._ensure_open()
+        output = ctypes.c_uint64()
+        with self._guard():
+            _consumer_status(
+                self._table.contents.start(
+                    self._resource.context, ctypes.byref(output)
+                ),
+                "wfst_start",
+            )
+        return output.value
+
+    def __len__(self) -> int:
+        """Return the exact state count, raising for a lazy unknown-size graph."""
+        count = self.state_count
+        if count is None:
+            raise TypeError("lazy scalar WFST does not report an exact state count")
+        return count
+
+    @property
+    def state_count(self) -> int | None:
+        """Return the exact state count, or ``None`` for a lazy graph."""
+        self._ensure_open()
+        output = ctypes.c_size_t()
+        known = ctypes.c_uint8()
+        with self._guard():
+            _consumer_status(
+                self._table.contents.num_states(
+                    self._resource.context,
+                    ctypes.byref(output),
+                    ctypes.byref(known),
+                ),
+                "wfst_num_states",
+            )
+        if known.value not in (0, 1):
+            raise InteropError(
+                Status.PROVIDER_ERROR,
+                "wfst_num_states",
+                "provider returned a non-boolean known flag",
+            )
+        return output.value if known.value else None
+
+    def state_info(self, state: int) -> ScalarWfstStateInfo | None:
+        """Return finality metadata, or ``None`` for an unknown state ID."""
+        state = _checked_state_id(state)
+        self._ensure_open()
+        valid = ctypes.c_uint8()
+        final = ctypes.c_uint8()
+        weight = ctypes.c_double()
+        with self._guard():
+            _consumer_status(
+                self._table.contents.state_info(
+                    self._resource.context,
+                    state,
+                    ctypes.byref(valid),
+                    ctypes.byref(final),
+                    ctypes.byref(weight),
+                ),
+                "wfst_state_info",
+            )
+        if valid.value not in (0, 1) or final.value not in (0, 1):
+            raise InteropError(
+                Status.PROVIDER_ERROR,
+                "wfst_state_info",
+                "provider returned a non-boolean state flag",
+            )
+        if not valid.value:
+            return None
+        if math.isnan(weight.value):
+            raise InteropError(
+                Status.PROVIDER_ERROR,
+                "wfst_state_info",
+                "provider returned a NaN final weight",
+            )
+        return ScalarWfstStateInfo(bool(final.value), weight.value)
+
+    def arcs(self, state: int, *, batch_size: int = 256) -> tuple[ScalarWfstArc, ...]:
+        """Copy all outgoing arcs using bounded, progress-checked pages."""
+        state = _checked_state_id(state)
+        batch_size = _checked_size(batch_size, "WFST arc batch size")
+        if not batch_size:
+            raise ValueError("WFST arc batch size must be positive")
+        self._ensure_open()
+        result: list[ScalarWfstArc] = []
+        offset = 0
+        expected_total: int | None = None
+        while expected_total is None or offset < expected_total:
+            page = (_WfstArc * batch_size)()
+            written = ctypes.c_size_t()
+            total = ctypes.c_size_t()
+            with self._guard():
+                _consumer_status(
+                    self._table.contents.state_arcs(
+                        self._resource.context,
+                        state,
+                        offset,
+                        page,
+                        batch_size,
+                        ctypes.byref(written),
+                        ctypes.byref(total),
+                    ),
+                    "wfst_state_arcs",
+                )
+            if written.value > batch_size or offset > total.value:
+                raise InteropError(
+                    Status.PROVIDER_ERROR,
+                    "wfst_state_arcs",
+                    "provider returned inconsistent page bounds",
+                )
+            if expected_total is not None and total.value != expected_total:
+                raise InteropError(
+                    Status.PROVIDER_ERROR,
+                    "wfst_state_arcs",
+                    "provider changed the arc count during one traversal",
+                )
+            expected_total = total.value
+            if not written.value and offset < expected_total:
+                raise InteropError(
+                    Status.PROVIDER_ERROR,
+                    "wfst_state_arcs",
+                    "provider made no progress before the final page",
+                )
+            for raw in page[: written.value]:
+                if raw.has_input not in (0, 1) or raw.has_output not in (0, 1):
+                    raise InteropError(
+                        Status.PROVIDER_ERROR,
+                        "wfst_state_arcs",
+                        "provider returned a non-boolean epsilon flag",
+                    )
+                if math.isnan(raw.weight):
+                    raise InteropError(
+                        Status.PROVIDER_ERROR,
+                        "wfst_state_arcs",
+                        "provider returned a NaN arc weight",
+                    )
+                result.append(
+                    ScalarWfstArc(
+                        raw.input_label if raw.has_input else None,
+                        raw.output_label if raw.has_output else None,
+                        raw.target_state,
+                        raw.weight,
+                    )
+                )
+            offset += written.value
+        return tuple(result)
+
+    def state(self, state: int, *, batch_size: int = 256) -> ScalarWfstState | None:
+        """Materialize one complete immutable state description."""
+        info = self.state_info(state)
+        if info is None:
+            return None
+        return ScalarWfstState(
+            info.final_weight if info.final else None,
+            self.arcs(state, batch_size=batch_size),
+        )
+
+    def close(self) -> None:
+        """Release this view's independent retain exactly once."""
+        context = self._resource.context
+        if context:
+            self._base.release(context)
+            self._resource = VtResource()
+
+    def __enter__(  # noqa: PYI019 - typing.Self requires Python 3.11
+        self: _ScalarWfstT,
+    ) -> _ScalarWfstT:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except BaseException:  # noqa: BLE001 - finalizers must never escape
+            return
+
+
 LATTICE_INTERFACE_VERSION = 1
 LATTICE_INTERFACE_ID = b"vt.lattice.val.1"
 RECOMMENDED_LATTICE_BATCH = 256
@@ -1470,7 +1884,10 @@ def _lattice_operand(
     if not pointer or not pointer.contents.context or not pointer.contents.vtable:
         raise ProviderStatusError(Status.INVALID_ARGUMENT, "null lattice operand")
     resource = pointer.contents
-    base = ctypes.cast(resource.vtable, ctypes.POINTER(_ResourceVTable)).contents
+    vtable = resource.vtable
+    if vtable is None:
+        raise ProviderStatusError(Status.INVALID_ARGUMENT, "null lattice vtable")
+    base = ctypes.cast(vtable, ctypes.POINTER(_ResourceVTable)).contents
     if (
         base.struct_size < ctypes.sizeof(_ResourceVTable)
         or base.abi_version != ABI_VERSION
@@ -2732,17 +3149,21 @@ __all__ = [
     "DictionaryResource",
     "DivisibleSemiringProvider",
     "DomainId",
+    "InteropError",
     "LatticeFlag",
     "LatticeOperand",
     "LatticeOptions",
     "LatticeProvider",
     "LatticeResource",
+    "NativeResource",
     "NumericSemiringProvider",
     "ProviderStatusError",
+    "ScalarWfst",
     "ScalarWfstArc",
     "ScalarWfstResource",
     "ScalarWfstSnapshot",
     "ScalarWfstState",
+    "ScalarWfstStateInfo",
     "SemiringFlag",
     "SemiringOptions",
     "SemiringOrder",

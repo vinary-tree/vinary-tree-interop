@@ -11,6 +11,7 @@ from vinary_tree_interop import (
     LatticeOperand,
     LatticeOptions,
     LatticeResource,
+    ScalarWfst,
     ScalarWfstArc,
     ScalarWfstResource,
     ScalarWfstState,
@@ -169,6 +170,12 @@ def main() -> None:
         resources = (dictionary, wfst, lattice, semiring)
         if not all(resource.native_resource.context for resource in resources):
             raise RuntimeError("provider resource registration failed")
+        with ScalarWfst(wfst) as view, view.snapshot() as frozen:
+            if frozen.start != 0 or frozen.state_count != 2:
+                raise RuntimeError("scalar-WFST consumer observed invalid metadata")
+            start = frozen.state(frozen.start, batch_size=1)
+            if start is None or len(start.arcs) != 1:
+                raise RuntimeError("scalar-WFST consumer observed invalid paging")
         # Pass ``resource.native_resource`` by pointer to a synchronous native
         # constructor. The consumer retains it if the resulting object outlives
         # that call; this facade keeps its independent retain until ``with`` exits.

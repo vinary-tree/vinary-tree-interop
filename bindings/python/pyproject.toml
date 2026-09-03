@@ -15,7 +15,7 @@ authors = [{ name = "Dylon Edwards", email = "dylon.devo@gmail.com" }]
 [project.urls]
 Homepage = "https://github.com/vinary-tree/vinary-tree-interop"
 Repository = "https://github.com/vinary-tree/vinary-tree-interop"
-Documentation = "https://github.com/vinary-tree/vinary-tree-interop/tree/master/docs"
+Documentation = "https://github.com/vinary-tree/vinary-tree-interop/tree/v4.0.0-rc.6/docs"
 Issues = "https://github.com/vinary-tree/vinary-tree-interop/issues"
 
 [tool.setuptools.packages.find]

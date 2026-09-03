@@ -14,10 +14,17 @@ from typing import Any, cast
 import vinary_tree_interop as interop
 
 
+def vtable_address(resource: interop.VtResource) -> int:
+    """Return a non-null vtable address for low-level ABI assertions."""
+    if resource.vtable is None:
+        raise AssertionError("resource has a null vtable")
+    return resource.vtable
+
+
 def interface(resource: interop.VtResource, identity: bytes, table_type: type):
     """Negotiate and return one private ctypes table for ABI-level testing."""
     base = ctypes.cast(
-        resource.vtable, ctypes.POINTER(interop._ResourceVTable)
+        vtable_address(resource), ctypes.POINTER(interop._ResourceVTable)
     ).contents
     identifier = interop._InterfaceId((ctypes.c_uint8 * 16).from_buffer_copy(identity))
     output = ctypes.c_void_p()
@@ -263,6 +270,58 @@ class ProviderTests(unittest.TestCase):
             6,
         )
         snapshot_base.release(snapshot.context)
+
+    def test_scalar_wfst_consumer_retains_snapshots_and_pages(self) -> None:
+        source = WfstSnapshot()
+        provider = interop.ScalarWfstResource(
+            lambda: source,
+            lazy=False,
+            acyclic=True,
+        )
+        graph = interop.ScalarWfst(provider)
+        provider.close()
+
+        self.assertEqual(graph.unit_domain, interop.UnitDomain.UNICODE_SCALAR)
+        self.assertEqual(graph.weight_domain, interop.WeightDomain.TROPICAL_F64)
+        self.assertTrue(graph.flags & interop.WfstFlag.ACYCLIC)
+        self.assertEqual(graph.start, 0)
+        self.assertEqual(graph.state_count, 2)
+        self.assertEqual(len(graph), 2)
+        self.assertEqual(graph.state_info(1), interop.ScalarWfstStateInfo(True, 1.25))
+        self.assertIsNone(graph.state_info(99))
+        self.assertEqual(
+            graph.arcs(0, batch_size=1),
+            (
+                interop.ScalarWfstArc(ord("a"), ord("b"), 1, 0.5),
+                interop.ScalarWfstArc(None, ord("c"), 1, math.inf),
+            ),
+        )
+        self.assertEqual(graph.state(1), interop.ScalarWfstState(1.25, ()))
+
+        snapshot = graph.snapshot()
+        graph.close()
+        self.assertEqual(snapshot.start, 0)
+        self.assertEqual(snapshot.state_count, 2)
+        snapshot.close()
+        snapshot.close()
+        with self.assertRaises(interop.InteropError) as closed:
+            _ = snapshot.start
+        self.assertEqual(closed.exception.status, interop.Status.CLOSED)
+
+    def test_scalar_wfst_consumer_preserves_unknown_lazy_count(self) -> None:
+        class LazySnapshot(WfstSnapshot):
+            def num_states(self) -> int | None:
+                return None
+
+        with (
+            interop.ScalarWfstResource(lambda: LazySnapshot()) as provider,
+            interop.ScalarWfst(provider) as graph,
+        ):
+            self.assertIsNone(graph.state_count)
+            with self.assertRaises(TypeError):
+                len(graph)
+            with self.assertRaises(ValueError):
+                graph.arcs(0, batch_size=0)
 
     def test_dictionary_rejects_malformed_results_transactionally(self) -> None:
         class MalformedDictionary(DictionarySnapshot):
@@ -604,7 +663,7 @@ class ProviderTests(unittest.TestCase):
                 borrowed.stable_bytes()
 
             local_base = ctypes.cast(
-                seven_resource.vtable,
+                vtable_address(seven_resource),
                 ctypes.POINTER(interop._ResourceVTable),
             ).contents
             proxy_base = interop._ResourceVTable.from_buffer_copy(
@@ -628,7 +687,7 @@ class ProviderTests(unittest.TestCase):
             )
             self.assertFalse(two_provider.borrowed_was_local)
             proxy_base_table = ctypes.cast(
-                proxy_joined.vtable,
+                vtable_address(proxy_joined),
                 ctypes.POINTER(interop._ResourceVTable),
             ).contents
             proxy_base_table.release(proxy_joined.context)
@@ -666,7 +725,7 @@ class ProviderTests(unittest.TestCase):
             )
             self.assertEqual(retained_identity.context, two_resource.context)
             base = ctypes.cast(
-                retained_identity.vtable,
+                vtable_address(retained_identity),
                 ctypes.POINTER(interop._ResourceVTable),
             ).contents
             base.release(retained_identity.context)
