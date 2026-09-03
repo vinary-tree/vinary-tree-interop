@@ -1,0 +1,79 @@
+@startuml go-host-provider-sequence
+' End-to-end Go provider construction, callback, and deterministic release.
+' Color: Go-owned objects = blue/green; the C ABI = amber; foreign callback
+' inputs and validation = red; lifecycle transitions = violet.
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam sequence {
+  ArrowColor #37474F
+  ArrowThickness 2
+  LifeLineBorderColor #455A64
+  LifeLineBackgroundColor #FAFAFA
+  ParticipantBorderColor #263238
+  ParticipantFontColor #102027
+  GroupBorderColor #5E35B1
+  GroupHeaderFontColor #311B92
+}
+skinparam note {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+  FontColor #102027
+}
+
+title Go host provider — safe C-ABI round trip and exact release
+
+participant "Application" as App #E3F2FD
+participant "Go consumer\nvalue" as Consumer #DCEDC8
+participant "Go host\ncontext" as Host #E8EAF6
+participant "C resource +\nversioned vtables" as ABI #FFE0B2
+participant "Go provider\nimplementation" as Provider #FFCDD2
+
+group Construct and publish one owned resource
+  App -> Host: NewLatticeValue / NewScalarWfst / NewSemiringContext
+  Host -> Provider: inspect domain and optional interfaces
+  Provider --> Host: immutable capability contract
+  Host -> Host: cgo.NewHandle(hostedContext)\nrefs = 1
+  Host -> ABI: calloc context and per-resource vtables
+  ABI --> Consumer: owned VtResource(context, base-vtable)
+  Consumer -> ABI: query_interface(16-byte ID, version 1)
+  ABI --> Consumer: validated capability vtable
+end
+
+group Invoke through a lexical, panic-contained callback
+  App -> Consumer: algebra / graph operation
+  Consumer -> Consumer: atomic borrow count + 1
+  Consumer -> ABI: call vtable operation
+  ABI -> Host: exported Go callback(handle, borrowed inputs)
+  Host -> Host: recover panic; TryLock when serialized
+  Host -> Host: validate domains, tokens, bounds, UTF-8
+  Host -> Provider: idiomatic Go interface method
+  Provider --> Host: result or error
+  Host -> Host: copy borrowed data; validate result invariants
+  Host --> ABI: VtStatus + owned result
+  ABI --> Consumer: typed result
+  Consumer -> Consumer: atomic borrow count - 1
+  Consumer --> App: Go value or *interop.Error
+end
+
+group Close without racing an in-flight borrow
+  App -> Consumer: defer value.Close()
+  Consumer -> Consumer: atomically set close bit
+  alt no active callback
+    Consumer -> ABI: release(context)
+  else callback active
+    Consumer -> Consumer: last borrower performs release
+    Consumer -> ABI: release(context)
+  end
+  ABI -> Host: decrement hosted refcount
+  Host -> Host: cgo.Handle.Delete() at zero
+  Host --> ABI: final release = true
+  ABI -> ABI: free per-resource vtables and context
+end
+
+note over Consumer,Host
+  Finalizers are leak backstops only.
+  Deterministic Close is the ownership protocol.
+end note
+
+@enduml

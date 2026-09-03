@@ -1,6 +1,8 @@
 # Vinary Tree Go interop binding
 
-This package exposes the language-native representation of the stable Vinary Tree resource ABI. It is the neutral handoff layer used by dictionary, automaton, and WFST packages; it owns no algorithm-specific policy.
+This package exposes ownership-safe consumers and host-implementable providers
+for the stable Vinary Tree resource ABI. Start with the thorough
+[Go provider and consumer guide](../../docs/language-bindings/go-host-providers.md).
 
 <!-- BEGIN GENERATED BINDING OPERATIONS; DO NOT EDIT -->
 
@@ -24,15 +26,19 @@ and the [family hub](../../README.md) when combining independently packaged proj
 
 ## Package surface and verification
 
-[`resource.go`](resource.go) is the complete public package. The CI gate
-compiles it through the `/v4` module path with cgo enabled:
+The package is split by responsibility: [`resource.go`](resource.go) owns the
+portable base resource; [`lattice.go`](lattice.go), [`wfst.go`](wfst.go), and
+[`semiring.go`](semiring.go) implement the typed consumers and provider
+interfaces; and [`callbacks.go`](callbacks.go) contains the panic-safe ABI
+entry points. The CI gate compiles the entire `/v4` module with cgo enabled:
 
 ```sh
 go -C bindings/go test ./...
 ```
 
-Project-specific constructors live in their own modules; this neutral module
-only models and validates the shared resource handoff.
+The executable [`provider example`](examples/providers/main.go) constructs all
+three provider families through public APIs. Project-specific algorithms and
+dictionary constructors remain in their own modules.
 
 ## Public API and data model
 
@@ -45,6 +51,8 @@ The idiomatic facade groups the stable surface into these concepts:
 | Dictionary interface | Snapshot capture, node paging, finality, optional values, unit/value domains, and capability flags. |
 | Dictionary entries interface | Optional finite lexicographic stream over one captured revision, with bounded arena batches, exact generation leases, cancellation, and a reducer path. |
 | Scalar-WFST interface | Snapshot capture, start state, final weights, paged arcs, label/weight domains, and capability flags. |
+| Lattice interface | Immutable join, meet, equality, diagnostics, stable bytes, and bounded associative folds. |
+| Dynamic-semiring interfaces | Provider-scoped values, algebraic operations, optional division/star/numeric capabilities, declared laws, and exact token ownership. |
 
 Unit and value domains are explicit enum fields on the discovered interface; adapters must never infer them from host container types. Empty terms, embedded zero bytes, non-ASCII text, and the full
 unsigned 64-bit identifier range are represented explicitly; no facade may use

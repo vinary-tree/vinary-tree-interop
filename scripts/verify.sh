@@ -41,6 +41,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=bindings/python/src python3 -m unittest dis
   -s bindings/python/tests -v
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=bindings/python/src \
   python3 bindings/python/examples/host_providers.py
+GOWORK=off go -C bindings/go vet ./...
 GOWORK=off go -C bindings/go test ./...
 
 if [[ "${1:-}" == "--full" ]]; then

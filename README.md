@@ -97,6 +97,7 @@ counters — are the [ABI evolution policy](docs/abi-evolution.md).
 | [docs/npm-coordinate-migration.md](docs/npm-coordinate-migration.md) | The RC5 canonical npm identity, immutable RC4 compatibility policy, fail-closed publication sequence, and consumer migration. |
 | [bindings/cpp/README.md](bindings/cpp/README.md) | C++20 RAII consumption and mutex-free host-provider adapters for scalar WFSTs, lattice values, and generic semirings, with complete examples and failure/threading contracts. |
 | [bindings/dotnet/README.md](bindings/dotnet/README.md) | C# and F# collection usage plus lock-free managed host providers for scalar WFSTs, lattice values, and generic semirings, including optional algebraic capabilities and executable examples. |
+| [docs/language-bindings/go-host-providers.md](docs/language-bindings/go-host-providers.md) | Go consumers and cgo-backed customer providers for lattice values, immutable scalar WFSTs, and dynamic semirings, including exact ownership, non-blocking callback gates, bounded pages, and executable examples. |
 
 ## Language packages
 
