@@ -16,14 +16,14 @@ The shared `@vinary-tree/vinary-tree-interop` package also exports
 runtime guards. Those declarations establish one portable contract before
 backend-specific resource construction. Native Node-API, browser WebAssembly,
 and WASI now root `LatticeProvider` values through lling-llang's dynamic
-lattice consumer. Dynamic-semiring trampolines remain follow-up work;
-structural validation alone does not create a semiring resource.
+lattice consumer. The same three backends root `SemiringProvider` operation
+contexts and their provider-scoped values through dynamic-semiring trampolines.
 
 | Provider | Shared contract | Native/WASM/WASI resource construction |
 |---|---|---|
 | Scalar WFST | Complete | Complete |
 | Immutable lattice value | Complete structural contract | Complete |
-| Dynamic semiring | Complete structural contract | Not yet exposed |
+| Dynamic semiring | Complete structural contract | Complete |
 
 ## Complete example
 
@@ -253,7 +253,9 @@ The lattice and semiring structural guards run before a backend resource is
 created. They verify required methods and atomic optional groups, but operation
 results still require boundary-time type, domain, range, lifetime, and law
 validation. Lattice result providers are revalidated and renegotiate optional
-capabilities after every bound operation; semiring execution remains pending.
+capabilities after every bound operation. Semiring values remain bound to the
+exact operation context that issued their generation-checked token; every
+result is validated before it becomes visible to JavaScript.
 
 Calling the same provider recursively is rejected immediately. It does not
 block, acquire a process-wide provider lock, or poison the resource. Node
