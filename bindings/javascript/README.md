@@ -9,10 +9,18 @@ Project facades use `assertSameRuntime` before accepting a resource and use
 `assertDictionaryResource` to require `vt.dictionary.v1`. Concrete dictionary
 constructors and CRUD remain in `@vinary-tree/libdictenstein`.
 
-Applications can also implement an immutable scalar WFST directly in
-JavaScript or TypeScript. The complete method, paging, lifetime, failure, and
-backend contract is the
+Applications can also define immutable lattice values, dynamic semirings, and
+scalar weighted finite-state transducers (WFSTs) directly in JavaScript or
+TypeScript. The package exports structural TypeScript interfaces, fail-closed
+runtime guards, and canonical option normalizers for all three contracts.
+The complete method, paging, lifetime, failure, and backend contract is the
 [JavaScript host-provider guide](../../docs/language-bindings/javascript-host-providers.md).
+
+Scalar-WFST providers are executable through the native Node-API, browser
+WebAssembly, and Node WASI backends today. Lattice and semiring guards are the
+runtime-neutral contract boundary used while their backend trampolines are
+completed; constructing an executable lattice or semiring resource therefore
+remains unavailable from the JavaScript runtime in this release candidate.
 
 <!-- BEGIN GENERATED BINDING OPERATIONS; DO NOT EDIT -->
 
@@ -58,6 +66,8 @@ The idiomatic facade groups the stable surface into these concepts:
 | Dictionary interface | Snapshot capture, node paging, finality, optional values, unit/value domains, and capability flags. |
 | Dictionary entries interface | Optional finite lexicographic stream over one captured revision, with bounded arena batches, exact generation leases, cancellation, and a reducer path. |
 | Scalar-WFST interface | Snapshot capture, start state, final weights, paged arcs, label/weight domains, and capability flags. |
+| Lattice interface | Immutable join, meet, equality, diagnostics, optional canonical bytes, and optional bounded folds. |
+| Dynamic-semiring interfaces | Identities, algebra, comparison, optional canonical bytes and batches, optional division, closure, numerical projections, and declared laws. |
 
 Unit and value domains are explicit enum fields on the discovered interface; adapters must never infer them from host container types. Empty terms, embedded zero bytes, non-ASCII text, and the full
 unsigned 64-bit identifier range are represented explicitly; no facade may use

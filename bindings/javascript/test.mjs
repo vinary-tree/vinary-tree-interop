@@ -3,10 +3,16 @@ import test from "node:test";
 
 import {
   assertDictionaryResource,
+  assertLatticeProvider,
+  assertLatticeResource,
   assertSameRuntime,
   assertScalarWfstProvider,
+  assertSemiringProvider,
+  assertSemiringResource,
   assertWfstResource,
+  normalizeLatticeProviderOptions,
   normalizeScalarWfstProviderOptions,
+  normalizeSemiringProviderOptions,
 } from "./index.mjs";
 
 test("runtime identity prevents cross-instance handles", () => {
@@ -40,6 +46,16 @@ test("scalar WFST resources are independently versioned", () => {
     /vt\.scalar-wfst\.1/,
   );
   assert.throws(() => assertDictionaryResource(resource), /vt\.dictionary\.v1/);
+});
+
+test("lattice and semiring resources retain distinct negotiated identities", () => {
+  const base = { runtimeIdentity: {}, domainId: "example.domain.1", close() {} };
+  const lattice = { ...base, interfaceId: "vt.lattice.val.1" };
+  const semiring = { ...base, interfaceId: "vt.semiring.val1" };
+  assert.doesNotThrow(() => assertLatticeResource(lattice));
+  assert.doesNotThrow(() => assertSemiringResource(semiring));
+  assert.throws(() => assertLatticeResource(semiring), /vt\.lattice\.val\.1/);
+  assert.throws(() => assertSemiringResource(lattice), /vt\.semiring\.val1/);
 });
 
 test("scalar WFST provider validation is structural and fail closed", () => {
@@ -80,4 +96,68 @@ test("scalar WFST provider options have one validated cross-runtime normalizatio
   assert.throws(() => normalizeScalarWfstProviderOptions({ unitDomain: "utf16" }), /unit domain/);
   assert.throws(() => normalizeScalarWfstProviderOptions({ weightDomain: "mystery" }), /weight domain/);
   assert.throws(() => normalizeScalarWfstProviderOptions({ lazy: 1 }), /lazy must be boolean/);
+});
+
+test("lattice provider validation requires coherent optional batches", () => {
+  const provider = {
+    join: () => provider,
+    meet: () => provider,
+    equal: () => true,
+    diagnostic: () => "maximum(3)",
+    stableBytes: () => new Uint8Array([3]),
+    joinMany: () => provider,
+    meetMany: () => provider,
+  };
+  assert.doesNotThrow(() => assertLatticeProvider(provider));
+  assert.throws(() => assertLatticeProvider({ ...provider, equal: null }), /equal/);
+  assert.throws(() => assertLatticeProvider({ ...provider, meetMany: undefined }), /together/);
+  assert.deepEqual(normalizeLatticeProviderOptions({ domainId: "example.domain.1" }), {
+    domainId: "example.domain.1",
+  });
+  assert.throws(() => normalizeLatticeProviderOptions({ domainId: "short" }), /16 printable/);
+});
+
+test("semiring provider validation keeps optional capability groups sound", () => {
+  const provider = {
+    zero: () => Infinity,
+    one: () => 0,
+    plus: Math.min,
+    times: (left, right) => left + right,
+    equal: Object.is,
+    approximatelyEqual: (left, right, epsilon) => Math.abs(left - right) <= epsilon,
+    naturalOrder: (left, right) => left < right ? "better" : left > right ? "worse" : "equal",
+    diagnostic: String,
+    stableBytes: (value) => new TextEncoder().encode(String(value)),
+    plusMany: (values) => Math.min(...values),
+    timesMany: (values) => values.reduce((sum, value) => sum + value, 0),
+    divide: (left, right) => left - right,
+    leftDivide: (left, right) => left - right,
+    star: (value) => value >= 0 ? 0 : null,
+    numericalValue: Number,
+    quantize: (value, epsilon) => BigInt(Math.round(value / epsilon)),
+    toProbability: (value) => Math.exp(-value),
+  };
+  assert.doesNotThrow(() => assertSemiringProvider(provider));
+  assert.throws(() => assertSemiringProvider({ ...provider, leftDivide: undefined }), /together/);
+  assert.throws(() => assertSemiringProvider({ ...provider, toProbability: undefined }), /together/);
+  const options = normalizeSemiringProviderOptions({
+    domainId: "demo.semiring.01",
+    properties: ["totally-ordered", "idempotent-plus", "totally-ordered"],
+    closureBound: null,
+  });
+  assert.deepEqual(options, {
+    domainId: "demo.semiring.01",
+    properties: ["idempotent-plus", "totally-ordered"],
+    closureBound: null,
+  });
+  assert.equal(Object.isFrozen(options), true);
+  assert.equal(Object.isFrozen(options.properties), true);
+  assert.throws(
+    () => normalizeSemiringProviderOptions({ domainId: "demo.semiring.01", closureBound: 4n }),
+    /k-closed/,
+  );
+  assert.throws(
+    () => normalizeSemiringProviderOptions({ domainId: "demo.semiring.01", properties: ["field"] }),
+    /unknown semiring property/,
+  );
 });

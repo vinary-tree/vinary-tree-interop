@@ -1,13 +1,29 @@
 # JavaScript and TypeScript host providers
 
-JavaScript, TypeScript, and ClojureScript applications can define an immutable
-scalar weighted finite-state transducer (WFST) in host code and pass it to the
-same lling-llang algorithms that consume Rust-owned WFSTs. The supported
-runtime surfaces are Node-API, browser WebAssembly, and Node WASI Preview 1.
+JavaScript and TypeScript applications can define immutable lattice values,
+dynamic semirings, and scalar weighted finite-state transducers (WFSTs) in host
+code. Scalar WFSTs can be passed to the same lling-llang algorithms that
+consume Rust-owned WFSTs through Node-API, browser WebAssembly, and Node WASI
+Preview 1. ClojureScript can use the same JavaScript runtime objects, but its
+idiomatic protocol facade is tracked separately.
 
 Use a host provider when transitions already live in JavaScript, when a graph
 is computed lazily, or when an application-specific transducer should compose
 with duallity without first rebuilding a `VectorWfst`.
+
+The shared `@vinary-tree/vinary-tree-interop` package also exports
+`LatticeProvider`, `SemiringProvider<Value>`, their option types, and matching
+runtime guards. Those declarations establish one portable contract before
+backend-specific resource construction. Executable lattice and semiring
+trampolines are not yet exposed by `@vinary-tree/javascript-runtime`; the
+guards deliberately reject incoherent capabilities now without implying that
+validation alone creates a native resource.
+
+| Provider | Shared contract | Native/WASM/WASI resource construction |
+|---|---|---|
+| Scalar WFST | Complete | Complete |
+| Immutable lattice value | Complete structural contract | Not yet exposed |
+| Dynamic semiring | Complete structural contract | Not yet exposed |
 
 ## Complete example
 
@@ -83,6 +99,110 @@ contain at most `capacity` arcs; `total` must remain stable throughout one
 state expansion; and a nonterminal page must make progress. Results are
 validated and copied transactionally before the runtime publishes them.
 
+## Lattice provider contract
+
+A lattice models two order-theoretic bounds over immutable values: `join`
+returns the least upper bound and `meet` returns the greatest lower bound.
+The provider receives a callback-lexical `LatticeOperand`, not an untyped raw
+pointer. The operand exposes its 16-byte domain identity, an optional local
+JavaScript value, and optional canonical bytes. It becomes invalid when the
+callback returns.
+
+```ts
+import {
+  assertLatticeProvider,
+  normalizeLatticeProviderOptions,
+  type LatticeOperand,
+  type LatticeProvider,
+} from "@vinary-tree/vinary-tree-interop";
+
+class Maximum implements LatticeProvider {
+  constructor(readonly value: number) {}
+
+  join(other: LatticeOperand): Maximum {
+    const right = other.localValue();
+    if (!(right instanceof Maximum)) throw new TypeError("foreign maximum value");
+    return new Maximum(Math.max(this.value, right.value));
+  }
+
+  meet(other: LatticeOperand): Maximum {
+    const right = other.localValue();
+    if (!(right instanceof Maximum)) throw new TypeError("foreign maximum value");
+    return new Maximum(Math.min(this.value, right.value));
+  }
+
+  equal(other: LatticeOperand): boolean {
+    const right = other.localValue();
+    return right instanceof Maximum && right.value === this.value;
+  }
+
+  diagnostic(): string {
+    return `maximum(${this.value})`;
+  }
+}
+
+const value = new Maximum(3);
+assertLatticeProvider(value);
+const options = normalizeLatticeProviderOptions({
+  domainId: "example.maximum1",
+});
+```
+
+`stableBytes()` is optional and must return a fresh or immutable
+`Uint8Array` containing a canonical encoding. `joinMany()` and `meetMany()`
+are an optional pair: implementing only one would advertise an incoherent
+bounded-batch capability, so both guards reject it.
+
+## Dynamic semiring contract
+
+A semiring combines alternative paths with `plus` and sequential path segments
+with `times`. `zero` and `one` are their respective identities. Host values
+remain ordinary immutable JavaScript values; a runtime adapter owns the
+provider-scoped generational tokens required by `VtSemiringValue`.
+
+```ts
+import {
+  assertSemiringProvider,
+  normalizeSemiringProviderOptions,
+  type SemiringProvider,
+  type SemiringOrder,
+} from "@vinary-tree/vinary-tree-interop";
+
+class Tropical implements SemiringProvider<number> {
+  zero(): number { return Infinity; }
+  one(): number { return 0; }
+  plus(left: number, right: number): number { return Math.min(left, right); }
+  times(left: number, right: number): number { return left + right; }
+  equal(left: number, right: number): boolean { return Object.is(left, right); }
+  approximatelyEqual(left: number, right: number, epsilon: number): boolean {
+    return Math.abs(left - right) <= epsilon;
+  }
+  naturalOrder(left: number, right: number): SemiringOrder {
+    return left < right ? "better" : left > right ? "worse" : "equal";
+  }
+  diagnostic(value?: number): string { return String(value); }
+  numericalValue(value: number): number { return value; }
+  quantize(value: number, epsilon: number): bigint {
+    return BigInt(Math.round(value / epsilon));
+  }
+  toProbability(value: number): number { return Math.exp(-value); }
+}
+
+const weights = new Tropical();
+assertSemiringProvider(weights);
+const options = normalizeSemiringProviderOptions({
+  domainId: "demo.tropical.01",
+  properties: ["idempotent-plus", "totally-ordered", "nonnegative"],
+});
+```
+
+Optional capability groups are atomic. `plusMany` pairs with `timesMany`,
+`divide` pairs with `leftDivide`, and `numericalValue`, `quantize`, and
+`toProbability` form one numerical group. `star` and `stableBytes` are
+independent. A non-null `closureBound` is legal only with the `k-closed` law.
+Law names are semantic claims, not optimization hints: consuming algorithms
+must validate representative values before selecting a specialized path.
+
 ## Options and capability claims
 
 | Option | Default | Meaning |
@@ -97,7 +217,7 @@ parallel/reentrant callbacks for a JavaScript provider: one JavaScript object
 belongs to one agent or event loop. A false `acyclic` value is conservative;
 an incorrect true claim is a provider contract violation.
 
-## Backend ownership model
+## Scalar-WFST backend ownership model
 
 ![A JavaScript provider is validated, rooted by its runtime-specific handle, retained by a scalar-WFST resource, called through bounded pages, and released after the last source or composition closes.](../diagrams/javascript-wfst-provider-sequence.svg)
 
@@ -119,6 +239,11 @@ backend translates them to `ProviderError`; provider-private exception text is
 not treated as a portable error protocol. After failure, the callback gate is
 cleared and later calls may succeed.
 
+The lattice and semiring structural guards run before any future backend
+resource is created. They verify required methods and atomic optional groups,
+but operation results still require boundary-time type, domain, range,
+lifetime, and law validation.
+
 Calling the same provider recursively is rejected immediately. It does not
 block, acquire a process-wide provider lock, or poison the resource. Node
 cleanup may execute off the JavaScript thread, so it is scheduled through a
@@ -137,14 +262,31 @@ compact, avoid allocating intermediate object graphs in hot callbacks, and do
 not memoize without a strict capacity and an eviction policy. Built-in Rust
 WFSTs retain their monomorphized path and do not pay JavaScript callback cost.
 
+For lattice and semiring implementations, provide bounded batch methods when
+the host calculation can avoid intermediate allocations. A runtime adapter
+must still cap every batch, copy callback-lexical views before they escape, and
+retain specialized Rust implementations whenever dynamic dispatch loses
+materially.
+
 ## Testing a provider
 
-At minimum, test empty and final states, epsilon arcs, the domain boundaries
+For scalar WFSTs, test empty and final states, epsilon arcs, the domain boundaries
 0/255 and 0/$`2^{64}-1`$, invalid state IDs, a page boundary above 256 arcs,
 an exception followed by recovery, reentrant entry, source close during a
 callback, composition after source close, and repeated close. The runtime's
 conformance suite exercises all these cases plus stale-generation rejection
 and steady-state memory behavior.
+
+For lattices, test associativity, commutativity, idempotence, absorption,
+domain mismatch, escaped operands, canonical-byte coherence, and both batch
+folds. For semirings, test both identities, associativity, distributivity,
+declared optional laws, undefined division or closure, stale tokens, bounded
+batches, and malformed numerical projections. Structural contract tests run
+with:
+
+```sh
+npm test --prefix bindings/javascript
+```
 
 Run the relevant gates from the JavaScript runtime repository:
 
