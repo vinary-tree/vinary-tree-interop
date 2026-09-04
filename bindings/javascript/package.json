@@ -37,7 +37,7 @@
     "tag": "next"
   },
   "scripts": {
-    "test": "node --test test.mjs",
+    "test": "node --test test.mjs test.cjs",
     "prepack": "npm test"
   }
 }

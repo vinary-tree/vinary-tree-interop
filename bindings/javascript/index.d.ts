@@ -37,6 +37,44 @@ export interface WfstResource extends Resource {
   readonly weightDomain: WeightDomain;
 }
 
+/** Metadata returned for one provider-scoped scalar-WFST state. */
+export interface WfstProviderStateInfo {
+  readonly valid: boolean;
+  readonly final: boolean;
+  readonly finalWeight: number;
+}
+
+/** One host-defined scalar-WFST arc; null labels denote epsilon. */
+export interface WfstProviderArc {
+  readonly input: string | number | bigint | null;
+  readonly output: string | number | bigint | null;
+  readonly target: bigint;
+  readonly weight: number;
+}
+
+/** One bounded arc page and the immutable complete outgoing-arc count. */
+export interface WfstProviderArcPage {
+  readonly arcs: readonly WfstProviderArc[];
+  readonly total: bigint;
+}
+
+/** Immutable scalar WFST implemented by JavaScript or TypeScript code. */
+export interface ScalarWfstProvider {
+  startState(): bigint;
+  stateCount(): bigint | null;
+  stateInfo(state: bigint): WfstProviderStateInfo;
+  stateArcs(state: bigint): readonly WfstProviderArc[];
+  stateArcsPage?(state: bigint, start: bigint, capacity: number): WfstProviderArcPage;
+}
+
+/** Runtime-neutral declaration captured when a host WFST is published. */
+export interface ScalarWfstProviderOptions {
+  readonly unitDomain?: UnitDomain;
+  readonly weightDomain?: WeightDomain;
+  readonly lazy?: boolean;
+  readonly acyclic?: boolean;
+}
+
 /** Rejects handles created by a different native/WASM/WASI runtime instance. */
 export function assertSameRuntime(
   resource: Resource,
@@ -48,3 +86,11 @@ export function assertDictionaryResource(resource: Resource): asserts resource i
 
 /** Narrows a generic resource to the version-1 scalar WFST interface. */
 export function assertWfstResource(resource: Resource): asserts resource is WfstResource;
+
+/** Validates the structural JavaScript/TypeScript scalar-WFST provider contract. */
+export function assertScalarWfstProvider(provider: unknown): asserts provider is ScalarWfstProvider;
+
+/** Validates options and fills the runtime-neutral defaults. */
+export function normalizeScalarWfstProviderOptions(
+  options?: ScalarWfstProviderOptions,
+): Readonly<Required<ScalarWfstProviderOptions>>;

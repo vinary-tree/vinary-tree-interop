@@ -1,0 +1,46 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequence {
+  ArrowColor #24527A
+  LifeLineBorderColor #24527A
+  LifeLineBackgroundColor #EAF3F8
+  ParticipantBorderColor #24527A
+  ParticipantBackgroundColor #DCEFF8
+  ParticipantFontColor #172B3A
+}
+
+actor Application as app
+participant "JavaScript provider" as provider
+participant "Runtime guard" as guard
+participant "Rooted backend handle" as root
+participant "vt.scalar-wfst.1" as resource
+participant "lling-llang composition" as composition
+
+app -> guard: scalarWfst(provider, options)
+guard -> guard: validate methods, domains, and claims
+guard -> root: root provider object
+root -> resource: publish immutable retained resource
+resource --> app: closeable Wfst
+
+app -> composition: compose(source, other)
+composition -> resource: retain snapshot
+app -> resource: close source
+resource -> root: retain remains live
+
+composition -> resource: stateInfo(state)
+resource -> root: enter nonblocking callback gate
+root -> provider: stateInfo(state)
+provider --> root: validated metadata
+root --> resource: status and copied values
+
+composition -> resource: stateArcs(state, offset, 256)
+resource -> root: enter callback gate
+root -> provider: stateArcsPage(state, offset, 256)
+provider --> root: bounded arcs and stable total
+root --> resource: transactionally copied page
+
+app -> composition: close
+composition -> resource: release final snapshot
+resource -> root: release provider root
+root -> provider: object becomes collectible
+@enduml

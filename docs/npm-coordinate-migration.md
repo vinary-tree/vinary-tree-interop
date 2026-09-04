@@ -54,7 +54,7 @@ Replace the dependency key and import specifier together:
 ```json
 {
   "dependencies": {
-    "@vinary-tree/vinary-tree-interop": "4.0.0-rc.5"
+    "@vinary-tree/vinary-tree-interop": "4.0.0-rc.6"
   }
 }
 ```

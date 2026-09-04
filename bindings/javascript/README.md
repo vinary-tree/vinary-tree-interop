@@ -9,6 +9,11 @@ Project facades use `assertSameRuntime` before accepting a resource and use
 `assertDictionaryResource` to require `vt.dictionary.v1`. Concrete dictionary
 constructors and CRUD remain in `@vinary-tree/libdictenstein`.
 
+Applications can also implement an immutable scalar WFST directly in
+JavaScript or TypeScript. The complete method, paging, lifetime, failure, and
+backend contract is the
+[JavaScript host-provider guide](../../docs/language-bindings/javascript-host-providers.md).
+
 <!-- BEGIN GENERATED BINDING OPERATIONS; DO NOT EDIT -->
 
 ## Support and package contract
