@@ -16,11 +16,11 @@ runtime guards, and canonical option normalizers for all three contracts.
 The complete method, paging, lifetime, failure, and backend contract is the
 [JavaScript host-provider guide](../../docs/language-bindings/javascript-host-providers.md).
 
-Scalar-WFST providers are executable through the native Node-API, browser
-WebAssembly, and Node WASI backends today. Lattice and semiring guards are the
+Scalar-WFST and lattice providers are executable through the native Node-API,
+browser WebAssembly, and Node WASI backends today. Semiring guards are the
 runtime-neutral contract boundary used while their backend trampolines are
-completed; constructing an executable lattice or semiring resource therefore
-remains unavailable from the JavaScript runtime in this release candidate.
+completed; constructing an executable dynamic semiring resource remains
+unavailable from the JavaScript runtime in this release candidate.
 
 <!-- BEGIN GENERATED BINDING OPERATIONS; DO NOT EDIT -->
 

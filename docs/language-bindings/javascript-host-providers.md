@@ -14,15 +14,15 @@ with duallity without first rebuilding a `VectorWfst`.
 The shared `@vinary-tree/vinary-tree-interop` package also exports
 `LatticeProvider`, `SemiringProvider<Value>`, their option types, and matching
 runtime guards. Those declarations establish one portable contract before
-backend-specific resource construction. The native Node-API runtime now roots
-`LatticeProvider` values through lling-llang's dynamic lattice consumer.
-Browser WebAssembly, WASI, and dynamic-semiring trampolines remain follow-up
-work; structural validation alone does not create a native resource.
+backend-specific resource construction. Native Node-API, browser WebAssembly,
+and WASI now root `LatticeProvider` values through lling-llang's dynamic
+lattice consumer. Dynamic-semiring trampolines remain follow-up work;
+structural validation alone does not create a semiring resource.
 
 | Provider | Shared contract | Native/WASM/WASI resource construction |
 |---|---|---|
 | Scalar WFST | Complete | Complete |
-| Immutable lattice value | Complete structural contract | Native Node-API complete; browser/WASI pending |
+| Immutable lattice value | Complete structural contract | Complete |
 | Dynamic semiring | Complete structural contract | Not yet exposed |
 
 ## Complete example
@@ -156,7 +156,7 @@ using rooted = llingLlang.lattice(value, options);
 are an optional pair: implementing only one would advertise an incoherent
 bounded-batch capability, so both guards reject it.
 
-The native resource implements `join`, `meet`, `equal`, `stableBytes`,
+Each backend resource implements `join`, `meet`, `equal`, `stableBytes`,
 `diagnostic`, `joinMany`, `meetMany`, `close`, and `Symbol.dispose`. Result
 providers may add or drop optional stable-byte and batch capabilities; every
 intermediate is renegotiated, and a batch fold resumes pairwise when needed.
@@ -249,10 +249,11 @@ backend translates them to `ProviderError`; provider-private exception text is
 not treated as a portable error protocol. After failure, the callback gate is
 cleared and later calls may succeed.
 
-The lattice and semiring structural guards run before any future backend
-resource is created. They verify required methods and atomic optional groups,
-but operation results still require boundary-time type, domain, range,
-lifetime, and law validation.
+The lattice and semiring structural guards run before a backend resource is
+created. They verify required methods and atomic optional groups, but operation
+results still require boundary-time type, domain, range, lifetime, and law
+validation. Lattice result providers are revalidated and renegotiate optional
+capabilities after every bound operation; semiring execution remains pending.
 
 Calling the same provider recursively is rejected immediately. It does not
 block, acquire a process-wide provider lock, or poison the resource. Node
