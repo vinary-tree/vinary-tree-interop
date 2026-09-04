@@ -52,11 +52,11 @@ export interface SemiringResource extends Resource {
   readonly domainId: ProviderDomainId;
 }
 
-/** Callback-lexical view of a compatible immutable lattice operand. */
+/** Eagerly copied view of a compatible immutable lattice operand. */
 export interface LatticeOperand {
   readonly domainId: ProviderDomainId;
-  localValue(): LatticeProvider | null;
-  stableBytes(): Uint8Array | null;
+  readonly localValue: LatticeProvider | null;
+  readonly stableBytes: Uint8Array | null;
 }
 
 /** One immutable lattice value implemented by JavaScript or TypeScript. */

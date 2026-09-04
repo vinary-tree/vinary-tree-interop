@@ -14,15 +14,15 @@ with duallity without first rebuilding a `VectorWfst`.
 The shared `@vinary-tree/vinary-tree-interop` package also exports
 `LatticeProvider`, `SemiringProvider<Value>`, their option types, and matching
 runtime guards. Those declarations establish one portable contract before
-backend-specific resource construction. Executable lattice and semiring
-trampolines are not yet exposed by `@vinary-tree/javascript-runtime`; the
-guards deliberately reject incoherent capabilities now without implying that
-validation alone creates a native resource.
+backend-specific resource construction. The native Node-API runtime now roots
+`LatticeProvider` values through lling-llang's dynamic lattice consumer.
+Browser WebAssembly, WASI, and dynamic-semiring trampolines remain follow-up
+work; structural validation alone does not create a native resource.
 
 | Provider | Shared contract | Native/WASM/WASI resource construction |
 |---|---|---|
 | Scalar WFST | Complete | Complete |
-| Immutable lattice value | Complete structural contract | Not yet exposed |
+| Immutable lattice value | Complete structural contract | Native Node-API complete; browser/WASI pending |
 | Dynamic semiring | Complete structural contract | Not yet exposed |
 
 ## Complete example
@@ -103,12 +103,13 @@ validated and copied transactionally before the runtime publishes them.
 
 A lattice models two order-theoretic bounds over immutable values: `join`
 returns the least upper bound and `meet` returns the greatest lower bound.
-The provider receives a callback-lexical `LatticeOperand`, not an untyped raw
+The provider receives an eagerly copied `LatticeOperand`, not an untyped raw
 pointer. The operand exposes its 16-byte domain identity, an optional local
-JavaScript value, and optional canonical bytes. It becomes invalid when the
-callback returns.
+JavaScript value, and optional canonical bytes. No native pointer or borrowed
+buffer can escape through this object.
 
 ```ts
+import { llingLlang } from "@vinary-tree/javascript-runtime";
 import {
   assertLatticeProvider,
   normalizeLatticeProviderOptions,
@@ -120,19 +121,19 @@ class Maximum implements LatticeProvider {
   constructor(readonly value: number) {}
 
   join(other: LatticeOperand): Maximum {
-    const right = other.localValue();
+    const right = other.localValue;
     if (!(right instanceof Maximum)) throw new TypeError("foreign maximum value");
     return new Maximum(Math.max(this.value, right.value));
   }
 
   meet(other: LatticeOperand): Maximum {
-    const right = other.localValue();
+    const right = other.localValue;
     if (!(right instanceof Maximum)) throw new TypeError("foreign maximum value");
     return new Maximum(Math.min(this.value, right.value));
   }
 
   equal(other: LatticeOperand): boolean {
-    const right = other.localValue();
+    const right = other.localValue;
     return right instanceof Maximum && right.value === this.value;
   }
 
@@ -146,12 +147,21 @@ assertLatticeProvider(value);
 const options = normalizeLatticeProviderOptions({
   domainId: "example.maximum1",
 });
+
+using rooted = llingLlang.lattice(value, options);
 ```
 
 `stableBytes()` is optional and must return a fresh or immutable
 `Uint8Array` containing a canonical encoding. `joinMany()` and `meetMany()`
 are an optional pair: implementing only one would advertise an incoherent
 bounded-batch capability, so both guards reject it.
+
+The native resource implements `join`, `meet`, `equal`, `stableBytes`,
+`diagnostic`, `joinMany`, `meetMany`, `close`, and `Symbol.dispose`. Result
+providers may add or drop optional stable-byte and batch capabilities; every
+intermediate is renegotiated, and a batch fold resumes pairwise when needed.
+`llingLlang.validateLatticeLaws(values)` checks idempotence, commutativity,
+associativity, and absorption over one to sixteen representative values.
 
 ## Dynamic semiring contract
 
