@@ -149,15 +149,20 @@ is a claim to test, not permission to assume arbitrary host code is lawful.
 
 ## ABI verification
 
-The C header is the single source for Raku's raw ABI. The generator derives all
-representable `CStruct` declarations and typed vtable casts, then emits a
-tab-separated capability inventory containing C and NativeCall signatures,
+The C header is the single source for Julia's and Raku's raw ABIs. The generator
+derives Julia `struct` layouts and typed `ccall` adapters alongside Raku
+`CStruct` layouts and typed NativeCall casts. It then emits a tab-separated
+capability inventory containing the C, Julia, and Raku names and signatures,
 interface versions and identities, parameter direction and ownership, and
-threading constraints. A negative control perturbs the generated callback count
-and proves that byte-for-byte freshness detects the change. Hand-authored Raku
-code is limited to collection, ownership, validation, and provider ergonomics;
-the generator rejects a raw layout or typed callback cast outside its owned
-region.
+threading constraints.
+
+Freshness compares every generated region byte for byte. Negative controls
+perturb both languages' generated callable counts and prove that the committed
+output becomes stale. A separate negative control injects a synthetic Julia
+`ccall` signature outside the generated region and proves that handwritten ABI
+duplication is rejected. Hand-authored code in both languages is therefore
+limited to collection, ownership, validation, and provider ergonomics; raw
+layouts and foreign-call signatures stay coupled to the authoritative header.
 
 The test fixture is compiled from the authoritative C header. Julia checks
 `sizeof` for every ABI type against C, while Raku checks `nativesizeof` against

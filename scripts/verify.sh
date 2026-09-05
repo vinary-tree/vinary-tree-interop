@@ -46,6 +46,7 @@ GOWORK=off go -C bindings/go test ./...
 
 if [[ "${1:-}" == "--full" ]]; then
   raku scripts/generate-bindings.raku --check
+  raku scripts/generate-bindings.raku --self-test
   dotnet build bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj \
     --configuration Release -p:NuGetAudit=false -m:1
   dotnet run \

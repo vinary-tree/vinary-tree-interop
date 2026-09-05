@@ -241,9 +241,11 @@ function Base.showerror(io::IO, error::InteropError)
         " failed with ", error.status)
 end
 
+# BEGIN GENERATED ABI INTERFACE ID LAYOUT
 struct VtInterfaceId
     bytes::NTuple{16, UInt8}
 end
+# END GENERATED ABI INTERFACE ID LAYOUT
 
 interface_id(value::AbstractString) = begin
     bytes = codeunits(value)
@@ -266,6 +268,7 @@ const SEMIRING_NUMERIC_INTERFACE_ID = interface_id("vt.semiring.num1")
 const SEMIRING_PROPERTIES_INTERFACE_ID = interface_id("vt.semiring.prp1")
 # END GENERATED ABI INTERFACE IDS
 
+# BEGIN GENERATED ABI LAYOUTS AND CALLABLES
 struct VtResourceVTable
     struct_size::Csize_t
     abi_version::UInt32
@@ -273,11 +276,6 @@ struct VtResourceVTable
     retain::Ptr{Cvoid}
     release::Ptr{Cvoid}
     query_interface::Ptr{Cvoid}
-end
-
-struct VtResourceRaw
-    context::Ptr{Cvoid}
-    vtable::Ptr{VtResourceVTable}
 end
 
 struct VtOptionalU64
@@ -400,11 +398,6 @@ struct VtDictionaryEntriesInfo
     reserved::NTuple{2, UInt64}
 end
 
-struct VtDictionaryEntriesCursorRaw
-    context::Ptr{Cvoid}
-    vtable::Ptr{Cvoid}
-end
-
 struct VtDictionaryEntriesVTable
     struct_size::Csize_t
     interface_version::UInt32
@@ -514,6 +507,290 @@ struct VtSemiringPropertiesVTable
     closure_bound::Ptr{Cvoid}
 end
 
+struct VtResourceRaw
+    context::Ptr{Cvoid}
+    vtable::Ptr{VtResourceVTable}
+end
+
+struct VtDictionaryEntriesCursorRaw
+    context::Ptr{Cvoid}
+    vtable::Ptr{VtDictionaryEntriesVTable}
+end
+
+macro abi_cfunction_dictionary_entry_reducer(callback)
+    esc(:(@cfunction($callback, Cint, (Ptr{Cvoid}, Ptr{VtDictionaryEntryBatchView}))))
+end
+
+@inline function abi_call_resource_retain(address::Ptr{Cvoid}, context)
+    ccall(address, Cvoid, (Ptr{Cvoid},), context)
+end
+
+@inline function abi_call_resource_release(address::Ptr{Cvoid}, context)
+    ccall(address, Cvoid, (Ptr{Cvoid},), context)
+end
+
+@inline function abi_call_resource_query_interface(address::Ptr{Cvoid}, context, interface_id, minimum_version, out_vtable)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtInterfaceId}, UInt32, Ptr{Ptr{Cvoid}}), context, interface_id, minimum_version, out_vtable)
+end
+
+@inline function abi_call_dictionary_snapshot(address::Ptr{Cvoid}, context, out_snapshot)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}), context, out_snapshot)
+end
+
+@inline function abi_call_dictionary_root(address::Ptr{Cvoid}, context, out_node)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{UInt64}), context, out_node)
+end
+
+@inline function abi_call_dictionary_len(address::Ptr{Cvoid}, context, out_len, out_known)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}), context, out_len, out_known)
+end
+
+@inline function abi_call_dictionary_node_is_final(address::Ptr{Cvoid}, context, node, out_is_final)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Ref{UInt8}), context, node, out_is_final)
+end
+
+@inline function abi_call_dictionary_node_value_u64(address::Ptr{Cvoid}, context, node, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Ref{VtOptionalU64}), context, node, out_value)
+end
+
+@inline function abi_call_dictionary_node_transition(address::Ptr{Cvoid}, context, node, label, out_child, out_found)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, UInt64, Ref{UInt64}, Ref{UInt8}), context, node, label, out_child, out_found)
+end
+
+@inline function abi_call_dictionary_node_edges(address::Ptr{Cvoid}, context, node, start, out_edges, capacity, out_written, out_total)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Csize_t, Ptr{VtDictionaryEdge}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, node, start, out_edges, capacity, out_written, out_total)
+end
+
+@inline function abi_call_dictionary_visit_node_visit(address::Ptr{Cvoid}, context, node, start, out_is_final, out_edges, capacity, out_written, out_total)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Csize_t, Ref{UInt8}, Ptr{VtDictionaryEdge}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, node, start, out_is_final, out_edges, capacity, out_written, out_total)
+end
+
+@inline function abi_call_dictionary_graph_graph(address::Ptr{Cvoid}, context, out_graph)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtDictionaryGraphView}), context, out_graph)
+end
+
+@inline function abi_call_dictionary_graph_node_value_u64(address::Ptr{Cvoid}, context, value_cursor, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Ref{VtOptionalU64}), context, value_cursor, out_value)
+end
+
+@inline function abi_call_snapshot_identity_identity(address::Ptr{Cvoid}, context, out_identity)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{SnapshotIdentity}), context, out_identity)
+end
+
+@inline function abi_call_dictionary_entries_open(address::Ptr{Cvoid}, resource_context, out_cursor, out_info)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtDictionaryEntriesCursorRaw}, Ref{VtDictionaryEntriesInfo}), resource_context, out_cursor, out_info)
+end
+
+@inline function abi_call_dictionary_entries_next_batch(address::Ptr{Cvoid}, cursor, limits, out_batch)
+    ccall(address, Cint, (Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits}, Ref{VtDictionaryEntryBatchView}), cursor, limits, out_batch)
+end
+
+@inline function abi_call_dictionary_entries_release_batch(address::Ptr{Cvoid}, cursor, generation)
+    ccall(address, Cint, (Ref{VtDictionaryEntriesCursorRaw}, UInt64), cursor, generation)
+end
+
+@inline function abi_call_dictionary_entries_reduce(address::Ptr{Cvoid}, cursor, limits, reducer, reducer_context, out_count)
+    ccall(address, Cint, (Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits}, Ptr{Cvoid}, Ptr{Cvoid}, Ref{Csize_t}), cursor, limits, reducer, reducer_context, out_count)
+end
+
+@inline function abi_call_dictionary_entries_cancel(address::Ptr{Cvoid}, cursor)
+    ccall(address, Cint, (Ref{VtDictionaryEntriesCursorRaw},), cursor)
+end
+
+@inline function abi_call_dictionary_entries_close(address::Ptr{Cvoid}, cursor)
+    ccall(address, Cint, (Ref{VtDictionaryEntriesCursorRaw},), cursor)
+end
+
+@inline function abi_call_wfst_snapshot(address::Ptr{Cvoid}, context, out_snapshot)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}), context, out_snapshot)
+end
+
+@inline function abi_call_wfst_start(address::Ptr{Cvoid}, context, out_state)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{UInt64}), context, out_state)
+end
+
+@inline function abi_call_wfst_num_states(address::Ptr{Cvoid}, context, out_count, out_known)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}), context, out_count, out_known)
+end
+
+@inline function abi_call_wfst_state_info(address::Ptr{Cvoid}, context, state, out_valid, out_is_final, out_final_weight)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Ref{UInt8}, Ref{UInt8}, Ref{Float64}), context, state, out_valid, out_is_final, out_final_weight)
+end
+
+@inline function abi_call_wfst_state_arcs(address::Ptr{Cvoid}, context, state, start, out_arcs, capacity, out_written, out_total)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Csize_t, Ptr{VtWfstArc}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, state, start, out_arcs, capacity, out_written, out_total)
+end
+
+@inline function abi_call_lattice_join(address::Ptr{Cvoid}, context, other, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{VtResourceRaw}), context, other, out_value)
+end
+
+@inline function abi_call_lattice_meet(address::Ptr{Cvoid}, context, other, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{VtResourceRaw}), context, other, out_value)
+end
+
+@inline function abi_call_lattice_equal(address::Ptr{Cvoid}, context, other, out_equal)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{UInt8}), context, other, out_equal)
+end
+
+@inline function abi_call_lattice_stable_bytes(address::Ptr{Cvoid}, context, out_bytes, capacity, out_written, out_required)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, out_bytes, capacity, out_written, out_required)
+end
+
+@inline function abi_call_lattice_diagnostic(address::Ptr{Cvoid}, context, out_bytes, capacity, out_written, out_required)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, out_bytes, capacity, out_written, out_required)
+end
+
+@inline function abi_call_lattice_join_many(address::Ptr{Cvoid}, context, others, count, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{VtResourceRaw}, Csize_t, Ref{VtResourceRaw}), context, others, count, out_value)
+end
+
+@inline function abi_call_lattice_meet_many(address::Ptr{Cvoid}, context, others, count, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{VtResourceRaw}, Csize_t, Ref{VtResourceRaw}), context, others, count, out_value)
+end
+
+@inline function abi_call_semiring_zero(address::Ptr{Cvoid}, context, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}), context, out_value)
+end
+
+@inline function abi_call_semiring_one(address::Ptr{Cvoid}, context, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}), context, out_value)
+end
+
+@inline function abi_call_semiring_clone_value(address::Ptr{Cvoid}, context, value, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}), context, value, out_value)
+end
+
+@inline function abi_call_semiring_release_values(address::Ptr{Cvoid}, context, values, count)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{VtSemiringValue}, Csize_t), context, values, count)
+end
+
+@inline function abi_call_semiring_plus(address::Ptr{Cvoid}, context, left, right, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}), context, left, right, out_value)
+end
+
+@inline function abi_call_semiring_times(address::Ptr{Cvoid}, context, left, right, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}), context, left, right, out_value)
+end
+
+@inline function abi_call_semiring_equal(address::Ptr{Cvoid}, context, left, right, out_equal)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{UInt8}), context, left, right, out_equal)
+end
+
+@inline function abi_call_semiring_approx_equal(address::Ptr{Cvoid}, context, left, right, epsilon, out_equal)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Float64, Ref{UInt8}), context, left, right, epsilon, out_equal)
+end
+
+@inline function abi_call_semiring_natural_order(address::Ptr{Cvoid}, context, left, right, out_order)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{Int32}), context, left, right, out_order)
+end
+
+@inline function abi_call_semiring_stable_bytes(address::Ptr{Cvoid}, context, value, out_bytes, capacity, out_written, out_required)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, value, out_bytes, capacity, out_written, out_required)
+end
+
+@inline function abi_call_semiring_diagnostic(address::Ptr{Cvoid}, context, value, out_bytes, capacity, out_written, out_required)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}), context, value, out_bytes, capacity, out_written, out_required)
+end
+
+@inline function abi_call_semiring_plus_many(address::Ptr{Cvoid}, context, values, count, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{VtSemiringValue}, Csize_t, Ref{VtSemiringValue}), context, values, count, out_value)
+end
+
+@inline function abi_call_semiring_times_many(address::Ptr{Cvoid}, context, values, count, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ptr{VtSemiringValue}, Csize_t, Ref{VtSemiringValue}), context, values, count, out_value)
+end
+
+@inline function abi_call_semiring_division_divide(address::Ptr{Cvoid}, context, dividend, divisor, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}), context, dividend, divisor, out_value)
+end
+
+@inline function abi_call_semiring_division_left_divide(address::Ptr{Cvoid}, context, value, divisor, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}), context, value, divisor, out_value)
+end
+
+@inline function abi_call_semiring_star_star(address::Ptr{Cvoid}, context, value, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}), context, value, out_value)
+end
+
+@inline function abi_call_semiring_numeric_numerical_value(address::Ptr{Cvoid}, context, value, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{Float64}), context, value, out_value)
+end
+
+@inline function abi_call_semiring_numeric_quantize(address::Ptr{Cvoid}, context, value, epsilon, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Float64, Ref{Int64}), context, value, epsilon, out_value)
+end
+
+@inline function abi_call_semiring_numeric_to_probability(address::Ptr{Cvoid}, context, value, out_value)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{Float64}), context, value, out_value)
+end
+
+@inline function abi_call_semiring_properties_closure_bound(address::Ptr{Cvoid}, context, out_bound, out_known)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}), context, out_bound, out_known)
+end
+
+const ABI_STRUCT_NAMES = (:VtInterfaceId, :VtResourceVTable, :VtOptionalU64, :VtDictionaryEdge, :VtDictionaryVTable, :VtDictionaryVisitVTable, :VtDictionaryGraphNode, :VtDictionaryGraphEdge, :VtDictionaryGraphView, :VtDictionaryGraphVTable, :SnapshotIdentity, :VtSnapshotIdentityVTable, :VtDictionaryEntryRaw, :BatchLimits, :VtDictionaryEntryBatchView, :VtDictionaryEntriesInfo, :VtDictionaryEntriesVTable, :VtWfstArc, :VtWfstVTable, :VtLatticeVTable, :VtSemiringValue, :VtSemiringVTable, :VtSemiringDivisionVTable, :VtSemiringStarVTable, :VtSemiringNumericVTable, :VtSemiringPropertiesVTable, :VtResourceRaw, :VtDictionaryEntriesCursorRaw)
+const ABI_STRUCT_COUNT = 28
+const ABI_OPERATION_COUNT = 52
+const ABI_CALLBACK_COUNT = 1
+const ABI_CALLABLE_COUNT = 53
+const ABI_CALLABLES = (
+    (kind=:callback, owner=:typedef, name=:VtDictionaryEntryReducer, julia_name=Symbol("@abi_cfunction_dictionary_entry_reducer"), signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtDictionaryEntryBatchView}}", parameter_contract="reducer_context:input:borrowed,batch:input:borrowed", threading=:julia_owned_calling_thread_only, capability=:dictionary_entry_reducer),
+    (kind=:operation, owner=:VtResourceVTable, name=:retain, julia_name=:abi_call_resource_retain, signature="Cvoid Tuple{Ptr{Cvoid},}", parameter_contract="context:input:borrowed", threading=:caller_thread_synchronous, capability=Symbol("resource")),
+    (kind=:operation, owner=:VtResourceVTable, name=:release, julia_name=:abi_call_resource_release, signature="Cvoid Tuple{Ptr{Cvoid},}", parameter_contract="context:input:consumed", threading=:caller_thread_synchronous, capability=Symbol("resource")),
+    (kind=:operation, owner=:VtResourceVTable, name=:query_interface, julia_name=:abi_call_resource_query_interface, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtInterfaceId}, UInt32, Ptr{Ptr{Cvoid}}}", parameter_contract="context:input:borrowed,interface_id:input:borrowed,minimum_version:input:borrowed,out_vtable:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("resource")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:snapshot, julia_name=:abi_call_dictionary_snapshot, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,out_snapshot:output:owned", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:root, julia_name=:abi_call_dictionary_root, signature="Cint Tuple{Ptr{Cvoid}, Ref{UInt64}}", parameter_contract="context:input:borrowed,out_node:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:len, julia_name=:abi_call_dictionary_len, signature="Cint Tuple{Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}}", parameter_contract="context:input:borrowed,out_len:output:borrowed,out_known:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:node_is_final, julia_name=:abi_call_dictionary_node_is_final, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Ref{UInt8}}", parameter_contract="context:input:borrowed,node:input:borrowed,out_is_final:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:node_value_u64, julia_name=:abi_call_dictionary_node_value_u64, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Ref{VtOptionalU64}}", parameter_contract="context:input:borrowed,node:input:borrowed,out_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:node_transition, julia_name=:abi_call_dictionary_node_transition, signature="Cint Tuple{Ptr{Cvoid}, UInt64, UInt64, Ref{UInt64}, Ref{UInt8}}", parameter_contract="context:input:borrowed,node:input:borrowed,label:input:borrowed,out_child:output:borrowed,out_found:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVTable, name=:node_edges, julia_name=:abi_call_dictionary_node_edges, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Csize_t, Ptr{VtDictionaryEdge}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,node:input:borrowed,start:input:borrowed,out_edges:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_total:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary")),
+    (kind=:operation, owner=:VtDictionaryVisitVTable, name=:node_visit, julia_name=:abi_call_dictionary_visit_node_visit, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Csize_t, Ref{UInt8}, Ptr{VtDictionaryEdge}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,node:input:borrowed,start:input:borrowed,out_is_final:output:borrowed,out_edges:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_total:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-visit")),
+    (kind=:operation, owner=:VtDictionaryGraphVTable, name=:graph, julia_name=:abi_call_dictionary_graph_graph, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtDictionaryGraphView}}", parameter_contract="context:input:borrowed,out_graph:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-graph")),
+    (kind=:operation, owner=:VtDictionaryGraphVTable, name=:node_value_u64, julia_name=:abi_call_dictionary_graph_node_value_u64, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Ref{VtOptionalU64}}", parameter_contract="context:input:borrowed,value_cursor:input:borrowed,out_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-graph")),
+    (kind=:operation, owner=:VtSnapshotIdentityVTable, name=:identity, julia_name=:abi_call_snapshot_identity_identity, signature="Cint Tuple{Ptr{Cvoid}, Ref{SnapshotIdentity}}", parameter_contract="context:input:borrowed,out_identity:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("snapshot-identity")),
+    (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:open, julia_name=:abi_call_dictionary_entries_open, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtDictionaryEntriesCursorRaw}, Ref{VtDictionaryEntriesInfo}}", parameter_contract="resource_context:input:borrowed,out_cursor:output:owned,out_info:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:next_batch, julia_name=:abi_call_dictionary_entries_next_batch, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits}, Ref{VtDictionaryEntryBatchView}}", parameter_contract="cursor:inout:borrowed,limits:input:borrowed,out_batch:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:release_batch, julia_name=:abi_call_dictionary_entries_release_batch, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw}, UInt64}", parameter_contract="cursor:inout:borrowed,generation:input:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:reduce, julia_name=:abi_call_dictionary_entries_reduce, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits}, Ptr{Cvoid}, Ptr{Cvoid}, Ref{Csize_t}}", parameter_contract="cursor:inout:borrowed,limits:input:borrowed,reducer:input:borrowed,reducer_context:input:borrowed,out_count:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:cancel, julia_name=:abi_call_dictionary_entries_cancel, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw},}", parameter_contract="cursor:inout:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:close, julia_name=:abi_call_dictionary_entries_close, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw},}", parameter_contract="cursor:inout:consumed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtWfstVTable, name=:snapshot, julia_name=:abi_call_wfst_snapshot, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,out_snapshot:output:owned", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
+    (kind=:operation, owner=:VtWfstVTable, name=:start, julia_name=:abi_call_wfst_start, signature="Cint Tuple{Ptr{Cvoid}, Ref{UInt64}}", parameter_contract="context:input:borrowed,out_state:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
+    (kind=:operation, owner=:VtWfstVTable, name=:num_states, julia_name=:abi_call_wfst_num_states, signature="Cint Tuple{Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}}", parameter_contract="context:input:borrowed,out_count:output:borrowed,out_known:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
+    (kind=:operation, owner=:VtWfstVTable, name=:state_info, julia_name=:abi_call_wfst_state_info, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Ref{UInt8}, Ref{UInt8}, Ref{Float64}}", parameter_contract="context:input:borrowed,state:input:borrowed,out_valid:output:borrowed,out_is_final:output:borrowed,out_final_weight:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
+    (kind=:operation, owner=:VtWfstVTable, name=:state_arcs, julia_name=:abi_call_wfst_state_arcs, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Csize_t, Ptr{VtWfstArc}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,state:input:borrowed,start:input:borrowed,out_arcs:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_total:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:join, julia_name=:abi_call_lattice_join, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,other:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:meet, julia_name=:abi_call_lattice_meet, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,other:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:equal, julia_name=:abi_call_lattice_equal, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{UInt8}}", parameter_contract="context:input:borrowed,other:input:borrowed,out_equal:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:stable_bytes, julia_name=:abi_call_lattice_stable_bytes, signature="Cint Tuple{Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:diagnostic, julia_name=:abi_call_lattice_diagnostic, signature="Cint Tuple{Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:join_many, julia_name=:abi_call_lattice_join_many, signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtResourceRaw}, Csize_t, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,others:input:borrowed,count:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtLatticeVTable, name=:meet_many, julia_name=:abi_call_lattice_meet_many, signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtResourceRaw}, Csize_t, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,others:input:borrowed,count:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("lattice")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:zero, julia_name=:abi_call_semiring_zero, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:one, julia_name=:abi_call_semiring_one, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:clone_value, julia_name=:abi_call_semiring_clone_value, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,value:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:release_values, julia_name=:abi_call_semiring_release_values, signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtSemiringValue}, Csize_t}", parameter_contract="context:input:borrowed,values:inout:consumed,count:input:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:plus, julia_name=:abi_call_semiring_plus, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,left:input:borrowed,right:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:times, julia_name=:abi_call_semiring_times, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,left:input:borrowed,right:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:equal, julia_name=:abi_call_semiring_equal, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{UInt8}}", parameter_contract="context:input:borrowed,left:input:borrowed,right:input:borrowed,out_equal:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:approx_equal, julia_name=:abi_call_semiring_approx_equal, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Float64, Ref{UInt8}}", parameter_contract="context:input:borrowed,left:input:borrowed,right:input:borrowed,epsilon:input:borrowed,out_equal:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:natural_order, julia_name=:abi_call_semiring_natural_order, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{Int32}}", parameter_contract="context:input:borrowed,left:input:borrowed,right:input:borrowed,out_order:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:stable_bytes, julia_name=:abi_call_semiring_stable_bytes, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,value:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:diagnostic, julia_name=:abi_call_semiring_diagnostic, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}}", parameter_contract="context:input:borrowed,value:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:plus_many, julia_name=:abi_call_semiring_plus_many, signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtSemiringValue}, Csize_t, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,values:input:borrowed,count:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringVTable, name=:times_many, julia_name=:abi_call_semiring_times_many, signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtSemiringValue}, Csize_t, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,values:input:borrowed,count:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring")),
+    (kind=:operation, owner=:VtSemiringDivisionVTable, name=:divide, julia_name=:abi_call_semiring_division_divide, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,dividend:input:borrowed,divisor:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring-division")),
+    (kind=:operation, owner=:VtSemiringDivisionVTable, name=:left_divide, julia_name=:abi_call_semiring_division_left_divide, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,value:input:borrowed,divisor:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring-division")),
+    (kind=:operation, owner=:VtSemiringStarVTable, name=:star, julia_name=:abi_call_semiring_star_star, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{VtSemiringValue}}", parameter_contract="context:input:borrowed,value:input:borrowed,out_value:output:owned", threading=:caller_thread_synchronous, capability=Symbol("semiring-star")),
+    (kind=:operation, owner=:VtSemiringNumericVTable, name=:numerical_value, julia_name=:abi_call_semiring_numeric_numerical_value, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{Float64}}", parameter_contract="context:input:borrowed,value:input:borrowed,out_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring-numeric")),
+    (kind=:operation, owner=:VtSemiringNumericVTable, name=:quantize, julia_name=:abi_call_semiring_numeric_quantize, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Float64, Ref{Int64}}", parameter_contract="context:input:borrowed,value:input:borrowed,epsilon:input:borrowed,out_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring-numeric")),
+    (kind=:operation, owner=:VtSemiringNumericVTable, name=:to_probability, julia_name=:abi_call_semiring_numeric_to_probability, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtSemiringValue}, Ref{Float64}}", parameter_contract="context:input:borrowed,value:input:borrowed,out_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring-numeric")),
+    (kind=:operation, owner=:VtSemiringPropertiesVTable, name=:closure_bound, julia_name=:abi_call_semiring_properties_closure_bound, signature="Cint Tuple{Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}}", parameter_contract="context:input:borrowed,out_bound:output:borrowed,out_known:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("semiring-properties")),
+)
+# END GENERATED ABI LAYOUTS AND CALLABLES
+
 function checked_status(code::Integer, operation::Symbol; allow_end::Bool=false,
     allow_unsupported::Bool=false)
     status = Status(code)
@@ -572,11 +849,11 @@ function borrow_resource(raw::VtResourceRaw; anchors=Any[])
     table = resource_vtable(raw)
     require_pointer(table.retain, :retain)
     require_pointer(table.release, :release)
-    ccall(table.retain, Cvoid, (Ptr{Cvoid},), raw.context)
+    abi_call_resource_retain(table.retain, raw.context)
     try
         adopt_resource(raw; anchors)
     catch
-        ccall(table.release, Cvoid, (Ptr{Cvoid},), raw.context)
+        abi_call_resource_release(table.release, raw.context)
         rethrow()
     end
 end
@@ -584,7 +861,7 @@ end
 function retain_raw(raw::VtResourceRaw)
     table = resource_vtable(raw)
     require_pointer(table.retain, :retain)
-    ccall(table.retain, Cvoid, (Ptr{Cvoid},), raw.context)
+    abi_call_resource_retain(table.retain, raw.context)
     raw
 end
 
@@ -607,7 +884,7 @@ function close!(resource::Resource)
     anchors = resource.anchors
     table = resource_vtable(raw)
     if table.release != C_NULL
-        GC.@preserve anchors ccall(table.release, Cvoid, (Ptr{Cvoid},), raw.context)
+        GC.@preserve anchors abi_call_resource_release(table.release, raw.context)
     end
     empty!(anchors)
     nothing
@@ -631,8 +908,7 @@ function query_interface(resource::Resource, id::VtInterfaceId,
     table = resource_vtable(raw)
     require_pointer(table.query_interface, :query_interface)
     output = Ref{Ptr{Cvoid}}(C_NULL)
-    status = ccall(table.query_interface, Cint,
-        (Ptr{Cvoid}, Ref{VtInterfaceId}, UInt32, Ref{Ptr{Cvoid}}),
+    status = abi_call_resource_query_interface(table.query_interface,
         raw.context, Ref(id), UInt32(minimum_version), output)
     checked_status(status, :query_interface; allow_unsupported=true)
     Status(status) == STATUS_UNSUPPORTED && return nothing
@@ -708,8 +984,7 @@ function snapshot(source::Dictionary)
     table = dictionary_table(source)
     function_pointer = require_pointer(table.snapshot, :dictionary_snapshot)
     output = Ref(VtResourceRaw(C_NULL, Ptr{VtResourceVTable}(C_NULL)))
-    status = ccall(function_pointer, Cint,
-        (Ptr{Cvoid}, Ref{VtResourceRaw}), raw.context, output)
+    status = abi_call_dictionary_snapshot(function_pointer, raw.context, output)
     checked_status(status, :dictionary_snapshot)
     dictionary(output[])
 end
@@ -718,8 +993,8 @@ function root(dictionary::Dictionary)
     raw = raw_resource(dictionary.resource)
     table = dictionary_table(dictionary)
     output = Ref{UInt64}(0)
-    status = ccall(require_pointer(table.root, :dictionary_root), Cint,
-        (Ptr{Cvoid}, Ref{UInt64}), raw.context, output)
+    status = abi_call_dictionary_root(
+        require_pointer(table.root, :dictionary_root), raw.context, output)
     checked_status(status, :dictionary_root)
     output[]
 end
@@ -729,8 +1004,8 @@ function known_length(dictionary::Dictionary)
     table = dictionary_table(dictionary)
     output = Ref{Csize_t}(0)
     known = Ref{UInt8}(0)
-    status = ccall(require_pointer(table.len, :dictionary_len), Cint,
-        (Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}), raw.context, output, known)
+    status = abi_call_dictionary_len(
+        require_pointer(table.len, :dictionary_len), raw.context, output, known)
     checked_status(status, :dictionary_len)
     known[] == 0 ? nothing : Int(output[])
 end
@@ -780,8 +1055,9 @@ function isfinal(dictionary::Dictionary, node::Integer)
     raw = raw_resource(dictionary.resource)
     table = dictionary_table(dictionary)
     output = Ref{UInt8}(0)
-    status = ccall(require_pointer(table.node_is_final, :dictionary_isfinal), Cint,
-        (Ptr{Cvoid}, UInt64, Ref{UInt8}), raw.context, UInt64(node), output)
+    status = abi_call_dictionary_node_is_final(
+        require_pointer(table.node_is_final, :dictionary_isfinal), raw.context,
+        UInt64(node), output)
     checked_status(status, :dictionary_isfinal)
     output[] != 0
 end
@@ -792,8 +1068,9 @@ function value(dictionary::Dictionary, node::Integer)
     raw = raw_resource(dictionary.resource)
     table = dictionary_table(dictionary)
     output = Ref(VtOptionalU64(0, 0, ntuple(_ -> UInt8(0), 7)))
-    status = ccall(require_pointer(table.node_value_u64, :dictionary_value), Cint,
-        (Ptr{Cvoid}, UInt64, Ref{VtOptionalU64}), raw.context, UInt64(node), output)
+    status = abi_call_dictionary_node_value_u64(
+        require_pointer(table.node_value_u64, :dictionary_value), raw.context,
+        UInt64(node), output)
     checked_status(status, :dictionary_value)
     output[].has_value == 0 ? nothing : output[].value
 end
@@ -803,9 +1080,9 @@ function transition(dictionary::Dictionary, node::Integer, label::Integer)
     table = dictionary_table(dictionary)
     child = Ref{UInt64}(0)
     found = Ref{UInt8}(0)
-    status = ccall(require_pointer(table.node_transition, :dictionary_transition), Cint,
-        (Ptr{Cvoid}, UInt64, UInt64, Ref{UInt64}, Ref{UInt8}),
-        raw.context, UInt64(node), UInt64(label), child, found)
+    status = abi_call_dictionary_node_transition(
+        require_pointer(table.node_transition, :dictionary_transition), raw.context,
+        UInt64(node), UInt64(label), child, found)
     checked_status(status, :dictionary_transition)
     found[] == 0 ? nothing : child[]
 end
@@ -823,11 +1100,9 @@ function edges(dictionary::Dictionary, node::Integer;
     while start_offset < total
         written = Ref{Csize_t}(0)
         reported_total = Ref{Csize_t}(0)
-        status = GC.@preserve page ccall(function_pointer, Cint,
-            (Ptr{Cvoid}, UInt64, Csize_t, Ptr{VtDictionaryEdge}, Csize_t,
-                Ref{Csize_t}, Ref{Csize_t}),
-            raw.context, UInt64(node), start_offset, pointer(page), length(page),
-            written, reported_total)
+        status = GC.@preserve page abi_call_dictionary_node_edges(
+            function_pointer, raw.context, UInt64(node), start_offset,
+            pointer(page), length(page), written, reported_total)
         checked_status(status, :dictionary_edges)
         total = Int(reported_total[])
         count = Int(written[])
@@ -857,12 +1132,10 @@ function visit(dictionary::Dictionary, node::Integer;
     while start_offset < total
         written = Ref{Csize_t}(0)
         reported_total = Ref{Csize_t}(0)
-        status = GC.@preserve page ccall(require_pointer(table.node_visit,
-            :dictionary_visit), Cint,
-            (Ptr{Cvoid}, UInt64, Csize_t, Ref{UInt8}, Ptr{VtDictionaryEdge},
-                Csize_t, Ref{Csize_t}, Ref{Csize_t}),
-            raw.context, UInt64(node), start_offset, finality, pointer(page),
-            length(page), written, reported_total)
+        status = GC.@preserve page abi_call_dictionary_visit_node_visit(
+            require_pointer(table.node_visit, :dictionary_visit), raw.context,
+            UInt64(node), start_offset, finality, pointer(page), length(page),
+            written, reported_total)
         checked_status(status, :dictionary_visit)
         total = Int(reported_total[])
         count = Int(written[])
@@ -891,8 +1164,8 @@ function graph(dictionary::Dictionary)
     output = Ref(VtDictionaryGraphView(
         Ptr{VtDictionaryGraphNode}(C_NULL), 0,
         Ptr{VtDictionaryGraphEdge}(C_NULL), 0, 0, 0))
-    status = ccall(require_pointer(table.graph, :dictionary_graph), Cint,
-        (Ptr{Cvoid}, Ref{VtDictionaryGraphView}), raw.context, output)
+    status = abi_call_dictionary_graph_graph(
+        require_pointer(table.graph, :dictionary_graph), raw.context, output)
     checked_status(status, :dictionary_graph)
     result = DictionaryGraph(retain(dictionary.resource), output[],
         table.node_value_u64, false)
@@ -925,8 +1198,9 @@ function value(graph::DictionaryGraph, cursor::Integer)
     graph.closed && throw(InteropError(STATUS_CLOSED, :dictionary_graph))
     output = Ref(VtOptionalU64(0, 0, ntuple(_ -> UInt8(0), 7)))
     raw = raw_resource(graph.resource)
-    status = ccall(require_pointer(graph.value_function, :dictionary_graph_value), Cint,
-        (Ptr{Cvoid}, UInt64, Ref{VtOptionalU64}), raw.context, UInt64(cursor), output)
+    status = abi_call_dictionary_graph_node_value_u64(
+        require_pointer(graph.value_function, :dictionary_graph_value), raw.context,
+        UInt64(cursor), output)
     checked_status(status, :dictionary_graph_value)
     output[].has_value == 0 ? nothing : output[].value
 end
@@ -938,8 +1212,8 @@ function snapshot_identity(resource::Resource)
     table = unsafe_load(Ptr{VtSnapshotIdentityVTable}(pointer))
     output = Ref(SnapshotIdentity(0, 0))
     raw = raw_resource(resource)
-    status = ccall(require_pointer(table.identity, :snapshot_identity), Cint,
-        (Ptr{Cvoid}, Ref{SnapshotIdentity}), raw.context, output)
+    status = abi_call_snapshot_identity_identity(
+        require_pointer(table.identity, :snapshot_identity), raw.context, output)
     checked_status(status, :snapshot_identity)
     output[]
 end
@@ -971,9 +1245,9 @@ function entries(dictionary::Dictionary)
     info = Ref(VtDictionaryEntriesInfo(0, 0, 0, 0, 0, 0,
         SnapshotIdentity(0, 0), (0, 0)))
     raw = raw_resource(dictionary.resource)
-    status = ccall(require_pointer(table.open, :dictionary_entries_open), Cint,
-        (Ptr{Cvoid}, Ref{VtDictionaryEntriesCursorRaw}, Ref{VtDictionaryEntriesInfo}),
-        raw.context, cursor, info)
+    status = abi_call_dictionary_entries_open(
+        require_pointer(table.open, :dictionary_entries_open), raw.context,
+        cursor, info)
     checked_status(status, :dictionary_entries_open)
     cursor[].context == C_NULL &&
         throw(InteropError(STATUS_NULL_POINTER, :dictionary_entries_open))
@@ -1000,9 +1274,9 @@ function release!(cursor::DictionaryEntries, generation::Integer)
     cursor.closed && throw(InteropError(STATUS_CLOSED, :dictionary_entries_release))
     cursor.batch_active || throw(ArgumentError("no dictionary-entry batch is active"))
     table = entries_table(cursor)
-    status = ccall(require_pointer(table.release_batch, :dictionary_entries_release),
-        Cint, (Ref{VtDictionaryEntriesCursorRaw}, UInt64), cursor.raw,
-        UInt64(generation))
+    status = abi_call_dictionary_entries_release_batch(
+        require_pointer(table.release_batch, :dictionary_entries_release),
+        cursor.raw, UInt64(generation))
     checked_status(status, :dictionary_entries_release)
     cursor.batch_active = false
     cursor.active_generation = 0
@@ -1022,9 +1296,9 @@ function next_batch(cursor::DictionaryEntries, limits::BatchLimits=BatchLimits()
     output = Ref(VtDictionaryEntryBatchView(
         Ptr{VtDictionaryEntryRaw}(C_NULL), 0, C_NULL, 0,
         Ptr{UInt64}(C_NULL), 0, 0, 0))
-    status = ccall(require_pointer(table.next_batch, :dictionary_entries_next_batch),
-        Cint, (Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits},
-            Ref{VtDictionaryEntryBatchView}), cursor.raw, Ref(limits), output)
+    status = abi_call_dictionary_entries_next_batch(
+        require_pointer(table.next_batch, :dictionary_entries_next_batch),
+        cursor.raw, Ref(limits), output)
     checked_status(status, :dictionary_entries_next_batch; allow_end=true)
     Status(status) == STATUS_END && return nothing
     cursor.batch_active = true
@@ -1125,13 +1399,10 @@ function reduce_entries(callback, cursor::DictionaryEntries,
     context = ReducerContext(callback, unit_domain(cursor), value_domain(cursor), nothing)
     count = Ref{Csize_t}(0)
     context_pointer = pointer_from_objref(context)
-    reducer_pointer = @cfunction(reducer_bridge, Cint,
-        (Ptr{Cvoid}, Ptr{VtDictionaryEntryBatchView}))
-    status = GC.@preserve context ccall(require_pointer(table.reduce,
-        :dictionary_entries_reduce), Cint,
-        (Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits}, Ptr{Cvoid},
-            Ptr{Cvoid}, Ref{Csize_t}),
-        cursor.raw, Ref(limits), reducer_pointer, context_pointer, count)
+    reducer_pointer = @abi_cfunction_dictionary_entry_reducer(reducer_bridge)
+    status = GC.@preserve context abi_call_dictionary_entries_reduce(
+        require_pointer(table.reduce, :dictionary_entries_reduce), cursor.raw,
+        Ref(limits), reducer_pointer, context_pointer, count)
     if context.failure !== nothing
         error, backtrace = context.failure
         throw(error)
@@ -1142,8 +1413,8 @@ end
 
 function cancel!(cursor::DictionaryEntries)
     table = entries_table(cursor)
-    status = ccall(require_pointer(table.cancel, :dictionary_entries_cancel), Cint,
-        (Ref{VtDictionaryEntriesCursorRaw},), cursor.raw)
+    status = abi_call_dictionary_entries_cancel(
+        require_pointer(table.cancel, :dictionary_entries_cancel), cursor.raw)
     checked_status(status, :dictionary_entries_cancel)
     nothing
 end
@@ -1159,8 +1430,8 @@ function close!(cursor::DictionaryEntries)
     end
     table = unsafe_load(cursor.table)
     cursor.closed = true
-    status = ccall(require_pointer(table.close, :dictionary_entries_close), Cint,
-        (Ref{VtDictionaryEntriesCursorRaw},), cursor.raw)
+    status = abi_call_dictionary_entries_close(
+        require_pointer(table.close, :dictionary_entries_close), cursor.raw)
     cursor.raw = VtDictionaryEntriesCursorRaw(C_NULL, C_NULL)
     close!(cursor.resource)
     checked_status(status, :dictionary_entries_close)
@@ -1278,8 +1549,8 @@ function snapshot(wfst::Wfst)
     raw = raw_resource(wfst.resource)
     table = wfst_table(wfst)
     output = Ref(VtResourceRaw(C_NULL, Ptr{VtResourceVTable}(C_NULL)))
-    status = ccall(require_pointer(table.snapshot, :wfst_snapshot), Cint,
-        (Ptr{Cvoid}, Ref{VtResourceRaw}), raw.context, output)
+    status = abi_call_wfst_snapshot(
+        require_pointer(table.snapshot, :wfst_snapshot), raw.context, output)
     checked_status(status, :wfst_snapshot)
     wfstransducer(output[])
 end
@@ -1288,8 +1559,8 @@ function start(wfst::Wfst)
     raw = raw_resource(wfst.resource)
     table = wfst_table(wfst)
     output = Ref{UInt64}(0)
-    status = ccall(require_pointer(table.start, :wfst_start), Cint,
-        (Ptr{Cvoid}, Ref{UInt64}), raw.context, output)
+    status = abi_call_wfst_start(
+        require_pointer(table.start, :wfst_start), raw.context, output)
     checked_status(status, :wfst_start)
     output[]
 end
@@ -1299,8 +1570,9 @@ function state_count(wfst::Wfst)
     table = wfst_table(wfst)
     output = Ref{Csize_t}(0)
     known = Ref{UInt8}(0)
-    status = ccall(require_pointer(table.num_states, :wfst_num_states), Cint,
-        (Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}), raw.context, output, known)
+    status = abi_call_wfst_num_states(
+        require_pointer(table.num_states, :wfst_num_states), raw.context,
+        output, known)
     checked_status(status, :wfst_num_states)
     known[] == 0 ? nothing : Int(output[])
 end
@@ -1311,9 +1583,9 @@ function state_info(wfst::Wfst, state::Integer)
     valid = Ref{UInt8}(0)
     finality = Ref{UInt8}(0)
     weight = Ref{Float64}(0)
-    status = ccall(require_pointer(table.state_info, :wfst_state_info), Cint,
-        (Ptr{Cvoid}, UInt64, Ref{UInt8}, Ref{UInt8}, Ref{Float64}),
-        raw.context, UInt64(state), valid, finality, weight)
+    status = abi_call_wfst_state_info(
+        require_pointer(table.state_info, :wfst_state_info), raw.context,
+        UInt64(state), valid, finality, weight)
     checked_status(status, :wfst_state_info)
     valid[] == 0 ? nothing : WfstStateInfo(finality[] != 0, weight[])
 end
@@ -1331,11 +1603,9 @@ function arcs(wfst::Wfst, state::Integer;
     while start_offset < total
         written = Ref{Csize_t}(0)
         reported_total = Ref{Csize_t}(0)
-        status = GC.@preserve page ccall(function_pointer, Cint,
-            (Ptr{Cvoid}, UInt64, Csize_t, Ptr{VtWfstArc}, Csize_t,
-                Ref{Csize_t}, Ref{Csize_t}),
-            raw.context, UInt64(state), start_offset, pointer(page), length(page),
-            written, reported_total)
+        status = GC.@preserve page abi_call_wfst_state_arcs(
+            function_pointer, raw.context, UInt64(state), start_offset,
+            pointer(page), length(page), written, reported_total)
         checked_status(status, :wfst_arcs)
         total = Int(reported_total[])
         count = Int(written[])
@@ -1418,9 +1688,10 @@ function lattice_binary(left::LatticeValue, right::LatticeValue,
     output = Ref(VtResourceRaw(C_NULL, Ptr{VtResourceVTable}(C_NULL)))
     table = lattice_table(left)
     function_pointer = operation == :lattice_join ? table.join : table.meet
-    status = ccall(require_pointer(function_pointer, operation), Cint,
-        (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{VtResourceRaw}),
-        left_raw.context, right_raw, output)
+    address = require_pointer(function_pointer, operation)
+    status = operation == :lattice_join ?
+        abi_call_lattice_join(address, left_raw.context, right_raw, output) :
+        abi_call_lattice_meet(address, left_raw.context, right_raw, output)
     checked_status(status, operation)
     lattice_value(output[])
 end
@@ -1435,8 +1706,8 @@ function equivalent(left::LatticeValue, right::LatticeValue)
     left_raw = raw_resource(left.resource)
     right_raw = Ref(raw_resource(right.resource))
     output = Ref{UInt8}(0)
-    status = ccall(require_pointer(lattice_table(left).equal, :lattice_equal),
-        Cint, (Ptr{Cvoid}, Ref{VtResourceRaw}, Ref{UInt8}),
+    status = abi_call_lattice_equal(
+        require_pointer(lattice_table(left).equal, :lattice_equal),
         left_raw.context, right_raw, output)
     checked_status(status, :lattice_equal)
     output[] <= 1 || throw(InteropError(STATUS_PROVIDER_ERROR,
@@ -1452,18 +1723,18 @@ function read_lattice_bytes(value::LatticeValue, field::Symbol,
     function_pointer == C_NULL && return nothing
     written = Ref{Csize_t}(0)
     required = Ref{Csize_t}(0)
-    status = ccall(function_pointer, Cint,
-        (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}),
-        raw.context, Ptr{UInt8}(C_NULL), 0, written, required)
+    call = field == :stable_bytes ? abi_call_lattice_stable_bytes :
+        abi_call_lattice_diagnostic
+    status = call(function_pointer, raw.context, Ptr{UInt8}(C_NULL), 0,
+        written, required)
     checked_status(status, operation)
     written[] == 0 || throw(InteropError(STATUS_PROVIDER_ERROR, operation))
     output = Vector{UInt8}(undef, Int(required[]))
     written[] = 0
     second_required = Ref{Csize_t}(0)
-    status = GC.@preserve output ccall(function_pointer, Cint,
-        (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}),
-        raw.context, isempty(output) ? Ptr{UInt8}(C_NULL) : pointer(output),
-        length(output), written, second_required)
+    status = GC.@preserve output call(function_pointer, raw.context,
+        isempty(output) ? Ptr{UInt8}(C_NULL) : pointer(output), length(output),
+        written, second_required)
     checked_status(status, operation)
     second_required[] == required[] ||
         throw(InteropError(STATUS_PROVIDER_ERROR, operation))
@@ -1518,9 +1789,14 @@ function lattice_many(value::LatticeValue, others,
     raw = raw_resource(value.resource)
     raw_operands = VtResourceRaw[raw_resource(item.resource) for item in operands]
     output = Ref(VtResourceRaw(C_NULL, Ptr{VtResourceVTable}(C_NULL)))
-    status = GC.@preserve operands raw_operands ccall(function_pointer, Cint,
-        (Ptr{Cvoid}, Ptr{VtResourceRaw}, Csize_t, Ref{VtResourceRaw}),
-        raw.context, pointer(raw_operands), length(raw_operands), output)
+    address = require_pointer(function_pointer, operation)
+    status = GC.@preserve operands raw_operands begin
+        operation == :lattice_join_many ?
+            abi_call_lattice_join_many(address, raw.context,
+                pointer(raw_operands), length(raw_operands), output) :
+            abi_call_lattice_meet_many(address, raw.context,
+                pointer(raw_operands), length(raw_operands), output)
+    end
     checked_status(status, operation)
     lattice_value(output[])
 end

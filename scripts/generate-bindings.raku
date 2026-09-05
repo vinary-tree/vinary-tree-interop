@@ -459,8 +459,20 @@ my %struct-raku-name = (
     VtDictionaryEntriesCursor => 'RawDictionaryEntriesCursor',
 );
 
+my %struct-julia-name = (
+    VtResource => 'VtResourceRaw',
+    VtSnapshotIdentity => 'SnapshotIdentity',
+    VtDictionaryEntry => 'VtDictionaryEntryRaw',
+    VtDictionaryEntryBatchLimits => 'BatchLimits',
+    VtDictionaryEntriesCursor => 'VtDictionaryEntriesCursorRaw',
+);
+
 sub raku-struct-name(Str:D $c-name --> Str:D) {
     %struct-raku-name{$c-name} // $c-name.substr(2)
+}
+
+sub julia-struct-name(Str:D $c-name --> Str:D) {
+    %struct-julia-name{$c-name} // $c-name
 }
 
 sub raku-field-name(Str:D $c-name --> Str:D) {
@@ -656,6 +668,168 @@ sub raku-signature(%callable --> Str:D) {
     ":({raku-signature-body(%callable)})"
 }
 
+my %primitive-julia-type = (
+    size_t => 'Csize_t',
+    uint64_t => 'UInt64',
+    uint32_t => 'UInt32',
+    int64_t => 'Int64',
+    int32_t => 'Int32',
+    uint8_t => 'UInt8',
+    double => 'Float64',
+    void => 'Cvoid',
+);
+my %enum-julia-type = @enum-spec.map({ $_[0] => 'UInt32' });
+%enum-julia-type<VtStatus> = 'Cint';
+
+sub julia-scalar-type(Str:D $c-type --> Str:D) {
+    my $base = clean-c-type($c-type);
+    return %primitive-julia-type{$base} if %primitive-julia-type{$base}:exists;
+    return %enum-julia-type{$base} if %enum-julia-type{$base}:exists;
+    return julia-struct-name($base) if @structs.first(* eq $base).defined;
+    die "unsupported Julia scalar type $c-type";
+}
+
+sub julia-type(Str:D $c-type, Bool:D :$callback = False --> Str:D) {
+    return 'Ptr{Cvoid}' if $callback || (%callback-typedefs{$c-type}:exists);
+    my $pointer-depth = $c-type.comb('*').elems;
+    my $base = clean-c-type($c-type.subst('*', '', :g));
+    my $type = julia-scalar-type($base);
+    for ^$pointer-depth {
+        $type = "Ptr\{$type\}";
+    }
+    $type
+}
+
+sub julia-parameter-type(%callable, %parameter --> Str:D) {
+    my $c-type = %parameter<c_type>;
+    return 'Ptr{Cvoid}' if %callback-typedefs{$c-type}:exists;
+    return julia-type($c-type) if %callable<owner> eq 'typedef';
+    my $pointer-depth = $c-type.comb('*').elems;
+    return julia-type($c-type) unless $pointer-depth;
+    my $scope = "%callable<owner>.%callable<name>";
+    my $key = "$scope.%parameter<name>";
+    my $base = clean-c-type($c-type.subst('*', '', :g));
+    return julia-type($c-type)
+        if %array-parameter{$key}:exists || $base eq 'void';
+    my $value-type = julia-scalar-type($base);
+    for ^($pointer-depth - 1) {
+        $value-type = "Ptr\{$value-type\}";
+    }
+    "Ref\{$value-type\}"
+}
+
+sub julia-signature(%callable --> Str:D) {
+    my @parameters = %callable<parameters>.list.map({
+        julia-parameter-type(%callable, $_)
+    });
+    my $arguments = @parameters.elems == 1
+        ?? "Tuple\{{@parameters[0]},\}"
+        !! "Tuple\{{@parameters.join(', ')}\}";
+    "{julia-scalar-type(%callable<c_return>)} $arguments"
+}
+
+sub julia-call-name(%callable --> Str:D) {
+    my $owner = %callable<owner>.subst(/^ 'Vt' /, '').subst(/ 'VTable' $/, '');
+    my $prefix = $owner.comb(/ <[A..Z]> <[a..z0..9]>* /).join('_').lc;
+    "abi_call_{$prefix}_{%callable<name>}"
+}
+
+sub julia-macro-name(%callable --> Str:D) {
+    my $name = %callable<name>.subst(/^ 'Vt' /, '');
+    'abi_cfunction_' ~ $name.comb(/ <[A..Z]> <[a..z0..9]>* /).join('_').lc
+}
+
+sub julia-struct-dependencies(Str:D $struct --> List:D) {
+    %struct-fields{$struct}.list.map(-> %field {
+        next if %field<c_return>:exists;
+        my $base = clean-c-type(%field<c_type>.subst('*', '', :g));
+        $base if $base ne $struct && @structs.first(* eq $base).defined;
+    }).grep(*.defined).unique.List
+}
+
+sub julia-struct-order(--> Array:D) {
+    my @remaining = @structs;
+    my @ordered;
+    my %emitted;
+    while @remaining {
+        my $before = @remaining.elems;
+        for @remaining.List -> $struct {
+            my @missing = julia-struct-dependencies($struct).grep({
+                !(%emitted{$_}:exists)
+            });
+            next if @missing;
+            @ordered.push($struct);
+            %emitted{$struct} = True;
+            @remaining = @remaining.grep(* ne $struct);
+        }
+        die "cyclic Julia struct dependencies: {@remaining.join(', ')}"
+            if @remaining.elems == $before;
+    }
+    @ordered.Array
+}
+
+sub julia-field-type(Str:D $struct, %field --> Str:D) {
+    return 'Ptr{Cvoid}' if %field<c_return>:exists;
+    my $type = julia-type(%field<c_type>);
+    %field<array_count>:exists
+        ?? "NTuple\{{%field<array_count>}, $type\}"
+        !! $type
+}
+
+sub julia-struct-extra-lines(Str:D $struct --> Array:D) {
+    return [] unless $struct eq 'VtDictionaryEntryBatchLimits';
+    [
+        '',
+        '    function BatchLimits(max_entries::Integer=256, max_units::Integer=65_536,',
+        '        max_values::Integer=256)',
+        '        max_entries > 0 || throw(ArgumentError("max_entries must be positive"))',
+        '        max_units >= 0 || throw(ArgumentError("max_units cannot be negative"))',
+        '        max_values >= 0 || throw(ArgumentError("max_values cannot be negative"))',
+        '        new(max_entries, max_units, max_values, 0)',
+        '    end',
+    ]
+}
+
+sub render-julia-struct(Str:D $struct --> Array:D) {
+    my @lines = "struct {julia-struct-name($struct)}";
+    for %struct-fields{$struct}.list -> %field {
+        @lines.push("    {%field<name>}::{julia-field-type($struct, %field)}");
+    }
+    @lines.append(julia-struct-extra-lines($struct));
+    @lines.push('end');
+    @lines.Array
+}
+
+sub render-julia-call(%callable --> Array:D) {
+    my @types = %callable<parameters>.list.map({
+        julia-parameter-type(%callable, $_)
+    });
+    my @names = %callable<parameters>.list.map(*.<name>);
+    my $tuple = @types.elems == 1
+        ?? "({@types[0]},)"
+        !! "({@types.join(', ')})";
+    my $arguments = @names.elems ?? ', ' ~ @names.join(', ') !! '';
+    [
+        "\@inline function {julia-call-name(%callable)}(address::Ptr\{Cvoid\}" ~
+            (@names.elems ?? ', ' ~ @names.join(', ') !! '') ~ ')',
+        "    ccall(address, {julia-scalar-type(%callable<c_return>)}, $tuple$arguments)",
+        'end',
+    ]
+}
+
+sub render-julia-cfunction-macro(%callable --> Array:D) {
+    my @types = %callable<parameters>.list.map({ julia-type($_<c_type>) });
+    my $tuple = @types.elems == 1
+        ?? "({@types[0]},)"
+        !! "({@types.join(', ')})";
+    [
+        "macro {julia-macro-name(%callable)}(callback)",
+        '    esc(:(@cfunction($callback, ' ~
+            julia-scalar-type(%callable<c_return>) ~ ", $tuple)))",
+        'end',
+    ]
+}
+
 my %vtable-prefix = (
     VtResourceVTable => 'resource',
     VtDictionaryVTable => 'dictionary',
@@ -749,30 +923,100 @@ sub parameter-contract(%callable --> Str:D) {
     }).join(',')
 }
 
+my @julia-order = julia-struct-order();
+die 'VtInterfaceId is missing from the generated Julia struct order'
+    unless @julia-order.first(* eq 'VtInterfaceId').defined;
+
+my @julia-layouts;
+for @julia-order.grep(* ne 'VtInterfaceId') -> $struct {
+    @julia-layouts.append(render-julia-struct($struct));
+    @julia-layouts.push('');
+}
+
+for %callback-typedefs.values.sort(*.<name>) -> %callable {
+    @julia-layouts.append(render-julia-cfunction-macro(%callable));
+    @julia-layouts.push('');
+}
+for @operations -> %callable {
+    @julia-layouts.append(render-julia-call(%callable));
+    @julia-layouts.push('');
+}
+
+@julia-layouts.append(
+    "const ABI_STRUCT_NAMES = ({@julia-order.map({ ':' ~ julia-struct-name($_) }).join(', ')})",
+    "const ABI_STRUCT_COUNT = {@structs.elems}",
+    "const ABI_OPERATION_COUNT = {@operations.elems}",
+    "const ABI_CALLBACK_COUNT = {%callback-typedefs.elems}",
+    "const ABI_CALLABLE_COUNT = {@operations.elems + %callback-typedefs.elems}",
+    'const ABI_CALLABLES = (',
+);
+for %callback-typedefs.values.sort(*.<name>) -> %callable {
+    @julia-layouts.push(
+        '    (kind=:callback, owner=:typedef, name=:' ~ %callable<name> ~
+        ', julia_name=Symbol("@' ~ julia-macro-name(%callable) ~ '")' ~
+        ', signature="' ~ julia-signature(%callable) ~
+        '", parameter_contract="' ~ parameter-contract(%callable) ~
+        '", threading=:julia_owned_calling_thread_only, capability=:dictionary_entry_reducer),'
+    );
+}
+for @operations -> %callable {
+    my $interface = %vtable-interface{%callable<owner>};
+    my $capability = $interface.defined
+        ?? $interface.lc.subst('_', '-', :g)
+        !! 'resource';
+    @julia-layouts.push(
+        '    (kind=:operation, owner=:' ~ %callable<owner> ~
+        ', name=:' ~ %callable<name> ~
+        ', julia_name=:' ~ julia-call-name(%callable) ~
+        ', signature="' ~ julia-signature(%callable) ~
+        '", parameter_contract="' ~ parameter-contract(%callable) ~
+        '", threading=:caller_thread_synchronous, capability=Symbol("' ~
+        $capability ~ '")),'
+    );
+}
+@julia-layouts.push(')');
+
+my $julia-file = $root.add('bindings/julia/VinaryTreeInterop/src/VinaryTreeInterop.jl');
+my $julia-key = $julia-file.Str;
+my $julia-current = %updated{$julia-key} // $julia-file.slurp;
+$julia-current = replace-region(
+    $julia-current,
+    'ABI INTERFACE ID LAYOUT',
+    render-julia-struct('VtInterfaceId'),
+);
+%updated{$julia-key} = replace-region(
+    $julia-current,
+    'ABI LAYOUTS AND CALLABLES',
+    @julia-layouts,
+);
+
 my @inventory = [[
-    <kind owner c_name raku_name version identity c_signature raku_signature parameter_contract threading capability notes>
+    <kind owner c_name raku_name julia_name version identity c_signature raku_signature julia_signature parameter_contract threading capability notes>
 ].flat.join("\t")];
 for @interfaces -> @interface {
     my ($constant, $routine) = @interface;
     @inventory.push([
         'interface', '-', "VT_{$constant}_INTERFACE_ID",
-        "{$routine}-interface-id", macro-value("VT_{$constant}_INTERFACE_VERSION"),
-        %interface-ids{$constant}, '-', '-', '-', 'caller-thread-synchronous',
+        "{$routine}-interface-id", "{$constant}_INTERFACE_ID",
+        macro-value("VT_{$constant}_INTERFACE_VERSION"),
+        %interface-ids{$constant}, '-', '-', '-', '-', 'caller-thread-synchronous',
         $routine, 'versioned optional capability',
     ].join("\t"));
 }
 for @structs -> $struct {
     @inventory.push([
-        'struct', '-', $struct, raku-struct-name($struct), '-', '-', '-', '-', '-',
-        'not-applicable', 'layout', 'generated NativeCall CStruct',
+        'struct', '-', $struct, raku-struct-name($struct),
+        julia-struct-name($struct), '-', '-', '-', '-', '-', '-',
+        'not-applicable', 'layout', 'generated Julia and NativeCall layouts',
     ].join("\t"));
 }
 for %callback-typedefs.values.sort(*.<name>) -> %callable {
     @inventory.push([
-        'callback', 'typedef', %callable<name>, %callable<name>, '-', '-',
-        %callable<c_signature>, raku-signature(%callable),
-        parameter-contract(%callable), 'Rakudo-owned-calling-thread-only',
-        'dictionary-entry-reducer', 'generated callback signature',
+        'callback', 'typedef', %callable<name>, %callable<name>,
+        '@' ~ julia-macro-name(%callable), '-', '-',
+        %callable<c_signature>, raku-signature(%callable), julia-signature(%callable),
+        parameter-contract(%callable), 'host-runtime-attached-calling-thread-only',
+        'dictionary-entry-reducer', 'generated Julia and NativeCall callback signature',
     ].join("\t"));
 }
 for @operations -> %callable {
@@ -783,11 +1027,11 @@ for @operations -> %callable {
     my $identity = $interface.defined ?? %interface-ids{$interface} !! '-';
     @inventory.push([
         'operation', %callable<owner>, %callable<name>,
-        cast-helper-name(%callable), $version, $identity,
-        %callable<c_signature>, raku-signature(%callable),
+        cast-helper-name(%callable), julia-call-name(%callable), $version, $identity,
+        %callable<c_signature>, raku-signature(%callable), julia-signature(%callable),
         parameter-contract(%callable), 'caller-thread-synchronous',
         $interface.defined ?? $interface.lc.subst('_', '-', :g) !! 'resource',
-        'generated typed NativeCall cast',
+        'generated Julia ccall wrapper and typed NativeCall cast',
     ].join("\t"));
 }
 my $inventory = @inventory.join("\n") ~ "\n";
@@ -815,6 +1059,19 @@ die 'Raku ergonomic facade must not handwrite CStruct layouts outside the genera
     if $facade-outside-abi.contains("repr('CStruct')");
 die 'Raku ergonomic facade must use generated typed callback casts'
     if $facade-outside-abi ~~ / 'nativecast' \s* '(' \s* ':(' /;
+
+sub julia-facade-has-handwritten-abi(Str:D $text --> Bool:D) {
+    my $outside = $text;
+    for 'ABI CONSTANTS', 'ABI INTERFACE ID LAYOUT', 'ABI INTERFACE IDS',
+            'ABI LAYOUTS AND CALLABLES' -> $label {
+        $outside = outside-generated-region($outside, $label);
+    }
+    $outside.contains('ccall(') || $outside.contains('@cfunction') ||
+        $outside.contains('struct Vt')
+}
+
+die 'Julia ergonomic facade must use generated layouts and typed callable wrappers'
+    if julia-facade-has-handwritten-abi(%updated{$julia-key});
 
 my @differences;
 for %updated.kv -> $name, $expected {
@@ -858,7 +1115,21 @@ if $mode eq '--self-test' {
         if $negative eq %updated{$raku-key};
     die 'negative control did not make the committed Raku ABI stale'
         if $negative eq $raku-file.slurp;
-    say 'negative control passed: a synthetic generated callback-count change makes Raku output stale';
+    my $julia-needle =
+        "const ABI_CALLABLE_COUNT = {@operations.elems + %callback-typedefs.elems}";
+    my $julia-negative = %updated{$julia-key}.subst(
+        $julia-needle,
+        "const ABI_CALLABLE_COUNT = {@operations.elems + %callback-typedefs.elems + 1}",
+    );
+    die 'negative control could not perturb the generated Julia ABI'
+        if $julia-negative eq %updated{$julia-key};
+    die 'negative control did not make the committed Julia ABI stale'
+        if $julia-negative eq $julia-file.slurp;
+    my $handwritten-julia-drift =
+        %updated{$julia-key} ~ "\nccall(C_NULL, Cvoid, ())\n";
+    die 'negative control did not detect a handwritten Julia ccall signature'
+        unless julia-facade-has-handwritten-abi($handwritten-julia-drift);
+    say 'negative controls passed: generated Raku and Julia drift plus handwritten Julia ccall duplication are rejected';
     exit 0;
 }
 

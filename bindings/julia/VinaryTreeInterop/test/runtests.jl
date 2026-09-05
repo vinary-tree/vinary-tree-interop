@@ -145,6 +145,31 @@ end
     @test sizeof(VTI.VtSemiringValue) == 16
 end
 
+@testset "generated ABI inventory" begin
+    @test length(VTI.ABI_STRUCT_NAMES) == VTI.ABI_STRUCT_COUNT
+    @test length(unique(VTI.ABI_STRUCT_NAMES)) == VTI.ABI_STRUCT_COUNT
+    @test all(name -> isdefined(VTI, name) && getfield(VTI, name) isa DataType,
+        VTI.ABI_STRUCT_NAMES)
+    @test length(VTI.ABI_CALLABLES) == VTI.ABI_CALLABLE_COUNT
+    @test all(callable -> isdefined(VTI, callable.julia_name),
+        VTI.ABI_CALLABLES)
+    @test count(callable -> callable.kind == :operation,
+        VTI.ABI_CALLABLES) == VTI.ABI_OPERATION_COUNT
+    @test count(callable -> callable.kind == :callback,
+        VTI.ABI_CALLABLES) == VTI.ABI_CALLBACK_COUNT
+    @test all(callable -> !isempty(callable.signature), VTI.ABI_CALLABLES)
+    @test all(callable -> !isempty(callable.parameter_contract),
+        VTI.ABI_CALLABLES)
+    @test any(callable -> callable.name == :query_interface &&
+        callable.capability == :resource, VTI.ABI_CALLABLES)
+    @test any(callable -> callable.name == :reduce &&
+        callable.capability == Symbol("dictionary-entries"),
+        VTI.ABI_CALLABLES)
+    @test any(callable -> callable.name == :VtDictionaryEntryReducer &&
+        callable.threading == :julia_owned_calling_thread_only,
+        VTI.ABI_CALLABLES)
+end
+
 @testset "exported API documentation" begin
     exported = filter(name -> Base.isexported(VTI, name) && name != nameof(VTI),
         names(VTI; all=true))

@@ -117,15 +117,19 @@ ownership and customer-implemented scalar WFST, lattice, and semiring
 providers. It is packaged beside the canonical C header and requires no linked
 runtime.
 
-The C header is the stable authority. The Raku generator at
+The C header is the stable authority. The Raku-based generator at
 [`scripts/generate-bindings.raku`](scripts/generate-bindings.raku) derives the
-Julia and Raku constants, enum declarations, interface identities, and the
-machine-readable
+Julia and Raku constants, enum declarations, interface identities, raw struct
+layouts, and typed callable adapters. It also emits the machine-readable
 [`bindings/generated/abi-capabilities.tsv`](bindings/generated/abi-capabilities.tsv)
-inventory from that header. Its `--check` mode rejects generated drift without
-editing the worktree. Native fixture tests then compare every Julia and Raku
-raw layout to C `sizeof`; the other language packages retain their own compiler
-and host-language conformance gates.
+inventory with both languages' names and signatures, interface relationships,
+parameter direction and ownership, and threading constraints. Its `--check`
+mode rejects generated drift without editing the worktree; `--self-test`
+proves the detector rejects synthetic Julia and Raku changes as well as a
+handwritten Julia `ccall` signature outside the generated region. Native
+fixture tests then compare every Julia and Raku raw layout to C `sizeof` and
+exercise the generated callable adapters; the other language packages retain
+their own compiler and host-language conformance gates.
 
 The optional entries-v1 surface is canonical in the Rust crate, C header, and
 generator-owned bundled C-header mirrors. Its generated conformance fixture
