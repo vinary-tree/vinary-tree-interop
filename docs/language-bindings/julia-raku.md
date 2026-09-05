@@ -69,8 +69,9 @@ loop:
 ```
 
 This uses constant native lease memory with respect to dictionary cardinality.
-If `B` is the maximum page footprint and `n` is the number of entries, native
-lease space is `O(B)`, while total traversal work remains `O(n)` plus key data.
+If $`B`$ is the maximum page footprint and $`n`$ is the number of entries,
+native lease space is $`O(B)`$, while total traversal work remains $`O(n)`$
+plus key data.
 
 ## Host-language idioms
 
@@ -147,6 +148,16 @@ order only after its conformance suite validates representative values; a flag
 is a claim to test, not permission to assume arbitrary host code is lawful.
 
 ## ABI verification
+
+The C header is the single source for Raku's raw ABI. The generator derives all
+representable `CStruct` declarations and typed vtable casts, then emits a
+tab-separated capability inventory containing C and NativeCall signatures,
+interface versions and identities, parameter direction and ownership, and
+threading constraints. A negative control perturbs the generated callback count
+and proves that byte-for-byte freshness detects the change. Hand-authored Raku
+code is limited to collection, ownership, validation, and provider ergonomics;
+the generator rejects a raw layout or typed callback cast outside its owned
+region.
 
 The test fixture is compiled from the authoritative C header. Julia checks
 `sizeof` for every ABI type against C, while Raku checks `nativesizeof` against

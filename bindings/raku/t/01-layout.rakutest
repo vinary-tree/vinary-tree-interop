@@ -1,9 +1,9 @@
 use Test;
 use NativeCall;
 use lib 'lib';
-use Vinary::Tree::Interop;
+use Vinary::Tree::Interop :DEFAULT, :abi;
 
-plan 34;
+plan 36;
 
 my $header-stage = $?FILE.IO.absolute.IO.parent.parent
     .add('.build').add("header-$*PID");
@@ -16,6 +16,8 @@ LEAVE {
 }
 
 is ABI-VERSION, 1, 'ABI version is pinned';
+is ABI-STRUCT-COUNT, 28, 'every authoritative C struct is generated';
+is ABI-CALLABLE-COUNT, 52, 'every authoritative vtable callback is generated';
 is nativesizeof(InterfaceId.new), 16, 'interface identifier is 16 bytes';
 is nativesizeof(RawResource.new), 2 * nativesizeof(Pointer),
     'resource handle remains two words';

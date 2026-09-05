@@ -36,6 +36,8 @@ jobs:
         with: { node-version: "24", package-manager-cache: false }
       - uses: actions/setup-go@v6
         with: { go-version: "1.26.x", cache: false }
+      # yamllint disable-line rule:line-length
+      - uses: Raku/setup-raku@b8b1a4ebe85ef112edfc65e9edc8c57735367e3f  # v1
       - id: version
         name: Validate canonical version, immutable source tag, and registry scope
         shell: bash
@@ -49,6 +51,10 @@ jobs:
             --registry "$REGISTRY")
           echo "canonical=$canonical" >> "$GITHUB_OUTPUT"
       - run: ./scripts/verify.sh
+      - name: Reject generated Raku ABI drift and prove the negative control
+        run: |
+          raku scripts/generate-bindings.raku --check
+          raku scripts/generate-bindings.raku --self-test
 
   rust-package:
     name: Rust crate artifact

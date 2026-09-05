@@ -111,6 +111,7 @@ class X::Vinary::Tree::Interop is Exception is export {
     }
 }
 
+# BEGIN GENERATED ABI LAYOUTS AND CALLABLES
 class InterfaceId is repr('CStruct') is export {
     has uint8 $.b0;
     has uint8 $.b1;
@@ -135,67 +136,10 @@ class InterfaceId is repr('CStruct') is export {
     }
 }
 
-sub interface-id(Str:D $text --> InterfaceId:D) is export {
-    my @bytes = $text.encode('ascii').list;
-    die "interface identifiers are exactly 16 bytes" unless @bytes.elems == 16;
-    InterfaceId.new(
-        b0 => @bytes[0], b1 => @bytes[1], b2 => @bytes[2], b3 => @bytes[3],
-        b4 => @bytes[4], b5 => @bytes[5], b6 => @bytes[6], b7 => @bytes[7],
-        b8 => @bytes[8], b9 => @bytes[9], b10 => @bytes[10],
-        b11 => @bytes[11], b12 => @bytes[12], b13 => @bytes[13],
-        b14 => @bytes[14], b15 => @bytes[15],
-    )
+class RawResource is repr('CStruct') is export {
+    has Pointer $.context is rw;
+    has Pointer $.vtable is rw;
 }
-
-# BEGIN GENERATED ABI INTERFACE IDS
-sub dictionary-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.dictionary.v1')
-}
-
-sub dictionary-visit-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.dict.visit.v1')
-}
-
-sub dictionary-graph-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.dict.graph.v1')
-}
-
-sub dictionary-entries-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.dict.entry.v1')
-}
-
-sub snapshot-identity-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.snapshot.id.1')
-}
-
-sub wfst-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.scalar-wfst.1')
-}
-
-sub lattice-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.lattice.val.1')
-}
-
-sub semiring-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.semiring.val1')
-}
-
-sub semiring-division-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.semiring.div1')
-}
-
-sub semiring-star-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.semiring.str1')
-}
-
-sub semiring-numeric-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.semiring.num1')
-}
-
-sub semiring-properties-interface-id(--> InterfaceId:D) is export {
-    interface-id('vt.semiring.prp1')
-}
-# END GENERATED ABI INTERFACE IDS
 
 class ResourceVTable is repr('CStruct') is export {
     has size_t $.struct-size;
@@ -204,11 +148,6 @@ class ResourceVTable is repr('CStruct') is export {
     has Pointer $.retain;
     has Pointer $.release;
     has Pointer $.query-interface;
-}
-
-class RawResource is repr('CStruct') is export {
-    has Pointer $.context is rw;
-    has Pointer $.vtable is rw;
 }
 
 class OptionalU64 is repr('CStruct') is export {
@@ -226,11 +165,6 @@ class OptionalU64 is repr('CStruct') is export {
 class DictionaryEdge is repr('CStruct') is export {
     has uint64 $.label;
     has uint64 $.node;
-}
-
-class Edge is export {
-    has UInt:D $.label is required;
-    has UInt:D $.node is required;
 }
 
 class DictionaryVTable is repr('CStruct') is export {
@@ -472,6 +406,285 @@ class SemiringPropertiesVTable is repr('CStruct') is export {
     has Pointer $.closure-bound;
 }
 
+our constant ABI-STRUCT-COUNT is export(:abi) = 28;
+our constant ABI-CALLABLE-COUNT is export(:abi) = 52;
+
+sub abi-cast-resource-retain(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer), $address)
+}
+
+sub abi-cast-resource-release(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer), $address)
+}
+
+sub abi-cast-resource-query-interface(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, InterfaceId, uint32, Pointer is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-snapshot(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawResource --> int32), $address)
+}
+
+sub abi-cast-dictionary-root(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64 is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-len(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, size_t is rw, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-node-is-final(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-node-value-u64(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, OptionalU64 --> int32), $address)
+}
+
+sub abi-cast-dictionary-node-transition(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, uint64, uint64 is rw, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-node-edges(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, size_t, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-visit-node-visit(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, size_t, uint8 is rw, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-graph-graph(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, DictionaryGraphView --> int32), $address)
+}
+
+sub abi-cast-dictionary-graph-node-value-u64(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, OptionalU64 --> int32), $address)
+}
+
+sub abi-cast-snapshot-identity-identity(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SnapshotIdentity --> int32), $address)
+}
+
+sub abi-cast-dictionary-entries-open(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawDictionaryEntriesCursor, DictionaryEntriesInfo --> int32), $address)
+}
+
+sub abi-cast-dictionary-entries-next-batch(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryEntriesCursor, BatchLimits, DictionaryEntryBatchView --> int32), $address)
+}
+
+sub abi-cast-dictionary-entries-release-batch(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryEntriesCursor, uint64 --> int32), $address)
+}
+
+sub abi-cast-dictionary-entries-reduce(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryEntriesCursor, BatchLimits, &callback (Pointer, Pointer --> int32), Pointer, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-entries-cancel(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryEntriesCursor --> int32), $address)
+}
+
+sub abi-cast-dictionary-entries-close(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryEntriesCursor --> int32), $address)
+}
+
+sub abi-cast-wfst-snapshot(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawResource --> int32), $address)
+}
+
+sub abi-cast-wfst-start(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64 is rw --> int32), $address)
+}
+
+sub abi-cast-wfst-num-states(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, size_t is rw, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-wfst-state-info(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, uint8 is rw, uint8 is rw, num64 is rw --> int32), $address)
+}
+
+sub abi-cast-wfst-state-arcs(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, size_t, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-lattice-join(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawResource, RawResource --> int32), $address)
+}
+
+sub abi-cast-lattice-meet(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawResource, RawResource --> int32), $address)
+}
+
+sub abi-cast-lattice-equal(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawResource, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-lattice-stable-bytes(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-lattice-diagnostic(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-lattice-join-many(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t, RawResource --> int32), $address)
+}
+
+sub abi-cast-lattice-meet-many(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t, RawResource --> int32), $address)
+}
+
+sub abi-cast-semiring-zero(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-one(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-clone-value(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-release-values(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t --> int32), $address)
+}
+
+sub abi-cast-semiring-plus(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-times(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-equal(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-approx-equal(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, num64, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-natural-order(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, int32 is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-stable-bytes(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-diagnostic(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, Pointer, size_t, size_t is rw, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-plus-many(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-times-many(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, Pointer, size_t, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-division-divide(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-division-left-divide(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-star-star(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, SemiringValue --> int32), $address)
+}
+
+sub abi-cast-semiring-numeric-numerical-value(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, num64 is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-numeric-quantize(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, num64, int64 is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-numeric-to-probability(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, SemiringValue, num64 is rw --> int32), $address)
+}
+
+sub abi-cast-semiring-properties-closure-bound(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, size_t is rw, uint8 is rw --> int32), $address)
+}
+# END GENERATED ABI LAYOUTS AND CALLABLES
+
+sub interface-id(Str:D $text --> InterfaceId:D) is export {
+    my @bytes = $text.encode('ascii').list;
+    die "interface identifiers are exactly 16 bytes" unless @bytes.elems == 16;
+    InterfaceId.new(
+        b0 => @bytes[0], b1 => @bytes[1], b2 => @bytes[2], b3 => @bytes[3],
+        b4 => @bytes[4], b5 => @bytes[5], b6 => @bytes[6], b7 => @bytes[7],
+        b8 => @bytes[8], b9 => @bytes[9], b10 => @bytes[10],
+        b11 => @bytes[11], b12 => @bytes[12], b13 => @bytes[13],
+        b14 => @bytes[14], b15 => @bytes[15],
+    )
+}
+
+# BEGIN GENERATED ABI INTERFACE IDS
+sub dictionary-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.dictionary.v1')
+}
+
+sub dictionary-visit-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.dict.visit.v1')
+}
+
+sub dictionary-graph-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.dict.graph.v1')
+}
+
+sub dictionary-entries-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.dict.entry.v1')
+}
+
+sub snapshot-identity-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.snapshot.id.1')
+}
+
+sub wfst-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.scalar-wfst.1')
+}
+
+sub lattice-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.lattice.val.1')
+}
+
+sub semiring-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.val1')
+}
+
+sub semiring-division-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.div1')
+}
+
+sub semiring-star-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.str1')
+}
+
+sub semiring-numeric-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.num1')
+}
+
+sub semiring-properties-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.semiring.prp1')
+}
+# END GENERATED ABI INTERFACE IDS
+
+class Edge is export {
+    has UInt:D $.label is required;
+    has UInt:D $.node is required;
+}
+
 sub memcpy(Pointer, Pointer, size_t --> Pointer) is native { * }
 
 sub copy-cstruct(::T, Pointer:D $source --> T:D) {
@@ -525,7 +738,7 @@ class Resource is export {
     method retain(--> Resource:D) {
         my $raw = self.raw;
         my $table = $!table;
-        my &retain = nativecast(:(Pointer),
+        my &retain = abi-cast-resource-retain(
             require-pointer($table.retain, 'retain'));
         retain($raw.context);
         Resource.new(:$raw, anchors => @!anchors)
@@ -535,8 +748,7 @@ class Resource is export {
         --> Pointer) {
         my $raw = self.raw;
         my $table = $!table;
-        my &query = nativecast(
-            :(Pointer, InterfaceId, uint32, Pointer is rw --> int32),
+        my &query = abi-cast-resource-query-interface(
             require-pointer($table.query-interface, 'query-interface'),
         );
         my Pointer $output .= new;
@@ -556,7 +768,7 @@ class Resource is export {
         $!closed = True;
         my $table = $!table;
         if $table.release {
-            my &release = nativecast(:(Pointer), $table.release);
+            my &release = abi-cast-resource-release($table.release);
             release($raw.context);
         }
         @!anchors = ();
@@ -577,9 +789,9 @@ sub borrow-resource(RawResource:D $raw, :@anchors = () --> Resource:D) is export
         status => UNSUPPORTED,
         operation => 'abi-version',
     ).throw unless $table.abi-version == ABI-VERSION;
-    my &retain = nativecast(:(Pointer),
+    my &retain = abi-cast-resource-retain(
         require-pointer($table.retain, 'retain'));
-    my &release = nativecast(:(Pointer),
+    my &release = abi-cast-resource-release(
         require-pointer($table.release, 'release'));
     retain($raw.context);
     my $owned;
@@ -640,7 +852,7 @@ class Dictionary does Associative is export {
 
     method snapshot(--> Dictionary:D) {
         my $table = self!table;
-        my &call = nativecast(:(Pointer, RawResource --> int32),
+        my &call = abi-cast-dictionary-snapshot(
             require-pointer($table.snapshot, 'dictionary-snapshot'));
         my $raw = RawResource.new;
         check-status(call($!resource.raw.context, $raw),
@@ -650,7 +862,7 @@ class Dictionary does Associative is export {
 
     method root(--> UInt:D) {
         my $table = self!table;
-        my &call = nativecast(:(Pointer, uint64 is rw --> int32),
+        my &call = abi-cast-dictionary-root(
             require-pointer($table.root, 'dictionary-root'));
         my uint64 $output = 0;
         check-status(call($!resource.raw.context, $output), 'dictionary-root');
@@ -659,7 +871,7 @@ class Dictionary does Associative is export {
 
     method known-length(--> Int) {
         my $table = self!table;
-        my &call = nativecast(:(Pointer, size_t is rw, uint8 is rw --> int32),
+        my &call = abi-cast-dictionary-len(
             require-pointer($table.len, 'dictionary-len'));
         my size_t $output = 0;
         my uint8 $known = 0;
@@ -669,7 +881,7 @@ class Dictionary does Associative is export {
 
     method is-final(UInt:D $node --> Bool:D) {
         my $table = self!table;
-        my &call = nativecast(:(Pointer, uint64, uint8 is rw --> int32),
+        my &call = abi-cast-dictionary-node-is-final(
             require-pointer($table.node-is-final, 'dictionary-is-final'));
         my uint8 $output = 0;
         check-status(call($!resource.raw.context, $node, $output),
@@ -683,7 +895,7 @@ class Dictionary does Associative is export {
             operation => 'dictionary-value',
         ).throw unless self.value-domain == OPTIONAL-U64;
         my $table = self!table;
-        my &call = nativecast(:(Pointer, uint64, OptionalU64 --> int32),
+        my &call = abi-cast-dictionary-node-value-u64(
             require-pointer($table.node-value-u64, 'dictionary-value'));
         my $output = OptionalU64.new;
         check-status(call($!resource.raw.context, $node, $output),
@@ -693,8 +905,7 @@ class Dictionary does Associative is export {
 
     method transition(UInt:D $node, UInt:D $label --> UInt) {
         my $table = self!table;
-        my &call = nativecast(
-            :(Pointer, uint64, uint64, uint64 is rw, uint8 is rw --> int32),
+        my &call = abi-cast-dictionary-node-transition(
             require-pointer($table.node-transition, 'dictionary-transition'),
         );
         my uint64 $child = 0;
@@ -760,9 +971,7 @@ class Dictionary does Associative is export {
         --> Array:D) {
         die 'batch-size must be positive' unless $batch-size > 0;
         my $table = self!table;
-        my &call = nativecast(
-            :(Pointer, uint64, size_t, Pointer, size_t,
-                size_t is rw, size_t is rw --> int32),
+        my &call = abi-cast-dictionary-node-edges(
             require-pointer($table.node-edges, 'dictionary-edges'),
         );
         my $storage = buf8.allocate($batch-size * nativesizeof(DictionaryEdge));
@@ -941,8 +1150,7 @@ class DictionaryEntries does Iterable is export {
             operation => 'dictionary-entries',
         ).throw unless $table-pointer;
         $!table := copy-cstruct(DictionaryEntriesVTable, $table-pointer);
-        my &open = nativecast(
-            :(Pointer, RawDictionaryEntriesCursor, DictionaryEntriesInfo --> int32),
+        my &open = abi-cast-dictionary-entries-open(
             require-pointer($!table.open, 'dictionary-entries-open'),
         );
         my $raw = RawDictionaryEntriesCursor.new;
@@ -984,9 +1192,7 @@ class DictionaryEntries does Iterable is export {
             status => BATCH-IN-USE,
             operation => 'dictionary-entries-next-batch',
         ).throw if $!batch-active;
-        my &next = nativecast(
-            :(RawDictionaryEntriesCursor, BatchLimits,
-                DictionaryEntryBatchView --> int32),
+        my &next = abi-cast-dictionary-entries-next-batch(
             require-pointer($!table.next-batch, 'dictionary-entries-next-batch'),
         );
         my $view = DictionaryEntryBatchView.new;
@@ -1004,8 +1210,7 @@ class DictionaryEntries does Iterable is export {
             operation => 'dictionary-entries-release-batch',
         ).throw if $!closed;
         die 'no dictionary-entry batch is active' unless $!batch-active;
-        my &release = nativecast(
-            :(RawDictionaryEntriesCursor, uint64 --> int32),
+        my &release = abi-cast-dictionary-entries-release-batch(
             require-pointer($!table.release-batch,
                 'dictionary-entries-release-batch'),
         );
@@ -1016,7 +1221,7 @@ class DictionaryEntries does Iterable is export {
     }
 
     method cancel(--> Nil) {
-        my &cancel = nativecast(:(RawDictionaryEntriesCursor --> int32),
+        my &cancel = abi-cast-dictionary-entries-cancel(
             require-pointer($!table.cancel, 'dictionary-entries-cancel'));
         check-status(cancel($!raw), 'dictionary-entries-cancel');
     }
@@ -1051,10 +1256,7 @@ class DictionaryEntries does Iterable is export {
             }
             $status
         };
-        my &reduce = nativecast(
-            :(RawDictionaryEntriesCursor, BatchLimits,
-                &callback (Pointer, Pointer --> int32), Pointer,
-                size_t is rw --> int32),
+        my &reduce = abi-cast-dictionary-entries-reduce(
             require-pointer($!table.reduce, 'dictionary-entries-reduce'),
         );
         my size_t $count = 0;
@@ -1069,7 +1271,7 @@ class DictionaryEntries does Iterable is export {
         if $!batch-active {
             try self.release-batch($!active-generation);
         }
-        my &close = nativecast(:(RawDictionaryEntriesCursor --> int32),
+        my &close = abi-cast-dictionary-entries-close(
             require-pointer($!table.close, 'dictionary-entries-close'));
         my $status = close($!raw);
         $!closed = True;
@@ -1154,7 +1356,7 @@ class Wfst is export {
 
     method snapshot(--> Wfst:D) {
         self!open;
-        my &call = nativecast(:(Pointer, RawResource --> int32),
+        my &call = abi-cast-wfst-snapshot(
             require-pointer($!table.snapshot, 'wfst-snapshot'));
         my $raw = RawResource.new;
         check-status(call($!resource.raw.context, $raw), 'wfst-snapshot');
@@ -1163,7 +1365,7 @@ class Wfst is export {
 
     method start(--> UInt:D) {
         self!open;
-        my &call = nativecast(:(Pointer, uint64 is rw --> int32),
+        my &call = abi-cast-wfst-start(
             require-pointer($!table.start, 'wfst-start'));
         my uint64 $state = 0;
         check-status(call($!resource.raw.context, $state), 'wfst-start');
@@ -1172,7 +1374,7 @@ class Wfst is export {
 
     method state-count(--> Int) {
         self!open;
-        my &call = nativecast(:(Pointer, size_t is rw, uint8 is rw --> int32),
+        my &call = abi-cast-wfst-num-states(
             require-pointer($!table.num-states, 'wfst-num-states'));
         my size_t $count = 0;
         my uint8 $known = 0;
@@ -1183,8 +1385,7 @@ class Wfst is export {
 
     method state-info(UInt:D $state --> StateInfo) {
         self!open;
-        my &call = nativecast(
-            :(Pointer, uint64, uint8 is rw, uint8 is rw, num64 is rw --> int32),
+        my &call = abi-cast-wfst-state-info(
             require-pointer($!table.state-info, 'wfst-state-info'),
         );
         my uint8 $valid = 0;
@@ -1200,9 +1401,7 @@ class Wfst is export {
         --> Array:D) {
         self!open;
         die 'batch-size must be positive' unless $batch-size > 0;
-        my &call = nativecast(
-            :(Pointer, uint64, size_t, Pointer, size_t,
-                size_t is rw, size_t is rw --> int32),
+        my &call = abi-cast-wfst-state-arcs(
             require-pointer($!table.state-arcs, 'wfst-arcs'),
         );
         my $storage = buf8.allocate($batch-size * nativesizeof(WfstArc));
@@ -1312,8 +1511,10 @@ class LatticeValue is export {
         my $function = $operation eq 'lattice-join'
             ?? $!table.join
             !! $!table.meet;
-        my &call = nativecast(:(Pointer, RawResource, RawResource --> int32),
-            require-pointer($function, $operation));
+        my $required = require-pointer($function, $operation);
+        my &call = $operation eq 'lattice-join'
+            ?? abi-cast-lattice-join($required)
+            !! abi-cast-lattice-meet($required);
         my $output = RawResource.new;
         check-status(call($!resource.raw.context, $other.resource.raw, $output),
             $operation);
@@ -1330,8 +1531,7 @@ class LatticeValue is export {
 
     method equivalent(LatticeValue:D $other --> Bool:D) {
         self!same-domain($other, 'lattice-equal');
-        my &call = nativecast(
-            :(Pointer, RawResource, uint8 is rw --> int32),
+        my &call = abi-cast-lattice-equal(
             require-pointer($!table.equal, 'lattice-equal'),
         );
         my uint8 $output = 0;
@@ -1346,10 +1546,9 @@ class LatticeValue is export {
 
     method !bytes(Pointer $function, Str:D $operation --> Blob) {
         return Blob unless $function;
-        my &call = nativecast(
-            :(Pointer, Pointer, size_t, size_t is rw, size_t is rw --> int32),
-            $function,
-        );
+        my &call = $operation eq 'lattice-stable-bytes'
+            ?? abi-cast-lattice-stable-bytes($function)
+            !! abi-cast-lattice-diagnostic($function);
         my size_t $written = 0;
         my size_t $required = 0;
         check-status(call($!resource.raw.context, Pointer, 0,
@@ -1418,10 +1617,9 @@ class LatticeValue is export {
                 nativesizeof(RawResource),
             );
         }
-        my &call = nativecast(
-            :(Pointer, Pointer, size_t, RawResource --> int32),
-            $function,
-        );
+        my &call = $operation eq 'lattice-join-many'
+            ?? abi-cast-lattice-join-many($function)
+            !! abi-cast-lattice-meet-many($function);
         my $output = RawResource.new;
         check-status(call($!resource.raw.context, nativecast(Pointer, $storage),
             @others.elems, $output), $operation);
@@ -1546,10 +1744,13 @@ C<InterfaceId>, C<RawResource>, every C<*VTable>, graph node/edge/view types,
 entry descriptor/view/info types, C<WfstArc>, and the compact
 C<SemiringValue> token mirror the authoritative C header. The five semiring
 vtable types keep base algebra, division, Kleene closure, numerical projections,
-and declared laws independently negotiable. Fixed padding arrays are represented as individual native scalars to
+and declared laws independently negotiable. These raw layouts and all typed
+vtable callback casts are generated from the packaged C header. Provider authors
+may import the C<:abi> tag to use those casts without duplicating NativeCall
+signatures. Fixed padding arrays are represented as individual native scalars to
 preserve layout without giving Rakudo a separately owned CArray. Native tests
 compare C<nativesizeof> for every raw type with C<sizeof> compiled from the C
-header.
+header and execute the generated casts against an independent C fixture.
 
 =head1 ERRORS AND SECURITY
 

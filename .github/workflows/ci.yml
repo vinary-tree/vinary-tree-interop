@@ -161,7 +161,9 @@ jobs:
       # yamllint disable-line rule:line-length
       - uses: Raku/setup-raku@b8b1a4ebe85ef112edfc65e9edc8c57735367e3f  # v1
       - name: Reject generated ABI declaration and capability drift
-        run: raku scripts/generate-bindings.raku --check
+        run: |
+          raku scripts/generate-bindings.raku --check
+          raku scripts/generate-bindings.raku --self-test
       - name: Build the independent native ABI fixture
         run: >-
           cc -std=c11 -Wall -Wextra -Werror -fPIC -shared

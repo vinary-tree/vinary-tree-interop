@@ -1,93 +1,94 @@
-kind	c_name	version	identity	operation
-interface	VT_DICTIONARY_INTERFACE_ID	1	vt.dictionary.v1	-
-interface	VT_DICTIONARY_VISIT_INTERFACE_ID	1	vt.dict.visit.v1	-
-interface	VT_DICTIONARY_GRAPH_INTERFACE_ID	1	vt.dict.graph.v1	-
-interface	VT_DICTIONARY_ENTRIES_INTERFACE_ID	1	vt.dict.entry.v1	-
-interface	VT_SNAPSHOT_IDENTITY_INTERFACE_ID	1	vt.snapshot.id.1	-
-interface	VT_WFST_INTERFACE_ID	1	vt.scalar-wfst.1	-
-interface	VT_LATTICE_INTERFACE_ID	1	vt.lattice.val.1	-
-interface	VT_SEMIRING_INTERFACE_ID	1	vt.semiring.val1	-
-interface	VT_SEMIRING_DIVISION_INTERFACE_ID	1	vt.semiring.div1	-
-interface	VT_SEMIRING_STAR_INTERFACE_ID	1	vt.semiring.str1	-
-interface	VT_SEMIRING_NUMERIC_INTERFACE_ID	1	vt.semiring.num1	-
-interface	VT_SEMIRING_PROPERTIES_INTERFACE_ID	1	vt.semiring.prp1	-
-struct	VtDictionaryEdge	-	-	-
-struct	VtDictionaryEntriesCursor	-	-	-
-struct	VtDictionaryEntriesInfo	-	-	-
-struct	VtDictionaryEntriesVTable	-	-	-
-operation	VtDictionaryEntriesVTable	-	-	cancel
-operation	VtDictionaryEntriesVTable	-	-	close
-operation	VtDictionaryEntriesVTable	-	-	next_batch
-operation	VtDictionaryEntriesVTable	-	-	open
-operation	VtDictionaryEntriesVTable	-	-	reduce
-operation	VtDictionaryEntriesVTable	-	-	release_batch
-struct	VtDictionaryEntry	-	-	-
-struct	VtDictionaryEntryBatchLimits	-	-	-
-struct	VtDictionaryEntryBatchView	-	-	-
-struct	VtDictionaryGraphEdge	-	-	-
-struct	VtDictionaryGraphNode	-	-	-
-struct	VtDictionaryGraphVTable	-	-	-
-operation	VtDictionaryGraphVTable	-	-	graph
-operation	VtDictionaryGraphVTable	-	-	node_value_u64
-struct	VtDictionaryGraphView	-	-	-
-struct	VtDictionaryVTable	-	-	-
-operation	VtDictionaryVTable	-	-	len
-operation	VtDictionaryVTable	-	-	node_edges
-operation	VtDictionaryVTable	-	-	node_is_final
-operation	VtDictionaryVTable	-	-	node_transition
-operation	VtDictionaryVTable	-	-	node_value_u64
-operation	VtDictionaryVTable	-	-	root
-operation	VtDictionaryVTable	-	-	snapshot
-struct	VtDictionaryVisitVTable	-	-	-
-operation	VtDictionaryVisitVTable	-	-	node_visit
-struct	VtInterfaceId	-	-	-
-struct	VtLatticeVTable	-	-	-
-operation	VtLatticeVTable	-	-	diagnostic
-operation	VtLatticeVTable	-	-	equal
-operation	VtLatticeVTable	-	-	join
-operation	VtLatticeVTable	-	-	join_many
-operation	VtLatticeVTable	-	-	meet
-operation	VtLatticeVTable	-	-	meet_many
-operation	VtLatticeVTable	-	-	stable_bytes
-struct	VtOptionalU64	-	-	-
-struct	VtResource	-	-	-
-struct	VtResourceVTable	-	-	-
-operation	VtResourceVTable	-	-	query_interface
-operation	VtResourceVTable	-	-	release
-operation	VtResourceVTable	-	-	retain
-struct	VtSemiringDivisionVTable	-	-	-
-operation	VtSemiringDivisionVTable	-	-	divide
-operation	VtSemiringDivisionVTable	-	-	left_divide
-struct	VtSemiringNumericVTable	-	-	-
-operation	VtSemiringNumericVTable	-	-	numerical_value
-operation	VtSemiringNumericVTable	-	-	quantize
-operation	VtSemiringNumericVTable	-	-	to_probability
-struct	VtSemiringPropertiesVTable	-	-	-
-operation	VtSemiringPropertiesVTable	-	-	closure_bound
-struct	VtSemiringStarVTable	-	-	-
-operation	VtSemiringStarVTable	-	-	star
-struct	VtSemiringVTable	-	-	-
-operation	VtSemiringVTable	-	-	approx_equal
-operation	VtSemiringVTable	-	-	clone_value
-operation	VtSemiringVTable	-	-	diagnostic
-operation	VtSemiringVTable	-	-	equal
-operation	VtSemiringVTable	-	-	natural_order
-operation	VtSemiringVTable	-	-	one
-operation	VtSemiringVTable	-	-	plus
-operation	VtSemiringVTable	-	-	plus_many
-operation	VtSemiringVTable	-	-	release_values
-operation	VtSemiringVTable	-	-	stable_bytes
-operation	VtSemiringVTable	-	-	times
-operation	VtSemiringVTable	-	-	times_many
-operation	VtSemiringVTable	-	-	zero
-struct	VtSemiringValue	-	-	-
-struct	VtSnapshotIdentity	-	-	-
-struct	VtSnapshotIdentityVTable	-	-	-
-operation	VtSnapshotIdentityVTable	-	-	identity
-struct	VtWfstArc	-	-	-
-struct	VtWfstVTable	-	-	-
-operation	VtWfstVTable	-	-	num_states
-operation	VtWfstVTable	-	-	snapshot
-operation	VtWfstVTable	-	-	start
-operation	VtWfstVTable	-	-	state_arcs
-operation	VtWfstVTable	-	-	state_info
+kind	owner	c_name	raku_name	version	identity	c_signature	raku_signature	parameter_contract	threading	capability	notes
+interface	-	VT_DICTIONARY_INTERFACE_ID	dictionary-interface-id	1	vt.dictionary.v1	-	-	-	caller-thread-synchronous	dictionary	versioned optional capability
+interface	-	VT_DICTIONARY_VISIT_INTERFACE_ID	dictionary-visit-interface-id	1	vt.dict.visit.v1	-	-	-	caller-thread-synchronous	dictionary-visit	versioned optional capability
+interface	-	VT_DICTIONARY_GRAPH_INTERFACE_ID	dictionary-graph-interface-id	1	vt.dict.graph.v1	-	-	-	caller-thread-synchronous	dictionary-graph	versioned optional capability
+interface	-	VT_DICTIONARY_ENTRIES_INTERFACE_ID	dictionary-entries-interface-id	1	vt.dict.entry.v1	-	-	-	caller-thread-synchronous	dictionary-entries	versioned optional capability
+interface	-	VT_SNAPSHOT_IDENTITY_INTERFACE_ID	snapshot-identity-interface-id	1	vt.snapshot.id.1	-	-	-	caller-thread-synchronous	snapshot-identity	versioned optional capability
+interface	-	VT_WFST_INTERFACE_ID	wfst-interface-id	1	vt.scalar-wfst.1	-	-	-	caller-thread-synchronous	wfst	versioned optional capability
+interface	-	VT_LATTICE_INTERFACE_ID	lattice-interface-id	1	vt.lattice.val.1	-	-	-	caller-thread-synchronous	lattice	versioned optional capability
+interface	-	VT_SEMIRING_INTERFACE_ID	semiring-interface-id	1	vt.semiring.val1	-	-	-	caller-thread-synchronous	semiring	versioned optional capability
+interface	-	VT_SEMIRING_DIVISION_INTERFACE_ID	semiring-division-interface-id	1	vt.semiring.div1	-	-	-	caller-thread-synchronous	semiring-division	versioned optional capability
+interface	-	VT_SEMIRING_STAR_INTERFACE_ID	semiring-star-interface-id	1	vt.semiring.str1	-	-	-	caller-thread-synchronous	semiring-star	versioned optional capability
+interface	-	VT_SEMIRING_NUMERIC_INTERFACE_ID	semiring-numeric-interface-id	1	vt.semiring.num1	-	-	-	caller-thread-synchronous	semiring-numeric	versioned optional capability
+interface	-	VT_SEMIRING_PROPERTIES_INTERFACE_ID	semiring-properties-interface-id	1	vt.semiring.prp1	-	-	-	caller-thread-synchronous	semiring-properties	versioned optional capability
+struct	-	VtInterfaceId	InterfaceId	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtResource	RawResource	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtResourceVTable	ResourceVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtOptionalU64	OptionalU64	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEdge	DictionaryEdge	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryVTable	DictionaryVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryVisitVTable	DictionaryVisitVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryGraphNode	DictionaryGraphNode	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryGraphEdge	DictionaryGraphEdge	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryGraphView	DictionaryGraphView	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryGraphVTable	DictionaryGraphVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSnapshotIdentity	SnapshotIdentity	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSnapshotIdentityVTable	SnapshotIdentityVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEntry	DictionaryEntryDescriptor	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEntryBatchLimits	BatchLimits	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEntryBatchView	DictionaryEntryBatchView	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEntriesInfo	DictionaryEntriesInfo	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEntriesCursor	RawDictionaryEntriesCursor	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtDictionaryEntriesVTable	DictionaryEntriesVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtWfstArc	WfstArc	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtWfstVTable	WfstVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtLatticeVTable	LatticeVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSemiringValue	SemiringValue	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSemiringVTable	SemiringVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSemiringDivisionVTable	SemiringDivisionVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSemiringStarVTable	SemiringStarVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSemiringNumericVTable	SemiringNumericVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+struct	-	VtSemiringPropertiesVTable	SemiringPropertiesVTable	-	-	-	-	-	not-applicable	layout	generated NativeCall CStruct
+callback	typedef	VtDictionaryEntryReducer	VtDictionaryEntryReducer	-	-	VtStatus (*VtDictionaryEntryReducer)( void* reducer_context, const VtDictionaryEntryBatchView* batch)	:(Pointer, Pointer --> int32)	reducer_context:input:borrowed,batch:input:borrowed	Rakudo-owned-calling-thread-only	dictionary-entry-reducer	generated callback signature
+operation	VtResourceVTable	retain	abi-cast-resource-retain	1	-	void (*retain)(void* context)	:(Pointer)	context:input:borrowed	caller-thread-synchronous	resource	generated typed NativeCall cast
+operation	VtResourceVTable	release	abi-cast-resource-release	1	-	void (*release)(void* context)	:(Pointer)	context:input:consumed	caller-thread-synchronous	resource	generated typed NativeCall cast
+operation	VtResourceVTable	query_interface	abi-cast-resource-query-interface	1	-	VtStatus (*query_interface)(void* context, const VtInterfaceId* interface_id, uint32_t minimum_version, const void** out_vtable)	:(Pointer, InterfaceId, uint32, Pointer is rw --> int32)	context:input:borrowed,interface_id:input:borrowed,minimum_version:input:borrowed,out_vtable:output:borrowed	caller-thread-synchronous	resource	generated typed NativeCall cast
+operation	VtDictionaryVTable	snapshot	abi-cast-dictionary-snapshot	1	vt.dictionary.v1	VtStatus (*snapshot)(void* context, VtResource* out_snapshot)	:(Pointer, RawResource --> int32)	context:input:borrowed,out_snapshot:output:owned	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVTable	root	abi-cast-dictionary-root	1	vt.dictionary.v1	VtStatus (*root)(void* context, uint64_t* out_node)	:(Pointer, uint64 is rw --> int32)	context:input:borrowed,out_node:output:borrowed	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVTable	len	abi-cast-dictionary-len	1	vt.dictionary.v1	VtStatus (*len)(void* context, size_t* out_len, uint8_t* out_known)	:(Pointer, size_t is rw, uint8 is rw --> int32)	context:input:borrowed,out_len:output:borrowed,out_known:output:borrowed	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVTable	node_is_final	abi-cast-dictionary-node-is-final	1	vt.dictionary.v1	VtStatus (*node_is_final)(void* context, uint64_t node, uint8_t* out_is_final)	:(Pointer, uint64, uint8 is rw --> int32)	context:input:borrowed,node:input:borrowed,out_is_final:output:borrowed	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVTable	node_value_u64	abi-cast-dictionary-node-value-u64	1	vt.dictionary.v1	VtStatus (*node_value_u64)(void* context, uint64_t node, VtOptionalU64* out_value)	:(Pointer, uint64, OptionalU64 --> int32)	context:input:borrowed,node:input:borrowed,out_value:output:borrowed	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVTable	node_transition	abi-cast-dictionary-node-transition	1	vt.dictionary.v1	VtStatus (*node_transition)(void* context, uint64_t node, uint64_t label, uint64_t* out_child, uint8_t* out_found)	:(Pointer, uint64, uint64, uint64 is rw, uint8 is rw --> int32)	context:input:borrowed,node:input:borrowed,label:input:borrowed,out_child:output:borrowed,out_found:output:borrowed	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVTable	node_edges	abi-cast-dictionary-node-edges	1	vt.dictionary.v1	VtStatus (*node_edges)(void* context, uint64_t node, size_t start, VtDictionaryEdge* out_edges, size_t capacity, size_t* out_written, size_t* out_total)	:(Pointer, uint64, size_t, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,node:input:borrowed,start:input:borrowed,out_edges:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_total:output:borrowed	caller-thread-synchronous	dictionary	generated typed NativeCall cast
+operation	VtDictionaryVisitVTable	node_visit	abi-cast-dictionary-visit-node-visit	1	vt.dict.visit.v1	VtStatus (*node_visit)(void* context, uint64_t node, size_t start, uint8_t* out_is_final, VtDictionaryEdge* out_edges, size_t capacity, size_t* out_written, size_t* out_total)	:(Pointer, uint64, size_t, uint8 is rw, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,node:input:borrowed,start:input:borrowed,out_is_final:output:borrowed,out_edges:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_total:output:borrowed	caller-thread-synchronous	dictionary-visit	generated typed NativeCall cast
+operation	VtDictionaryGraphVTable	graph	abi-cast-dictionary-graph-graph	1	vt.dict.graph.v1	VtStatus (*graph)(void* context, VtDictionaryGraphView* out_graph)	:(Pointer, DictionaryGraphView --> int32)	context:input:borrowed,out_graph:output:borrowed	caller-thread-synchronous	dictionary-graph	generated typed NativeCall cast
+operation	VtDictionaryGraphVTable	node_value_u64	abi-cast-dictionary-graph-node-value-u64	1	vt.dict.graph.v1	VtStatus (*node_value_u64)(void* context, uint64_t value_cursor, VtOptionalU64* out_value)	:(Pointer, uint64, OptionalU64 --> int32)	context:input:borrowed,value_cursor:input:borrowed,out_value:output:borrowed	caller-thread-synchronous	dictionary-graph	generated typed NativeCall cast
+operation	VtSnapshotIdentityVTable	identity	abi-cast-snapshot-identity-identity	1	vt.snapshot.id.1	VtStatus (*identity)(void* context, VtSnapshotIdentity* out_identity)	:(Pointer, SnapshotIdentity --> int32)	context:input:borrowed,out_identity:output:borrowed	caller-thread-synchronous	snapshot-identity	generated typed NativeCall cast
+operation	VtDictionaryEntriesVTable	open	abi-cast-dictionary-entries-open	1	vt.dict.entry.v1	VtStatus (*open)(void* resource_context, VtDictionaryEntriesCursor* out_cursor, VtDictionaryEntriesInfo* out_info)	:(Pointer, RawDictionaryEntriesCursor, DictionaryEntriesInfo --> int32)	resource_context:input:borrowed,out_cursor:output:owned,out_info:output:borrowed	caller-thread-synchronous	dictionary-entries	generated typed NativeCall cast
+operation	VtDictionaryEntriesVTable	next_batch	abi-cast-dictionary-entries-next-batch	1	vt.dict.entry.v1	VtStatus (*next_batch)(VtDictionaryEntriesCursor* cursor, const VtDictionaryEntryBatchLimits* limits, VtDictionaryEntryBatchView* out_batch)	:(RawDictionaryEntriesCursor, BatchLimits, DictionaryEntryBatchView --> int32)	cursor:inout:borrowed,limits:input:borrowed,out_batch:output:borrowed	caller-thread-synchronous	dictionary-entries	generated typed NativeCall cast
+operation	VtDictionaryEntriesVTable	release_batch	abi-cast-dictionary-entries-release-batch	1	vt.dict.entry.v1	VtStatus (*release_batch)(VtDictionaryEntriesCursor* cursor, uint64_t generation)	:(RawDictionaryEntriesCursor, uint64 --> int32)	cursor:inout:borrowed,generation:input:borrowed	caller-thread-synchronous	dictionary-entries	generated typed NativeCall cast
+operation	VtDictionaryEntriesVTable	reduce	abi-cast-dictionary-entries-reduce	1	vt.dict.entry.v1	VtStatus (*reduce)(VtDictionaryEntriesCursor* cursor, const VtDictionaryEntryBatchLimits* limits, VtDictionaryEntryReducer reducer, void* reducer_context, size_t* out_count)	:(RawDictionaryEntriesCursor, BatchLimits, &callback (Pointer, Pointer --> int32), Pointer, size_t is rw --> int32)	cursor:inout:borrowed,limits:input:borrowed,reducer:input:borrowed,reducer_context:input:borrowed,out_count:output:borrowed	caller-thread-synchronous	dictionary-entries	generated typed NativeCall cast
+operation	VtDictionaryEntriesVTable	cancel	abi-cast-dictionary-entries-cancel	1	vt.dict.entry.v1	VtStatus (*cancel)(VtDictionaryEntriesCursor* cursor)	:(RawDictionaryEntriesCursor --> int32)	cursor:inout:borrowed	caller-thread-synchronous	dictionary-entries	generated typed NativeCall cast
+operation	VtDictionaryEntriesVTable	close	abi-cast-dictionary-entries-close	1	vt.dict.entry.v1	VtStatus (*close)(VtDictionaryEntriesCursor* cursor)	:(RawDictionaryEntriesCursor --> int32)	cursor:inout:consumed	caller-thread-synchronous	dictionary-entries	generated typed NativeCall cast
+operation	VtWfstVTable	snapshot	abi-cast-wfst-snapshot	1	vt.scalar-wfst.1	VtStatus (*snapshot)(void* context, VtResource* out_snapshot)	:(Pointer, RawResource --> int32)	context:input:borrowed,out_snapshot:output:owned	caller-thread-synchronous	wfst	generated typed NativeCall cast
+operation	VtWfstVTable	start	abi-cast-wfst-start	1	vt.scalar-wfst.1	VtStatus (*start)(void* context, uint64_t* out_state)	:(Pointer, uint64 is rw --> int32)	context:input:borrowed,out_state:output:borrowed	caller-thread-synchronous	wfst	generated typed NativeCall cast
+operation	VtWfstVTable	num_states	abi-cast-wfst-num-states	1	vt.scalar-wfst.1	VtStatus (*num_states)(void* context, size_t* out_count, uint8_t* out_known)	:(Pointer, size_t is rw, uint8 is rw --> int32)	context:input:borrowed,out_count:output:borrowed,out_known:output:borrowed	caller-thread-synchronous	wfst	generated typed NativeCall cast
+operation	VtWfstVTable	state_info	abi-cast-wfst-state-info	1	vt.scalar-wfst.1	VtStatus (*state_info)(void* context, uint64_t state, uint8_t* out_valid, uint8_t* out_is_final, double* out_final_weight)	:(Pointer, uint64, uint8 is rw, uint8 is rw, num64 is rw --> int32)	context:input:borrowed,state:input:borrowed,out_valid:output:borrowed,out_is_final:output:borrowed,out_final_weight:output:borrowed	caller-thread-synchronous	wfst	generated typed NativeCall cast
+operation	VtWfstVTable	state_arcs	abi-cast-wfst-state-arcs	1	vt.scalar-wfst.1	VtStatus (*state_arcs)(void* context, uint64_t state, size_t start, VtWfstArc* out_arcs, size_t capacity, size_t* out_written, size_t* out_total)	:(Pointer, uint64, size_t, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,state:input:borrowed,start:input:borrowed,out_arcs:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_total:output:borrowed	caller-thread-synchronous	wfst	generated typed NativeCall cast
+operation	VtLatticeVTable	join	abi-cast-lattice-join	1	vt.lattice.val.1	VtStatus (*join)(void* context, const VtResource* other, VtResource* out_value)	:(Pointer, RawResource, RawResource --> int32)	context:input:borrowed,other:input:borrowed,out_value:output:owned	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtLatticeVTable	meet	abi-cast-lattice-meet	1	vt.lattice.val.1	VtStatus (*meet)(void* context, const VtResource* other, VtResource* out_value)	:(Pointer, RawResource, RawResource --> int32)	context:input:borrowed,other:input:borrowed,out_value:output:owned	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtLatticeVTable	equal	abi-cast-lattice-equal	1	vt.lattice.val.1	VtStatus (*equal)(void* context, const VtResource* other, uint8_t* out_equal)	:(Pointer, RawResource, uint8 is rw --> int32)	context:input:borrowed,other:input:borrowed,out_equal:output:borrowed	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtLatticeVTable	stable_bytes	abi-cast-lattice-stable-bytes	1	vt.lattice.val.1	VtStatus (*stable_bytes)(void* context, uint8_t* out_bytes, size_t capacity, size_t* out_written, size_t* out_required)	:(Pointer, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtLatticeVTable	diagnostic	abi-cast-lattice-diagnostic	1	vt.lattice.val.1	VtStatus (*diagnostic)(void* context, uint8_t* out_bytes, size_t capacity, size_t* out_written, size_t* out_required)	:(Pointer, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtLatticeVTable	join_many	abi-cast-lattice-join-many	1	vt.lattice.val.1	VtStatus (*join_many)(void* context, const VtResource* others, size_t count, VtResource* out_value)	:(Pointer, Pointer, size_t, RawResource --> int32)	context:input:borrowed,others:input:borrowed,count:input:borrowed,out_value:output:owned	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtLatticeVTable	meet_many	abi-cast-lattice-meet-many	1	vt.lattice.val.1	VtStatus (*meet_many)(void* context, const VtResource* others, size_t count, VtResource* out_value)	:(Pointer, Pointer, size_t, RawResource --> int32)	context:input:borrowed,others:input:borrowed,count:input:borrowed,out_value:output:owned	caller-thread-synchronous	lattice	generated typed NativeCall cast
+operation	VtSemiringVTable	zero	abi-cast-semiring-zero	1	vt.semiring.val1	VtStatus (*zero)(void* context, VtSemiringValue* out_value)	:(Pointer, SemiringValue --> int32)	context:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	one	abi-cast-semiring-one	1	vt.semiring.val1	VtStatus (*one)(void* context, VtSemiringValue* out_value)	:(Pointer, SemiringValue --> int32)	context:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	clone_value	abi-cast-semiring-clone-value	1	vt.semiring.val1	VtStatus (*clone_value)(void* context, const VtSemiringValue* value, VtSemiringValue* out_value)	:(Pointer, SemiringValue, SemiringValue --> int32)	context:input:borrowed,value:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	release_values	abi-cast-semiring-release-values	1	vt.semiring.val1	VtStatus (*release_values)(void* context, VtSemiringValue* values, size_t count)	:(Pointer, Pointer, size_t --> int32)	context:input:borrowed,values:inout:consumed,count:input:borrowed	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	plus	abi-cast-semiring-plus	1	vt.semiring.val1	VtStatus (*plus)(void* context, const VtSemiringValue* left, const VtSemiringValue* right, VtSemiringValue* out_value)	:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32)	context:input:borrowed,left:input:borrowed,right:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	times	abi-cast-semiring-times	1	vt.semiring.val1	VtStatus (*times)(void* context, const VtSemiringValue* left, const VtSemiringValue* right, VtSemiringValue* out_value)	:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32)	context:input:borrowed,left:input:borrowed,right:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	equal	abi-cast-semiring-equal	1	vt.semiring.val1	VtStatus (*equal)(void* context, const VtSemiringValue* left, const VtSemiringValue* right, uint8_t* out_equal)	:(Pointer, SemiringValue, SemiringValue, uint8 is rw --> int32)	context:input:borrowed,left:input:borrowed,right:input:borrowed,out_equal:output:borrowed	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	approx_equal	abi-cast-semiring-approx-equal	1	vt.semiring.val1	VtStatus (*approx_equal)(void* context, const VtSemiringValue* left, const VtSemiringValue* right, double epsilon, uint8_t* out_equal)	:(Pointer, SemiringValue, SemiringValue, num64, uint8 is rw --> int32)	context:input:borrowed,left:input:borrowed,right:input:borrowed,epsilon:input:borrowed,out_equal:output:borrowed	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	natural_order	abi-cast-semiring-natural-order	1	vt.semiring.val1	VtStatus (*natural_order)(void* context, const VtSemiringValue* left, const VtSemiringValue* right, int32_t* out_order)	:(Pointer, SemiringValue, SemiringValue, int32 is rw --> int32)	context:input:borrowed,left:input:borrowed,right:input:borrowed,out_order:output:borrowed	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	stable_bytes	abi-cast-semiring-stable-bytes	1	vt.semiring.val1	VtStatus (*stable_bytes)(void* context, const VtSemiringValue* value, uint8_t* out_bytes, size_t capacity, size_t* out_written, size_t* out_required)	:(Pointer, SemiringValue, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,value:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	diagnostic	abi-cast-semiring-diagnostic	1	vt.semiring.val1	VtStatus (*diagnostic)(void* context, const VtSemiringValue* value, uint8_t* out_bytes, size_t capacity, size_t* out_written, size_t* out_required)	:(Pointer, SemiringValue, Pointer, size_t, size_t is rw, size_t is rw --> int32)	context:input:borrowed,value:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	plus_many	abi-cast-semiring-plus-many	1	vt.semiring.val1	VtStatus (*plus_many)(void* context, const VtSemiringValue* values, size_t count, VtSemiringValue* out_value)	:(Pointer, Pointer, size_t, SemiringValue --> int32)	context:input:borrowed,values:input:borrowed,count:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringVTable	times_many	abi-cast-semiring-times-many	1	vt.semiring.val1	VtStatus (*times_many)(void* context, const VtSemiringValue* values, size_t count, VtSemiringValue* out_value)	:(Pointer, Pointer, size_t, SemiringValue --> int32)	context:input:borrowed,values:input:borrowed,count:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring	generated typed NativeCall cast
+operation	VtSemiringDivisionVTable	divide	abi-cast-semiring-division-divide	1	vt.semiring.div1	VtStatus (*divide)(void* context, const VtSemiringValue* dividend, const VtSemiringValue* divisor, VtSemiringValue* out_value)	:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32)	context:input:borrowed,dividend:input:borrowed,divisor:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring-division	generated typed NativeCall cast
+operation	VtSemiringDivisionVTable	left_divide	abi-cast-semiring-division-left-divide	1	vt.semiring.div1	VtStatus (*left_divide)(void* context, const VtSemiringValue* value, const VtSemiringValue* divisor, VtSemiringValue* out_value)	:(Pointer, SemiringValue, SemiringValue, SemiringValue --> int32)	context:input:borrowed,value:input:borrowed,divisor:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring-division	generated typed NativeCall cast
+operation	VtSemiringStarVTable	star	abi-cast-semiring-star-star	1	vt.semiring.str1	VtStatus (*star)(void* context, const VtSemiringValue* value, VtSemiringValue* out_value)	:(Pointer, SemiringValue, SemiringValue --> int32)	context:input:borrowed,value:input:borrowed,out_value:output:owned	caller-thread-synchronous	semiring-star	generated typed NativeCall cast
+operation	VtSemiringNumericVTable	numerical_value	abi-cast-semiring-numeric-numerical-value	1	vt.semiring.num1	VtStatus (*numerical_value)(void* context, const VtSemiringValue* value, double* out_value)	:(Pointer, SemiringValue, num64 is rw --> int32)	context:input:borrowed,value:input:borrowed,out_value:output:borrowed	caller-thread-synchronous	semiring-numeric	generated typed NativeCall cast
+operation	VtSemiringNumericVTable	quantize	abi-cast-semiring-numeric-quantize	1	vt.semiring.num1	VtStatus (*quantize)(void* context, const VtSemiringValue* value, double epsilon, int64_t* out_value)	:(Pointer, SemiringValue, num64, int64 is rw --> int32)	context:input:borrowed,value:input:borrowed,epsilon:input:borrowed,out_value:output:borrowed	caller-thread-synchronous	semiring-numeric	generated typed NativeCall cast
+operation	VtSemiringNumericVTable	to_probability	abi-cast-semiring-numeric-to-probability	1	vt.semiring.num1	VtStatus (*to_probability)(void* context, const VtSemiringValue* value, double* out_value)	:(Pointer, SemiringValue, num64 is rw --> int32)	context:input:borrowed,value:input:borrowed,out_value:output:borrowed	caller-thread-synchronous	semiring-numeric	generated typed NativeCall cast
+operation	VtSemiringPropertiesVTable	closure_bound	abi-cast-semiring-properties-closure-bound	1	vt.semiring.prp1	VtStatus (*closure_bound)(void* context, size_t* out_bound, uint8_t* out_known)	:(Pointer, size_t is rw, uint8 is rw --> int32)	context:input:borrowed,out_bound:output:borrowed,out_known:output:borrowed	caller-thread-synchronous	semiring-properties	generated typed NativeCall cast
