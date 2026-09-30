@@ -35,7 +35,7 @@ Every symbol and acronym used below, defined before use:
 | revision | The logical value of a dictionary or WFST at one instant; a snapshot pins one revision forever. |
 | structural sharing | Persistence technique: a new revision shares all unchanged substructure with its predecessors, so capturing a revision copies nothing. |
 | unit domain | The value space of edge/arc labels: raw bytes, Unicode scalar values, or opaque `u64` tokens. |
-| value domain | What a final dictionary node carries: nothing (set semantics), an optional `u64`, or (reserved) opaque bytes. |
+| value domain | What a final dictionary node carries: nothing (set semantics), an optional `u64`, or opaque bytes through optional v2 capabilities. |
 | weight domain | Which scalar semiring the `double` in a WFST arc denotes. |
 | semiring | An algebraic structure $`\langle K, \oplus, \otimes, \bar{0}, \bar{1} \rangle`$: a carrier set with two associative operations, where $`\oplus`$ (path alternation) is commutative with identity $`\bar{0}`$, $`\otimes`$ (path extension) has identity $`\bar{1}`$, $`\otimes`$ distributes over $`\oplus`$, and $`\bar{0}`$ annihilates $`\otimes`$. |
 | operation context | A retained resource that owns one dynamic semiring's callbacks and the storage behind its compact value tokens. It is the lifetime and concurrency boundary for host-defined weights. |
@@ -90,6 +90,8 @@ vinary-tree project.
 #define VT_DICTIONARY_VISIT_INTERFACE_VERSION 1u
 #define VT_DICTIONARY_GRAPH_INTERFACE_VERSION 1u
 #define VT_DICTIONARY_ENTRIES_INTERFACE_VERSION 1u
+#define VT_DICTIONARY_BYTES_INTERFACE_VERSION 2u
+#define VT_DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION 2u
 #define VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION 1u
 #define VT_WFST_INTERFACE_VERSION 1u
 #define VT_LATTICE_INTERFACE_VERSION 1u
@@ -194,10 +196,11 @@ typedef struct VtInterfaceId { uint8_t bytes[16]; } VtInterfaceId;
 ```
 
 An interface identifier is sixteen bytes compared **byte-for-byte** — no
-hashing, no case folding, no NUL terminator, no registry. The twelve published
+hashing, no case folding, no NUL terminator, no registry. The fourteen published
 identifiers (quoted in [§ 8.1](#81-the-published-identifiers)) are ASCII
 mnemonics with an explicit version suffix: `vt.dictionary.v1`,
 `vt.dict.visit.v1`, `vt.dict.graph.v1`, `vt.dict.entry.v1`,
+`vt.dict.bytes.v2`, `vt.dict.entry.v2`,
 `vt.snapshot.id.1`, `vt.scalar-wfst.1`, `vt.lattice.val.1`, and the five
 `vt.semiring.*1` capabilities. Exactness is the point: two
 independently built binaries agree on an interface exactly when they contain
@@ -381,10 +384,11 @@ A label outside its declared domain is a provider fault, and consumers must
 reject it rather than truncate (see the
 [security model](security-model.md)). The **value domain** states what a
 final node carries: `UNIT` is plain set membership, `OPTIONAL_U64` attaches
-an optional integer payload readable through `node_value_u64`, and `BYTES` is
-*reserved* — declared now so the discriminant is pinned, usable only after a
-future interface version defines its operations (the reference consumer
-rejects `BYTES` providers today).
+an optional integer payload readable through `node_value_u64`, and `BYTES`
+is an opaque, length-delimited payload readable only through the separately
+negotiated [v2 byte-value capabilities](#optional-byte-values-and-entry-streaming-v2).
+The v1 dictionary and entries callbacks remain unchanged and cannot carry
+byte values. A v1-only consumer therefore still rejects `BYTES` providers.
 
 ### 6.2 `VtOptionalU64` and `VtDictionaryEdge`
 
@@ -856,6 +860,172 @@ accelerations, and `node_value_u64` is conditionally required as stated
 above. Visit, compact-graph, entries, and snapshot-identity interfaces are
 independently optional capabilities.
 
+#### Optional byte values and entry streaming v2
+
+The exact sixteen-byte IDs `vt.dict.bytes.v2` and `vt.dict.entry.v2` are
+independent capabilities, each negotiated with minimum version 2. They do
+**not** change the base ABI or reinterpret any v1 layout. Neither implies the
+other. Both require a dictionary whose declared value domain is `BYTES`;
+query them on a retained immutable snapshot. A provider must not advertise
+them for a different value domain. A consumer with a `UNIT` or `OPTIONAL_U64`
+dictionary continues to use v1. If `BYTES` is declared but a required v2
+capability is absent, the corresponding value-preserving operation is
+`Unsupported`: a consumer must neither drop values nor reinterpret v1 u64
+slots as bytes. In particular, point lookup via `vt.dict.bytes.v2` does not
+make a finite entry stream available; `vt.dict.entry.v2` is required to
+obtain that bounded, no-per-key-dispatch stream.
+
+```c
+typedef struct VtDictionaryBytesVTable {
+    size_t struct_size;
+    uint32_t interface_version;
+    uint32_t reserved;
+    VtStatus (*node_value_bytes)(void* context, uint64_t node,
+                                 uint8_t* out_bytes, size_t capacity,
+                                 size_t* out_written, size_t* out_required,
+                                 uint8_t* out_has_value);
+    VtStatus (*graph_value_bytes)(void* context, uint64_t value_cursor,
+                                  uint8_t* out_bytes, size_t capacity,
+                                  size_t* out_written, size_t* out_required,
+                                  uint8_t* out_has_value);
+} VtDictionaryBytesVTable;
+```
+
+`struct_size` covers the whole table, `interface_version >= 2`, and
+`reserved = 0`. `node_value_bytes` is non-NULL. `graph_value_bytes` is
+non-NULL exactly when that same retained snapshot also advertises
+`vt.dict.graph.v1`; otherwise it is NULL. The base node ID and the graph
+`value_cursor` are different authority domains and must never be exchanged.
+The graph callback accepts only a cursor from a graph view minted by the
+**same snapshot resource context** on which the byte interface was
+discovered. A cursor from another snapshot, even one with the same numeric
+token, is `InvalidArgument`; providers must validate its snapshot provenance
+before dereferencing backend state. Retaining the source snapshot keeps the
+graph view and token authority alive; release ends both. New snapshots may
+reuse node IDs or tokens without weakening this rule.
+
+Both callbacks operate only on final nodes. A nonfinal or invalid node or
+cursor is `InvalidArgument`. All three metadata output pointers are
+mandatory. `capacity > 0` requires non-NULL `out_bytes`; at zero capacity
+`out_bytes` may be NULL. On `Ok`, `out_has_value` is exactly 0 or 1,
+`out_required = out_written = value length`, and exactly that many bytes are
+copied. For absent values both lengths are zero and `has_value = 0`; a
+**present-empty** value also has zero lengths but `has_value = 1`.
+If `capacity < required`, the callback returns `LimitExceeded`, writes
+`out_required`, writes `out_has_value`, sets `out_written = 0`, and writes
+**no bytes**. A zero-capacity NULL-buffer probe for a nonempty value is this
+ordinary short-buffer case; an empty or absent value returns `Ok` instead.
+All other failures leave the three outputs and byte buffer untouched. A
+producer must check all pointers, capacities, and domain/token validity
+before writes; it must not panic or unwind across the ABI. The consumer
+checks raw status and `has_value` before allocating or reading output, and
+caps `out_required` to its own byte budget before retrying. On any retry
+against the **same retained snapshot and token**, required length, presence,
+and payload bytes are stable. The provider may copy from internal borrowed
+storage, but ownership of that storage never crosses the callback; the
+consumer owns only its output buffer. No NUL terminator or text encoding is
+implied.
+
+The finite v2 entry stream has the v1 capture, strict lexicographic ordering,
+metadata flags, single-live-lease, generation, reducer, cancellation, and
+close laws, with the following distinct layouts and value law:
+
+```c
+typedef struct VtDictionaryByteEntry {
+    size_t unit_offset, unit_len, value_offset, value_len;
+    uint8_t has_value;
+    uint8_t reserved[7];
+} VtDictionaryByteEntry;
+typedef struct VtDictionaryByteBatchLimits {
+    size_t max_entries, max_units, max_value_bytes;
+    uint64_t reserved;
+} VtDictionaryByteBatchLimits;
+typedef struct VtDictionaryByteBatchView {
+    const VtDictionaryByteEntry* entries;
+    size_t entry_count;
+    const void* units;
+    size_t unit_count;
+    const uint8_t* value_bytes;
+    size_t value_byte_count;
+    uint64_t generation, reserved;
+} VtDictionaryByteBatchView;
+typedef struct VtDictionaryByteEntriesCursor {
+    void* context;
+    const struct VtDictionaryByteEntriesVTable* vtable;
+} VtDictionaryByteEntriesCursor;
+typedef VtStatus (*VtDictionaryByteEntryReducer)(
+    void* reducer_context, const VtDictionaryByteBatchView* batch);
+typedef struct VtDictionaryByteEntriesVTable {
+    size_t struct_size;
+    uint32_t interface_version, reserved;
+    VtStatus (*open)(void* resource_context,
+                     VtDictionaryByteEntriesCursor* out_cursor,
+                     VtDictionaryEntriesInfo* out_info);
+    VtStatus (*next_batch)(VtDictionaryByteEntriesCursor* cursor,
+                           const VtDictionaryByteBatchLimits* limits,
+                           VtDictionaryByteBatchView* out_batch);
+    VtStatus (*release_batch)(VtDictionaryByteEntriesCursor* cursor,
+                              uint64_t generation);
+    VtStatus (*reduce)(VtDictionaryByteEntriesCursor* cursor,
+                       const VtDictionaryByteBatchLimits* limits,
+                       VtDictionaryByteEntryReducer reducer,
+                       void* reducer_context, size_t* out_count);
+    VtStatus (*cancel)(VtDictionaryByteEntriesCursor* cursor);
+    VtStatus (*close)(VtDictionaryByteEntriesCursor* cursor);
+} VtDictionaryByteEntriesVTable;
+```
+
+The v2 vtable has the same six operations and field order as v1, but each
+cursor, batch, limit, and reducer type is v2-specific; the two cursor types
+are not interchangeable. `open` captures the immutable revision in constant
+time, returns `VtDictionaryEntriesInfo` with `value_domain = BYTES`, and
+retains all state needed after the discovery resource is released. The
+returned vtable remains valid until `close`. A successful batch has at least
+one descriptor and exactly one live lease. Unit arena elements are `uint8_t`,
+`uint32_t`, or `uint64_t` for `BYTE`, `UNICODE_SCALAR`, or `U64` respectively;
+the unit pointer must have that type's alignment. `value_bytes` has byte
+alignment. Counts/limits for units are **elements**, whereas value counts,
+offsets, lengths, and `max_value_bytes` are **bytes**. All three limits are
+hard bounds on the published batch, including descriptors and arenas.
+
+`has_value` is exactly 0 or 1. An absent value has `has_value = 0`,
+`value_len = value_offset = 0`. A present-empty value has `has_value = 1`,
+`value_len = value_offset = 0`. A nonempty value requires `has_value = 1`.
+For nonempty values, its byte range is checked with `offset <= count` and
+`len <= count - offset`, never an unchecked sum. Unit ranges are checked the
+same way. Nonempty ranges are packed in descriptor order with no overlap or
+gaps; zero-length ranges have canonical offset zero. The last nonempty end
+equals the corresponding arena count. All reserved bytes/words are zero;
+pointers are NULL exactly when their arena count is zero. Consumers validate
+pointer nullability and alignment, checked `count * element_width` and
+`count * sizeof(descriptor)` against `SIZE_MAX` and their own byte caps,
+domain labels, packed ranges, and cross-batch order **before** forming safe
+slices. On any malformed view they release its lease and report a provider
+error without publishing a partial entry.
+An in-process C ABI cannot prove that an arbitrary aligned, non-NULL foreign
+address is mapped and readable. Consumers must place truly untrusted
+providers behind a process/memory-isolation boundary; these checks contain
+malformed metadata but do not turn forged addresses into safe pointers.
+
+`max_entries` must be positive; the other limits may be zero. If the first
+pending entry cannot fit **all** limits, `next_batch` returns `LimitExceeded`
+with no cursor advance, no lease, and no write to `out_batch`. A larger
+retry must observe the same pending entry. If at least one complete entry
+fits, `Ok` publishes the maximal fitting prefix atomically and keeps the
+next entry pending; the provider may not split a key or payload across
+batches. `End` writes the canonical all-zero empty view. Generation exhaustion
+is also `LimitExceeded` without advance. `reduce` uses the same limits and
+settles its auto-lease before interpreting the reducer's raw status. It
+therefore performs one foreign call **per batch**, not one per key. All
+same-cursor re-entry during the callback is `BatchInUse`; `cancel` is sticky
+but does not invalidate an already leased view. `close` requires no live
+lease, frees the cursor, and zeroes both handle words. The provider owns both
+arenas throughout the lease; callers must neither mutate nor free them.
+
+This specification adds wire contracts and negative controls only. It does
+not assert that any current native producer or consumer implements these
+optional v2 capabilities.
+
 ### 6.5 The dictionary laws
 
 **(P) The paging law.** Fix a node $`v`$ of a retained snapshot and let its
@@ -1281,6 +1451,14 @@ static const VtInterfaceId VT_DICTIONARY_ENTRIES_INTERFACE_ID = {
     { 'v','t','.','d','i','c','t','.','e','n','t','r','y','.','v','1' }
 };
 
+static const VtInterfaceId VT_DICTIONARY_BYTES_INTERFACE_ID = {
+    { 'v','t','.','d','i','c','t','.','b','y','t','e','s','.','v','2' }
+};
+
+static const VtInterfaceId VT_DICTIONARY_BYTE_ENTRIES_INTERFACE_ID = {
+    { 'v','t','.','d','i','c','t','.','e','n','t','r','y','.','v','2' }
+};
+
 static const VtInterfaceId VT_SNAPSHOT_IDENTITY_INTERFACE_ID = {
     { 'v','t','.','s','n','a','p','s','h','o','t','.','i','d','.','1' }
 };
@@ -1314,9 +1492,10 @@ static const VtInterfaceId VT_SEMIRING_PROPERTIES_INTERFACE_ID = {
 };
 ```
 
-The twelve constants are spelled as character arrays so byte exactness is
+The fourteen constants are spelled as character arrays so byte exactness is
 visible: `vt.dictionary.v1`, `vt.dict.visit.v1`, `vt.dict.graph.v1`,
-`vt.dict.entry.v1`, `vt.snapshot.id.1`, `vt.scalar-wfst.1`, and
+`vt.dict.entry.v1`, `vt.dict.bytes.v2`, `vt.dict.entry.v2`,
+`vt.snapshot.id.1`, `vt.scalar-wfst.1`, and
 `vt.lattice.val.1`, followed by `vt.semiring.val1`, `vt.semiring.div1`,
 `vt.semiring.str1`, `vt.semiring.num1`, and `vt.semiring.prp1` (16 bytes each). They are
 `static const` so the header stays usable from any C translation unit without
@@ -1333,6 +1512,16 @@ static_assert(sizeof(VtResource) == 2 * sizeof(void*),
               "VtResource must remain a two-word handle");
 static_assert(sizeof(VtDictionaryEntriesCursor) == 2 * sizeof(void*),
               "VtDictionaryEntriesCursor must remain a two-word handle");
+static_assert(sizeof(VtDictionaryByteEntriesCursor) == 2 * sizeof(void*),
+              "VtDictionaryByteEntriesCursor must remain a two-word handle");
+static_assert(sizeof(VtDictionaryByteEntry) == 4 * sizeof(size_t) + 8,
+              "VtDictionaryByteEntry layout mismatch");
+static_assert(offsetof(VtDictionaryByteEntry, has_value) == 4 * sizeof(size_t),
+              "VtDictionaryByteEntry presence offset mismatch");
+static_assert(sizeof(VtDictionaryByteBatchView) == 6 * sizeof(size_t) + 16,
+              "VtDictionaryByteBatchView layout mismatch");
+static_assert(offsetof(VtDictionaryByteBatchView, generation) == 6 * sizeof(size_t),
+              "VtDictionaryByteBatchView generation offset mismatch");
 #endif
 ```
 

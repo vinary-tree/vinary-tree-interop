@@ -31,6 +31,12 @@ pub const VT_DICTIONARY_GRAPH_INTERFACE_VERSION: u32 = 1;
 /// Version of [`VtDictionaryEntriesVTable`].
 pub const VT_DICTIONARY_ENTRIES_INTERFACE_VERSION: u32 = 1;
 
+/// Version of [`VtDictionaryBytesVTable`].
+pub const VT_DICTIONARY_BYTES_INTERFACE_VERSION: u32 = 2;
+
+/// Version of [`VtDictionaryByteEntriesVTable`].
+pub const VT_DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION: u32 = 2;
+
 /// Version of [`VtSnapshotIdentityVTable`].
 pub const VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION: u32 = 1;
 
@@ -96,6 +102,16 @@ pub const VT_DICTIONARY_GRAPH_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
 /// and providers compiled against it remain binary compatible.
 pub const VT_DICTIONARY_ENTRIES_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
     bytes: *b"vt.dict.entry.v1",
+};
+
+/// Optional bounded-copy byte values on a retained dictionary snapshot.
+pub const VT_DICTIONARY_BYTES_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.dict.bytes.v2",
+};
+
+/// Optional finite byte-valued dictionary-entry streaming.
+pub const VT_DICTIONARY_BYTE_ENTRIES_INTERFACE_ID: VtInterfaceId = VtInterfaceId {
+    bytes: *b"vt.dict.entry.v2",
 };
 
 /// Stable identifier for immutable snapshot identity metadata.
@@ -288,7 +304,7 @@ pub enum VtValueDomain {
     Unit = 0,
     /// Optional unsigned 64-bit value.
     OptionalU64 = 1,
-    /// Opaque byte payload. Reserved for a later interface version.
+    /// Opaque byte payload through the optional v2 byte-value interfaces.
     Bytes = 2,
 }
 
@@ -491,6 +507,77 @@ impl Default for VtDictionaryEntryBatchView {
     }
 }
 
+/// One byte-valued entry; `has_value` distinguishes absent from present-empty.
+///
+/// Unit offsets count typed elements; value offsets and lengths count bytes.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct VtDictionaryByteEntry {
+    /// First key unit in the batch unit arena.
+    pub unit_offset: usize,
+    /// Number of key units.
+    pub unit_len: usize,
+    /// First byte in the value arena; zero for absent or empty values.
+    pub value_offset: usize,
+    /// Number of value bytes.
+    pub value_len: usize,
+    /// Zero for absent, one for present (including empty).
+    pub has_value: u8,
+    /// Reserved; providers must write zero.
+    pub reserved: [u8; 7],
+}
+
+/// Hard upper bounds for one v2 byte-valued entry batch.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct VtDictionaryByteBatchLimits {
+    /// Maximum entry descriptors; must be nonzero.
+    pub max_entries: usize,
+    /// Maximum typed unit-arena elements.
+    pub max_units: usize,
+    /// Maximum bytes in the value arena.
+    pub max_value_bytes: usize,
+    /// Reserved; consumers must write zero.
+    pub reserved: u64,
+}
+
+/// One cursor-owned v2 batch lease with typed units and raw value bytes.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VtDictionaryByteBatchView {
+    /// Entry descriptors, null only when the count is zero.
+    pub entries: *const VtDictionaryByteEntry,
+    /// Number of entries.
+    pub entry_count: usize,
+    /// Unit arena (`u8`, `u32`, or `u64` according to the unit domain).
+    pub units: *const c_void,
+    /// Number of typed unit elements.
+    pub unit_count: usize,
+    /// Byte-value arena, null only when its count is zero.
+    pub value_bytes: *const u8,
+    /// Number of bytes in the value arena.
+    pub value_byte_count: usize,
+    /// Nonzero, strictly increasing lease generation.
+    pub generation: u64,
+    /// Reserved; providers must write zero.
+    pub reserved: u64,
+}
+
+impl Default for VtDictionaryByteBatchView {
+    fn default() -> Self {
+        Self {
+            entries: core::ptr::null(),
+            entry_count: 0,
+            units: core::ptr::null(),
+            unit_count: 0,
+            value_bytes: core::ptr::null(),
+            value_byte_count: 0,
+            generation: 0,
+            reserved: 0,
+        }
+    }
+}
+
 /// Immutable metadata captured when a dictionary-entry cursor is opened.
 ///
 /// Domain and order fields intentionally remain raw integers: a consumer must
@@ -544,6 +631,29 @@ impl VtDictionaryEntriesCursor {
     }
 }
 
+/// Move-only two-word handle for one captured v2 byte-valued entry stream.
+#[repr(C)]
+#[derive(Debug)]
+pub struct VtDictionaryByteEntriesCursor {
+    /// Provider-owned cursor state.
+    pub context: *mut c_void,
+    /// V2 cursor vtable, valid until close.
+    pub vtable: *const VtDictionaryByteEntriesVTable,
+}
+
+impl VtDictionaryByteEntriesCursor {
+    /// Null cursor value for output initialization.
+    pub const NULL: Self = Self {
+        context: core::ptr::null_mut(),
+        vtable: core::ptr::null(),
+    };
+
+    /// Return whether either required word is null.
+    pub fn is_null(&self) -> bool {
+        self.context.is_null() || self.vtable.is_null()
+    }
+}
+
 /// Callback used by [`VtDictionaryEntriesVTable::reduce`].
 ///
 /// Return raw status values. `Ok` continues, `End` stops successfully, known
@@ -551,6 +661,12 @@ impl VtDictionaryEntriesCursor {
 pub type VtDictionaryEntryReducer = unsafe extern "C" fn(
     reducer_context: *mut c_void,
     batch: *const VtDictionaryEntryBatchView,
+) -> u32;
+
+/// Callback used by [`VtDictionaryByteEntriesVTable::reduce`].
+pub type VtDictionaryByteEntryReducer = unsafe extern "C" fn(
+    reducer_context: *mut c_void,
+    batch: *const VtDictionaryByteBatchView,
 ) -> u32;
 
 /// Versioned immutable dictionary-snapshot interface.
@@ -743,6 +859,94 @@ pub struct VtDictionaryEntriesVTable {
     pub cancel: Option<unsafe extern "C" fn(cursor: *mut VtDictionaryEntriesCursor) -> u32>,
     /// Free a lease-free cursor and zero both handle words.
     pub close: Option<unsafe extern "C" fn(cursor: *mut VtDictionaryEntriesCursor) -> u32>,
+}
+
+/// Optional bounded-copy byte values on a retained immutable dictionary snapshot.
+///
+/// On a short buffer, callbacks return `LimitExceeded`, write required length,
+/// zero `out_written`, and write `has_value`, but leave the byte buffer
+/// untouched. Full two-phase and snapshot-token rules are in the ABI reference.
+#[repr(C)]
+pub struct VtDictionaryBytesVTable {
+    /// Size of this struct in bytes.
+    pub struct_size: usize,
+    /// Must be at least [`VT_DICTIONARY_BYTES_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Copy the optional byte value of a final base-dictionary node.
+    pub node_value_bytes: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            node: u64,
+            out_bytes: *mut u8,
+            capacity: usize,
+            out_written: *mut usize,
+            out_required: *mut usize,
+            out_has_value: *mut u8,
+        ) -> u32,
+    >,
+    /// Copy using a graph cursor minted by this same retained snapshot.
+    pub graph_value_bytes: Option<
+        unsafe extern "C" fn(
+            context: *mut c_void,
+            value_cursor: u64,
+            out_bytes: *mut u8,
+            capacity: usize,
+            out_written: *mut usize,
+            out_required: *mut usize,
+            out_has_value: *mut u8,
+        ) -> u32,
+    >,
+}
+
+/// Optional finite lexicographic stream with byte-valued entries.
+///
+/// This mirrors v1 cursor ownership and cancellation, but uses a distinct
+/// cursor type and a hard byte-arena limit. A successful batch is one atomic
+/// publication; `LimitExceeded` never advances or leases a partial batch.
+#[repr(C)]
+pub struct VtDictionaryByteEntriesVTable {
+    /// Size of this struct in bytes.
+    pub struct_size: usize,
+    /// Must be at least [`VT_DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION`].
+    pub interface_version: u32,
+    /// Reserved; must be zero.
+    pub reserved: u32,
+    /// Capture an immutable revision and create an owned cursor.
+    pub open: Option<
+        unsafe extern "C" fn(
+            resource_context: *mut c_void,
+            out_cursor: *mut VtDictionaryByteEntriesCursor,
+            out_info: *mut VtDictionaryEntriesInfo,
+        ) -> u32,
+    >,
+    /// Publish one nonempty leased batch, or return `End`.
+    pub next_batch: Option<
+        unsafe extern "C" fn(
+            cursor: *mut VtDictionaryByteEntriesCursor,
+            limits: *const VtDictionaryByteBatchLimits,
+            out_batch: *mut VtDictionaryByteBatchView,
+        ) -> u32,
+    >,
+    /// Settle the live lease with its exact generation.
+    pub release_batch: Option<
+        unsafe extern "C" fn(cursor: *mut VtDictionaryByteEntriesCursor, generation: u64) -> u32,
+    >,
+    /// Stream leased batches through one callback at a time.
+    pub reduce: Option<
+        unsafe extern "C" fn(
+            cursor: *mut VtDictionaryByteEntriesCursor,
+            limits: *const VtDictionaryByteBatchLimits,
+            reducer: Option<VtDictionaryByteEntryReducer>,
+            reducer_context: *mut c_void,
+            out_count: *mut usize,
+        ) -> u32,
+    >,
+    /// Request sticky exhaustion without invalidating an existing lease.
+    pub cancel: Option<unsafe extern "C" fn(cursor: *mut VtDictionaryByteEntriesCursor) -> u32>,
+    /// Free a lease-free cursor and zero both words.
+    pub close: Option<unsafe extern "C" fn(cursor: *mut VtDictionaryByteEntriesCursor) -> u32>,
 }
 
 /// Portable scalar semiring used by a [`VtWfstVTable`].
@@ -1277,6 +1481,9 @@ const _: () = {
     assert!(core::mem::size_of::<VtDictionaryGraphNode>() == 32);
     assert!(core::mem::size_of::<VtDictionaryGraphEdge>() == 16);
     assert!(core::mem::size_of::<VtDictionaryEntriesCursor>() == 2 * core::mem::size_of::<usize>());
+    assert!(
+        core::mem::size_of::<VtDictionaryByteEntriesCursor>() == 2 * core::mem::size_of::<usize>()
+    );
     assert!(core::mem::size_of::<VtSnapshotIdentity>() == 16);
     assert!(core::mem::size_of::<VtWfstArc>() == 40);
     assert!(core::mem::size_of::<VtSemiringValue>() == 16);
