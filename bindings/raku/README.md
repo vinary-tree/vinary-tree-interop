@@ -18,12 +18,15 @@ installed Raku distribution may store resources under content-addressed names.
 
 [`include/vinary_tree_interop.h`](../../include/vinary_tree_interop.h) is the
 single source for Raku's raw binary interface. The Raku generator derives all
-28 representable `CStruct` layouts, all 52 typed vtable callback casts, enum
+34 representable `CStruct` layouts, all 60 typed vtable callback casts, enum
 values, constants, interface identifiers, and the packaged header from it. The
 generated [`abi-capabilities.tsv`](../generated/abi-capabilities.tsv) inventory
 records each interface and callback together with its C and NativeCall
 signatures, version, identity, parameter direction and ownership, threading
 contract, and capability family.
+The inventory includes the optional v2 byte-value copy and bounded byte-entry
+interfaces. This is raw ABI coverage; the high-level dictionary facade still
+requires a separate v2 value implementation.
 
 The default export tag remains the idiomatic collection and resource API.
 Provider authors who need the generated low-level casts can opt into the
@@ -32,8 +35,8 @@ advanced ABI tag without copying a signature:
 ```raku
 use Vinary::Tree::Interop :DEFAULT, :abi;
 
-say ABI-STRUCT-COUNT;       # 28
-say ABI-CALLABLE-COUNT;     # 52
+say ABI-STRUCT-COUNT;       # 34
+say ABI-CALLABLE-COUNT;     # 60
 ```
 
 The generator preserves the few necessary Rakudo adaptations explicitly:

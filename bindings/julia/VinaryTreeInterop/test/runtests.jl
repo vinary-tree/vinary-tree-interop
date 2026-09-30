@@ -142,6 +142,15 @@ end
     @test sizeof(VTI.VtOptionalU64) == 16
     @test sizeof(VTI.VtDictionaryEdge) == 16
     @test sizeof(VTI.VtDictionaryEntriesCursorRaw) == 2sizeof(Ptr{Cvoid})
+    @test sizeof(VTI.VtDictionaryByteEntriesCursorRaw) == 2sizeof(Ptr{Cvoid})
+    @test sizeof(VTI.VtDictionaryByteEntry) == 4sizeof(Csize_t) + 8
+    @test sizeof(VTI.VtDictionaryByteBatchView) == 6sizeof(Csize_t) + 16
+    @test VTI.DICTIONARY_BYTES_INTERFACE_VERSION == UInt32(2)
+    @test VTI.DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION == UInt32(2)
+    @test Tuple(VTI.DICTIONARY_BYTES_INTERFACE_ID.bytes) ==
+        Tuple(codeunits("vt.dict.bytes.v2"))
+    @test Tuple(VTI.DICTIONARY_BYTE_ENTRIES_INTERFACE_ID.bytes) ==
+        Tuple(codeunits("vt.dict.entry.v2"))
     @test sizeof(VTI.VtSemiringValue) == 16
 end
 
@@ -167,6 +176,14 @@ end
         VTI.ABI_CALLABLES)
     @test any(callable -> callable.name == :VtDictionaryEntryReducer &&
         callable.threading == :julia_owned_calling_thread_only,
+        VTI.ABI_CALLABLES)
+    @test any(callable -> callable.name == :VtDictionaryByteEntryReducer &&
+        callable.capability == :dictionary_byte_entry_reducer &&
+        callable.threading == :julia_owned_calling_thread_only,
+        VTI.ABI_CALLABLES)
+    @test any(callable -> callable.owner == :VtDictionaryByteEntriesVTable &&
+        callable.name == :close &&
+        occursin("cursor:inout:consumed", callable.parameter_contract),
         VTI.ABI_CALLABLES)
 end
 
@@ -304,6 +321,12 @@ qualification_live_semiring_tokens() = ccall(
         VTI.VtSemiringStarVTable,
         VTI.VtSemiringNumericVTable,
         VTI.VtSemiringPropertiesVTable,
+        VTI.VtDictionaryByteEntry,
+        VTI.VtDictionaryByteBatchLimits,
+        VTI.VtDictionaryByteBatchView,
+        VTI.VtDictionaryByteEntriesCursorRaw,
+        VTI.VtDictionaryBytesVTable,
+        VTI.VtDictionaryByteEntriesVTable,
     ]
     for (index, type) in enumerate(types)
         @test sizeof(type) == native_sizeof(index)

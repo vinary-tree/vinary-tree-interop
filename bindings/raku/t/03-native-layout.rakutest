@@ -35,6 +35,12 @@ my @types = (
     SemiringStarVTable,
     SemiringNumericVTable,
     SemiringPropertiesVTable,
+    DictionaryByteEntry,
+    DictionaryByteBatchLimits,
+    DictionaryByteBatchView,
+    RawDictionaryByteEntriesCursor,
+    DictionaryBytesVTable,
+    DictionaryByteEntriesVTable,
 );
 
 plan @types.elems;

@@ -5,6 +5,8 @@ export ABI_VERSION,
     DICTIONARY_VISIT_INTERFACE_VERSION,
     DICTIONARY_GRAPH_INTERFACE_VERSION,
     DICTIONARY_ENTRIES_INTERFACE_VERSION,
+    DICTIONARY_BYTES_INTERFACE_VERSION,
+    DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION,
     SNAPSHOT_IDENTITY_INTERFACE_VERSION,
     WFST_INTERFACE_VERSION,
     LATTICE_INTERFACE_VERSION,
@@ -50,6 +52,8 @@ export ABI_VERSION,
     DICTIONARY_VISIT_INTERFACE_ID,
     DICTIONARY_GRAPH_INTERFACE_ID,
     DICTIONARY_ENTRIES_INTERFACE_ID,
+    DICTIONARY_BYTES_INTERFACE_ID,
+    DICTIONARY_BYTE_ENTRIES_INTERFACE_ID,
     SNAPSHOT_IDENTITY_INTERFACE_ID,
     WFST_INTERFACE_ID,
     LATTICE_INTERFACE_ID,
@@ -75,6 +79,12 @@ export ABI_VERSION,
     VtDictionaryEntriesInfo,
     VtDictionaryEntriesCursorRaw,
     VtDictionaryEntriesVTable,
+    VtDictionaryByteEntry,
+    VtDictionaryByteBatchLimits,
+    VtDictionaryByteBatchView,
+    VtDictionaryByteEntriesCursorRaw,
+    VtDictionaryBytesVTable,
+    VtDictionaryByteEntriesVTable,
     VtWfstArc,
     VtWfstVTable,
     VtLatticeVTable,
@@ -150,6 +160,8 @@ const DICTIONARY_INTERFACE_VERSION = UInt32(1)
 const DICTIONARY_VISIT_INTERFACE_VERSION = UInt32(1)
 const DICTIONARY_GRAPH_INTERFACE_VERSION = UInt32(1)
 const DICTIONARY_ENTRIES_INTERFACE_VERSION = UInt32(1)
+const DICTIONARY_BYTES_INTERFACE_VERSION = UInt32(2)
+const DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION = UInt32(2)
 const SNAPSHOT_IDENTITY_INTERFACE_VERSION = UInt32(1)
 const WFST_INTERFACE_VERSION = UInt32(1)
 const LATTICE_INTERFACE_VERSION = UInt32(1)
@@ -259,6 +271,8 @@ const DICTIONARY_INTERFACE_ID = interface_id("vt.dictionary.v1")
 const DICTIONARY_VISIT_INTERFACE_ID = interface_id("vt.dict.visit.v1")
 const DICTIONARY_GRAPH_INTERFACE_ID = interface_id("vt.dict.graph.v1")
 const DICTIONARY_ENTRIES_INTERFACE_ID = interface_id("vt.dict.entry.v1")
+const DICTIONARY_BYTES_INTERFACE_ID = interface_id("vt.dict.bytes.v2")
+const DICTIONARY_BYTE_ENTRIES_INTERFACE_ID = interface_id("vt.dict.entry.v2")
 const SNAPSHOT_IDENTITY_INTERFACE_ID = interface_id("vt.snapshot.id.1")
 const WFST_INTERFACE_ID = interface_id("vt.scalar-wfst.1")
 const LATTICE_INTERFACE_ID = interface_id("vt.lattice.val.1")
@@ -411,6 +425,53 @@ struct VtDictionaryEntriesVTable
     close::Ptr{Cvoid}
 end
 
+struct VtDictionaryByteEntry
+    unit_offset::Csize_t
+    unit_len::Csize_t
+    value_offset::Csize_t
+    value_len::Csize_t
+    has_value::UInt8
+    reserved::NTuple{7, UInt8}
+end
+
+struct VtDictionaryByteBatchLimits
+    max_entries::Csize_t
+    max_units::Csize_t
+    max_value_bytes::Csize_t
+    reserved::UInt64
+end
+
+struct VtDictionaryByteBatchView
+    entries::Ptr{VtDictionaryByteEntry}
+    entry_count::Csize_t
+    units::Ptr{Cvoid}
+    unit_count::Csize_t
+    value_bytes::Ptr{UInt8}
+    value_byte_count::Csize_t
+    generation::UInt64
+    reserved::UInt64
+end
+
+struct VtDictionaryBytesVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    node_value_bytes::Ptr{Cvoid}
+    graph_value_bytes::Ptr{Cvoid}
+end
+
+struct VtDictionaryByteEntriesVTable
+    struct_size::Csize_t
+    interface_version::UInt32
+    reserved::UInt32
+    open::Ptr{Cvoid}
+    next_batch::Ptr{Cvoid}
+    release_batch::Ptr{Cvoid}
+    reduce::Ptr{Cvoid}
+    cancel::Ptr{Cvoid}
+    close::Ptr{Cvoid}
+end
+
 struct VtWfstArc
     input_label::UInt64
     output_label::UInt64
@@ -518,6 +579,15 @@ struct VtDictionaryEntriesCursorRaw
     vtable::Ptr{VtDictionaryEntriesVTable}
 end
 
+struct VtDictionaryByteEntriesCursorRaw
+    context::Ptr{Cvoid}
+    vtable::Ptr{VtDictionaryByteEntriesVTable}
+end
+
+macro abi_cfunction_dictionary_byte_entry_reducer(callback)
+    esc(:(@cfunction($callback, Cint, (Ptr{Cvoid}, Ptr{VtDictionaryByteBatchView}))))
+end
+
 macro abi_cfunction_dictionary_entry_reducer(callback)
     esc(:(@cfunction($callback, Cint, (Ptr{Cvoid}, Ptr{VtDictionaryEntryBatchView}))))
 end
@@ -600,6 +670,38 @@ end
 
 @inline function abi_call_dictionary_entries_close(address::Ptr{Cvoid}, cursor)
     ccall(address, Cint, (Ref{VtDictionaryEntriesCursorRaw},), cursor)
+end
+
+@inline function abi_call_dictionary_bytes_node_value_bytes(address::Ptr{Cvoid}, context, node, out_bytes, capacity, out_written, out_required, out_has_value)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}, Ref{UInt8}), context, node, out_bytes, capacity, out_written, out_required, out_has_value)
+end
+
+@inline function abi_call_dictionary_bytes_graph_value_bytes(address::Ptr{Cvoid}, context, value_cursor, out_bytes, capacity, out_written, out_required, out_has_value)
+    ccall(address, Cint, (Ptr{Cvoid}, UInt64, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}, Ref{UInt8}), context, value_cursor, out_bytes, capacity, out_written, out_required, out_has_value)
+end
+
+@inline function abi_call_dictionary_byte_entries_open(address::Ptr{Cvoid}, resource_context, out_cursor, out_info)
+    ccall(address, Cint, (Ptr{Cvoid}, Ref{VtDictionaryByteEntriesCursorRaw}, Ref{VtDictionaryEntriesInfo}), resource_context, out_cursor, out_info)
+end
+
+@inline function abi_call_dictionary_byte_entries_next_batch(address::Ptr{Cvoid}, cursor, limits, out_batch)
+    ccall(address, Cint, (Ref{VtDictionaryByteEntriesCursorRaw}, Ref{VtDictionaryByteBatchLimits}, Ref{VtDictionaryByteBatchView}), cursor, limits, out_batch)
+end
+
+@inline function abi_call_dictionary_byte_entries_release_batch(address::Ptr{Cvoid}, cursor, generation)
+    ccall(address, Cint, (Ref{VtDictionaryByteEntriesCursorRaw}, UInt64), cursor, generation)
+end
+
+@inline function abi_call_dictionary_byte_entries_reduce(address::Ptr{Cvoid}, cursor, limits, reducer, reducer_context, out_count)
+    ccall(address, Cint, (Ref{VtDictionaryByteEntriesCursorRaw}, Ref{VtDictionaryByteBatchLimits}, Ptr{Cvoid}, Ptr{Cvoid}, Ref{Csize_t}), cursor, limits, reducer, reducer_context, out_count)
+end
+
+@inline function abi_call_dictionary_byte_entries_cancel(address::Ptr{Cvoid}, cursor)
+    ccall(address, Cint, (Ref{VtDictionaryByteEntriesCursorRaw},), cursor)
+end
+
+@inline function abi_call_dictionary_byte_entries_close(address::Ptr{Cvoid}, cursor)
+    ccall(address, Cint, (Ref{VtDictionaryByteEntriesCursorRaw},), cursor)
 end
 
 @inline function abi_call_wfst_snapshot(address::Ptr{Cvoid}, context, out_snapshot)
@@ -730,12 +832,13 @@ end
     ccall(address, Cint, (Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}), context, out_bound, out_known)
 end
 
-const ABI_STRUCT_NAMES = (:VtInterfaceId, :VtResourceVTable, :VtOptionalU64, :VtDictionaryEdge, :VtDictionaryVTable, :VtDictionaryVisitVTable, :VtDictionaryGraphNode, :VtDictionaryGraphEdge, :VtDictionaryGraphView, :VtDictionaryGraphVTable, :SnapshotIdentity, :VtSnapshotIdentityVTable, :VtDictionaryEntryRaw, :BatchLimits, :VtDictionaryEntryBatchView, :VtDictionaryEntriesInfo, :VtDictionaryEntriesVTable, :VtWfstArc, :VtWfstVTable, :VtLatticeVTable, :VtSemiringValue, :VtSemiringVTable, :VtSemiringDivisionVTable, :VtSemiringStarVTable, :VtSemiringNumericVTable, :VtSemiringPropertiesVTable, :VtResourceRaw, :VtDictionaryEntriesCursorRaw)
-const ABI_STRUCT_COUNT = 28
-const ABI_OPERATION_COUNT = 52
-const ABI_CALLBACK_COUNT = 1
-const ABI_CALLABLE_COUNT = 53
+const ABI_STRUCT_NAMES = (:VtInterfaceId, :VtResourceVTable, :VtOptionalU64, :VtDictionaryEdge, :VtDictionaryVTable, :VtDictionaryVisitVTable, :VtDictionaryGraphNode, :VtDictionaryGraphEdge, :VtDictionaryGraphView, :VtDictionaryGraphVTable, :SnapshotIdentity, :VtSnapshotIdentityVTable, :VtDictionaryEntryRaw, :BatchLimits, :VtDictionaryEntryBatchView, :VtDictionaryEntriesInfo, :VtDictionaryEntriesVTable, :VtDictionaryByteEntry, :VtDictionaryByteBatchLimits, :VtDictionaryByteBatchView, :VtDictionaryBytesVTable, :VtDictionaryByteEntriesVTable, :VtWfstArc, :VtWfstVTable, :VtLatticeVTable, :VtSemiringValue, :VtSemiringVTable, :VtSemiringDivisionVTable, :VtSemiringStarVTable, :VtSemiringNumericVTable, :VtSemiringPropertiesVTable, :VtResourceRaw, :VtDictionaryEntriesCursorRaw, :VtDictionaryByteEntriesCursorRaw)
+const ABI_STRUCT_COUNT = 34
+const ABI_OPERATION_COUNT = 60
+const ABI_CALLBACK_COUNT = 2
+const ABI_CALLABLE_COUNT = 62
 const ABI_CALLABLES = (
+    (kind=:callback, owner=:typedef, name=:VtDictionaryByteEntryReducer, julia_name=Symbol("@abi_cfunction_dictionary_byte_entry_reducer"), signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtDictionaryByteBatchView}}", parameter_contract="reducer_context:input:borrowed,batch:input:borrowed", threading=:julia_owned_calling_thread_only, capability=:dictionary_byte_entry_reducer),
     (kind=:callback, owner=:typedef, name=:VtDictionaryEntryReducer, julia_name=Symbol("@abi_cfunction_dictionary_entry_reducer"), signature="Cint Tuple{Ptr{Cvoid}, Ptr{VtDictionaryEntryBatchView}}", parameter_contract="reducer_context:input:borrowed,batch:input:borrowed", threading=:julia_owned_calling_thread_only, capability=:dictionary_entry_reducer),
     (kind=:operation, owner=:VtResourceVTable, name=:retain, julia_name=:abi_call_resource_retain, signature="Cvoid Tuple{Ptr{Cvoid},}", parameter_contract="context:input:borrowed", threading=:caller_thread_synchronous, capability=Symbol("resource")),
     (kind=:operation, owner=:VtResourceVTable, name=:release, julia_name=:abi_call_resource_release, signature="Cvoid Tuple{Ptr{Cvoid},}", parameter_contract="context:input:consumed", threading=:caller_thread_synchronous, capability=Symbol("resource")),
@@ -757,6 +860,14 @@ const ABI_CALLABLES = (
     (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:reduce, julia_name=:abi_call_dictionary_entries_reduce, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw}, Ref{BatchLimits}, Ptr{Cvoid}, Ptr{Cvoid}, Ref{Csize_t}}", parameter_contract="cursor:inout:borrowed,limits:input:borrowed,reducer:input:borrowed,reducer_context:input:borrowed,out_count:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
     (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:cancel, julia_name=:abi_call_dictionary_entries_cancel, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw},}", parameter_contract="cursor:inout:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
     (kind=:operation, owner=:VtDictionaryEntriesVTable, name=:close, julia_name=:abi_call_dictionary_entries_close, signature="Cint Tuple{Ref{VtDictionaryEntriesCursorRaw},}", parameter_contract="cursor:inout:consumed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-entries")),
+    (kind=:operation, owner=:VtDictionaryBytesVTable, name=:node_value_bytes, julia_name=:abi_call_dictionary_bytes_node_value_bytes, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}, Ref{UInt8}}", parameter_contract="context:input:borrowed,node:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed,out_has_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-bytes")),
+    (kind=:operation, owner=:VtDictionaryBytesVTable, name=:graph_value_bytes, julia_name=:abi_call_dictionary_bytes_graph_value_bytes, signature="Cint Tuple{Ptr{Cvoid}, UInt64, Ptr{UInt8}, Csize_t, Ref{Csize_t}, Ref{Csize_t}, Ref{UInt8}}", parameter_contract="context:input:borrowed,value_cursor:input:borrowed,out_bytes:output:borrowed,capacity:input:borrowed,out_written:output:borrowed,out_required:output:borrowed,out_has_value:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-bytes")),
+    (kind=:operation, owner=:VtDictionaryByteEntriesVTable, name=:open, julia_name=:abi_call_dictionary_byte_entries_open, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtDictionaryByteEntriesCursorRaw}, Ref{VtDictionaryEntriesInfo}}", parameter_contract="resource_context:input:borrowed,out_cursor:output:owned,out_info:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-byte-entries")),
+    (kind=:operation, owner=:VtDictionaryByteEntriesVTable, name=:next_batch, julia_name=:abi_call_dictionary_byte_entries_next_batch, signature="Cint Tuple{Ref{VtDictionaryByteEntriesCursorRaw}, Ref{VtDictionaryByteBatchLimits}, Ref{VtDictionaryByteBatchView}}", parameter_contract="cursor:inout:borrowed,limits:input:borrowed,out_batch:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-byte-entries")),
+    (kind=:operation, owner=:VtDictionaryByteEntriesVTable, name=:release_batch, julia_name=:abi_call_dictionary_byte_entries_release_batch, signature="Cint Tuple{Ref{VtDictionaryByteEntriesCursorRaw}, UInt64}", parameter_contract="cursor:inout:borrowed,generation:input:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-byte-entries")),
+    (kind=:operation, owner=:VtDictionaryByteEntriesVTable, name=:reduce, julia_name=:abi_call_dictionary_byte_entries_reduce, signature="Cint Tuple{Ref{VtDictionaryByteEntriesCursorRaw}, Ref{VtDictionaryByteBatchLimits}, Ptr{Cvoid}, Ptr{Cvoid}, Ref{Csize_t}}", parameter_contract="cursor:inout:borrowed,limits:input:borrowed,reducer:input:borrowed,reducer_context:input:borrowed,out_count:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-byte-entries")),
+    (kind=:operation, owner=:VtDictionaryByteEntriesVTable, name=:cancel, julia_name=:abi_call_dictionary_byte_entries_cancel, signature="Cint Tuple{Ref{VtDictionaryByteEntriesCursorRaw},}", parameter_contract="cursor:inout:borrowed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-byte-entries")),
+    (kind=:operation, owner=:VtDictionaryByteEntriesVTable, name=:close, julia_name=:abi_call_dictionary_byte_entries_close, signature="Cint Tuple{Ref{VtDictionaryByteEntriesCursorRaw},}", parameter_contract="cursor:inout:consumed", threading=:caller_thread_synchronous, capability=Symbol("dictionary-byte-entries")),
     (kind=:operation, owner=:VtWfstVTable, name=:snapshot, julia_name=:abi_call_wfst_snapshot, signature="Cint Tuple{Ptr{Cvoid}, Ref{VtResourceRaw}}", parameter_contract="context:input:borrowed,out_snapshot:output:owned", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
     (kind=:operation, owner=:VtWfstVTable, name=:start, julia_name=:abi_call_wfst_start, signature="Cint Tuple{Ptr{Cvoid}, Ref{UInt64}}", parameter_contract="context:input:borrowed,out_state:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
     (kind=:operation, owner=:VtWfstVTable, name=:num_states, julia_name=:abi_call_wfst_num_states, signature="Cint Tuple{Ptr{Cvoid}, Ref{Csize_t}, Ref{UInt8}}", parameter_contract="context:input:borrowed,out_count:output:borrowed,out_known:output:borrowed", threading=:caller_thread_synchronous, capability=Symbol("wfst")),
@@ -1927,6 +2038,8 @@ meet_many(value::LatticeValue, others) =
 @doc "The minimum fused dictionary-visit interface version." DICTIONARY_VISIT_INTERFACE_VERSION
 @doc "The minimum immutable dictionary-graph interface version." DICTIONARY_GRAPH_INTERFACE_VERSION
 @doc "The minimum bounded dictionary-entry stream interface version." DICTIONARY_ENTRIES_INTERFACE_VERSION
+@doc "The minimum dictionary byte-value copy interface version." DICTIONARY_BYTES_INTERFACE_VERSION
+@doc "The minimum bounded byte-valued entry-stream interface version." DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION
 @doc "The minimum snapshot-identity interface version." SNAPSHOT_IDENTITY_INTERFACE_VERSION
 @doc "The minimum scalar weighted finite-state transducer interface version." WFST_INTERFACE_VERSION
 @doc "The minimum immutable lattice-value interface version." LATTICE_INTERFACE_VERSION
@@ -1981,6 +2094,8 @@ bounded cursors and explicitly partial semiring operations, and
 @doc "Stable identifier for the fused dictionary-visit interface." DICTIONARY_VISIT_INTERFACE_ID
 @doc "Stable identifier for the compact immutable dictionary-graph interface." DICTIONARY_GRAPH_INTERFACE_ID
 @doc "Stable identifier for the bounded dictionary-entry stream interface." DICTIONARY_ENTRIES_INTERFACE_ID
+@doc "Stable identifier for the dictionary byte-value copy interface." DICTIONARY_BYTES_INTERFACE_ID
+@doc "Stable identifier for the bounded byte-valued entry stream." DICTIONARY_BYTE_ENTRIES_INTERFACE_ID
 @doc "Stable identifier for process-local snapshot identity." SNAPSHOT_IDENTITY_INTERFACE_ID
 @doc "Stable identifier for the scalar WFST interface." WFST_INTERFACE_ID
 @doc "Stable identifier for the immutable lattice-value interface." LATTICE_INTERFACE_ID
@@ -2006,6 +2121,12 @@ bounded cursors and explicitly partial semiring operations, and
 @doc "Raw immutable metadata captured when an entry cursor opens." VtDictionaryEntriesInfo
 @doc "Raw two-word move-only entry cursor handle." VtDictionaryEntriesCursorRaw
 @doc "Raw bounded dictionary-entry cursor function table." VtDictionaryEntriesVTable
+@doc "One byte-valued entry descriptor; presence is independent of zero length." VtDictionaryByteEntry
+@doc "Hard entry, unit, and byte-arena bounds for one byte-valued batch." VtDictionaryByteBatchLimits
+@doc "Borrowed byte-valued entry batch and its cursor-owned arenas." VtDictionaryByteBatchView
+@doc "Raw two-word move-only byte-valued entry cursor handle." VtDictionaryByteEntriesCursorRaw
+@doc "Raw optional bounded byte-value copy function table." VtDictionaryBytesVTable
+@doc "Raw bounded byte-valued entry cursor function table." VtDictionaryByteEntriesVTable
 @doc "Raw scalar WFST arc representation." VtWfstArc
 @doc "Raw scalar WFST traversal function table." VtWfstVTable
 @doc "Raw immutable lattice-value operation function table." VtLatticeVTable

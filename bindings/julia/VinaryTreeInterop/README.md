@@ -91,9 +91,11 @@ terminal dictionary value is either valueless or optional `UInt64`; `nothing`
 is different from a present zero. `snapshot(dictionary)` retains an independent
 resource, while `snapshot_identity(dictionary)` identifies its immutable
 producer revision when the provider implements that optional capability.
-The ABI's `VALUE_BYTES` discriminant is not a supported dictionary value path
-in v1: node and entry-page byte-value accessors are absent, and indexing such
-a dictionary raises `STATUS_UNSUPPORTED`.
+The shared ABI now declares optional v2 byte-value copy and bounded byte-entry
+capabilities, and this package generates their raw layouts and callable
+signatures. Its high-level `Dictionary` facade remains v1-only for values:
+indexing a `VALUE_BYTES` dictionary raises `STATUS_UNSUPPORTED` until a
+separately qualified v2 facade is implemented.
 
 For an immutable provider, `visit(dictionary, node)` obtains finality and an
 edge page in one native call when the fused-visit capability exists. A compact

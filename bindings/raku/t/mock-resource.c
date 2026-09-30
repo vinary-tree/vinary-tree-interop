@@ -597,6 +597,12 @@ size_t vt_test_sizeof(uint32_t kind) {
     case 26: return sizeof(VtSemiringStarVTable);
     case 27: return sizeof(VtSemiringNumericVTable);
     case 28: return sizeof(VtSemiringPropertiesVTable);
+    case 29: return sizeof(VtDictionaryByteEntry);
+    case 30: return sizeof(VtDictionaryByteBatchLimits);
+    case 31: return sizeof(VtDictionaryByteBatchView);
+    case 32: return sizeof(VtDictionaryByteEntriesCursor);
+    case 33: return sizeof(VtDictionaryBytesVTable);
+    case 34: return sizeof(VtDictionaryByteEntriesVTable);
     default: return 0;
     }
 }

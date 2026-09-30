@@ -20,6 +20,8 @@ our constant DICTIONARY-INTERFACE-VERSION is export = 1;
 our constant DICTIONARY-VISIT-INTERFACE-VERSION is export = 1;
 our constant DICTIONARY-GRAPH-INTERFACE-VERSION is export = 1;
 our constant DICTIONARY-ENTRIES-INTERFACE-VERSION is export = 1;
+our constant DICTIONARY-BYTES-INTERFACE-VERSION is export = 2;
+our constant DICTIONARY-BYTE-ENTRIES-INTERFACE-VERSION is export = 2;
 our constant SNAPSHOT-IDENTITY-INTERFACE-VERSION is export = 1;
 our constant WFST-INTERFACE-VERSION is export = 1;
 our constant LATTICE-INTERFACE-VERSION is export = 1;
@@ -304,6 +306,64 @@ class DictionaryEntriesVTable is repr('CStruct') is export {
     has Pointer $.close;
 }
 
+class DictionaryByteEntry is repr('CStruct') is export {
+    has size_t $.unit-offset;
+    has size_t $.unit-len;
+    has size_t $.value-offset;
+    has size_t $.value-len;
+    has uint8 $.has-value;
+    has uint8 $.reserved0;
+    has uint8 $.reserved1;
+    has uint8 $.reserved2;
+    has uint8 $.reserved3;
+    has uint8 $.reserved4;
+    has uint8 $.reserved5;
+    has uint8 $.reserved6;
+}
+
+class DictionaryByteBatchLimits is repr('CStruct') is export {
+    has size_t $.max-entries;
+    has size_t $.max-units;
+    has size_t $.max-value-bytes;
+    has uint64 $.reserved;
+}
+
+class DictionaryByteBatchView is repr('CStruct') is export {
+    has Pointer[DictionaryByteEntry] $.entries;
+    has size_t $.entry-count;
+    has Pointer $.units;
+    has size_t $.unit-count;
+    has Pointer[uint8] $.value-bytes;
+    has size_t $.value-byte-count;
+    has uint64 $.generation;
+    has uint64 $.reserved;
+}
+
+class RawDictionaryByteEntriesCursor is repr('CStruct') is export {
+    has Pointer $.context is rw;
+    has Pointer $.vtable is rw;
+}
+
+class DictionaryBytesVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has Pointer $.node-value-bytes;
+    has Pointer $.graph-value-bytes;
+}
+
+class DictionaryByteEntriesVTable is repr('CStruct') is export {
+    has size_t $.struct-size;
+    has uint32 $.interface-version;
+    has uint32 $.reserved;
+    has Pointer $.open;
+    has Pointer $.next-batch;
+    has Pointer $.release-batch;
+    has Pointer $.reduce;
+    has Pointer $.cancel;
+    has Pointer $.close;
+}
+
 class WfstArc is repr('CStruct') is export {
     has uint64 $.input-label;
     has uint64 $.output-label;
@@ -406,8 +466,8 @@ class SemiringPropertiesVTable is repr('CStruct') is export {
     has Pointer $.closure-bound;
 }
 
-our constant ABI-STRUCT-COUNT is export(:abi) = 28;
-our constant ABI-CALLABLE-COUNT is export(:abi) = 52;
+our constant ABI-STRUCT-COUNT is export(:abi) = 34;
+our constant ABI-CALLABLE-COUNT is export(:abi) = 60;
 
 sub abi-cast-resource-retain(Pointer:D $address) is export(:abi) {
     nativecast(:(Pointer), $address)
@@ -487,6 +547,38 @@ sub abi-cast-dictionary-entries-cancel(Pointer:D $address) is export(:abi) {
 
 sub abi-cast-dictionary-entries-close(Pointer:D $address) is export(:abi) {
     nativecast(:(RawDictionaryEntriesCursor --> int32), $address)
+}
+
+sub abi-cast-dictionary-bytes-node-value-bytes(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, Pointer, size_t, size_t is rw, size_t is rw, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-bytes-graph-value-bytes(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, uint64, Pointer, size_t, size_t is rw, size_t is rw, uint8 is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-byte-entries-open(Pointer:D $address) is export(:abi) {
+    nativecast(:(Pointer, RawDictionaryByteEntriesCursor, DictionaryEntriesInfo --> int32), $address)
+}
+
+sub abi-cast-dictionary-byte-entries-next-batch(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryByteEntriesCursor, DictionaryByteBatchLimits, DictionaryByteBatchView --> int32), $address)
+}
+
+sub abi-cast-dictionary-byte-entries-release-batch(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryByteEntriesCursor, uint64 --> int32), $address)
+}
+
+sub abi-cast-dictionary-byte-entries-reduce(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryByteEntriesCursor, DictionaryByteBatchLimits, &callback (Pointer, Pointer --> int32), Pointer, size_t is rw --> int32), $address)
+}
+
+sub abi-cast-dictionary-byte-entries-cancel(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryByteEntriesCursor --> int32), $address)
+}
+
+sub abi-cast-dictionary-byte-entries-close(Pointer:D $address) is export(:abi) {
+    nativecast(:(RawDictionaryByteEntriesCursor --> int32), $address)
 }
 
 sub abi-cast-wfst-snapshot(Pointer:D $address) is export(:abi) {
@@ -645,6 +737,14 @@ sub dictionary-graph-interface-id(--> InterfaceId:D) is export {
 
 sub dictionary-entries-interface-id(--> InterfaceId:D) is export {
     interface-id('vt.dict.entry.v1')
+}
+
+sub dictionary-bytes-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.dict.bytes.v2')
+}
+
+sub dictionary-byte-entries-interface-id(--> InterfaceId:D) is export {
+    interface-id('vt.dict.entry.v2')
 }
 
 sub snapshot-identity-interface-id(--> InterfaceId:D) is export {

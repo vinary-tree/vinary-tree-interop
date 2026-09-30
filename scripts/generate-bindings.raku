@@ -53,6 +53,8 @@ my @interfaces = (
     ['DICTIONARY_VISIT', 'dictionary-visit'],
     ['DICTIONARY_GRAPH', 'dictionary-graph'],
     ['DICTIONARY_ENTRIES', 'dictionary-entries'],
+    ['DICTIONARY_BYTES', 'dictionary-bytes'],
+    ['DICTIONARY_BYTE_ENTRIES', 'dictionary-byte-entries'],
     ['SNAPSHOT_IDENTITY', 'snapshot-identity'],
     ['WFST', 'wfst'],
     ['LATTICE', 'lattice'],
@@ -92,6 +94,12 @@ my @macro-spec = (
     ['VT_DICTIONARY_ENTRIES_INTERFACE_VERSION',
         'DICTIONARY_ENTRIES_INTERFACE_VERSION',
         'DICTIONARY-ENTRIES-INTERFACE-VERSION', 'UInt32'],
+    ['VT_DICTIONARY_BYTES_INTERFACE_VERSION',
+        'DICTIONARY_BYTES_INTERFACE_VERSION',
+        'DICTIONARY-BYTES-INTERFACE-VERSION', 'UInt32'],
+    ['VT_DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION',
+        'DICTIONARY_BYTE_ENTRIES_INTERFACE_VERSION',
+        'DICTIONARY-BYTE-ENTRIES-INTERFACE-VERSION', 'UInt32'],
     ['VT_SNAPSHOT_IDENTITY_INTERFACE_VERSION',
         'SNAPSHOT_IDENTITY_INTERFACE_VERSION',
         'SNAPSHOT-IDENTITY-INTERFACE-VERSION', 'UInt32'],
@@ -457,6 +465,7 @@ my %struct-raku-name = (
     VtDictionaryEntry => 'DictionaryEntryDescriptor',
     VtDictionaryEntryBatchLimits => 'BatchLimits',
     VtDictionaryEntriesCursor => 'RawDictionaryEntriesCursor',
+    VtDictionaryByteEntriesCursor => 'RawDictionaryByteEntriesCursor',
 );
 
 my %struct-julia-name = (
@@ -465,6 +474,7 @@ my %struct-julia-name = (
     VtDictionaryEntry => 'VtDictionaryEntryRaw',
     VtDictionaryEntryBatchLimits => 'BatchLimits',
     VtDictionaryEntriesCursor => 'VtDictionaryEntriesCursorRaw',
+    VtDictionaryByteEntriesCursor => 'VtDictionaryByteEntriesCursorRaw',
 );
 
 sub raku-struct-name(Str:D $c-name --> Str:D) {
@@ -495,6 +505,8 @@ my %mutable-field = (
     'VtResource.vtable' => True,
     'VtDictionaryEntriesCursor.context' => True,
     'VtDictionaryEntriesCursor.vtable' => True,
+    'VtDictionaryByteEntriesCursor.context' => True,
+    'VtDictionaryByteEntriesCursor.vtable' => True,
     'VtSemiringValue.word0' => True,
     'VtSemiringValue.word1' => True,
 );
@@ -503,6 +515,8 @@ my %typed-pointer-field = (
     'VtDictionaryGraphView.edges' => 'Pointer[DictionaryGraphEdge]',
     'VtDictionaryEntryBatchView.entries' => 'Pointer[DictionaryEntryDescriptor]',
     'VtDictionaryEntryBatchView.values' => 'Pointer[uint64]',
+    'VtDictionaryByteBatchView.entries' => 'Pointer[DictionaryByteEntry]',
+    'VtDictionaryByteBatchView.value_bytes' => 'Pointer[uint8]',
 );
 
 sub clean-c-type(Str:D $type --> Str:D) {
@@ -608,6 +622,9 @@ my %array-parameter = (
     'VtDictionaryVTable.node_edges.out_edges' => True,
     'VtDictionaryVisitVTable.node_visit.out_edges' => True,
     'VtDictionaryEntryReducer.batch' => True,
+    'VtDictionaryByteEntryReducer.batch' => True,
+    'VtDictionaryBytesVTable.node_value_bytes.out_bytes' => True,
+    'VtDictionaryBytesVTable.graph_value_bytes.out_bytes' => True,
     'VtWfstVTable.state_arcs.out_arcs' => True,
     'VtLatticeVTable.stable_bytes.out_bytes' => True,
     'VtLatticeVTable.diagnostic.out_bytes' => True,
@@ -837,6 +854,8 @@ my %vtable-prefix = (
     VtDictionaryGraphVTable => 'dictionary-graph',
     VtSnapshotIdentityVTable => 'snapshot-identity',
     VtDictionaryEntriesVTable => 'dictionary-entries',
+    VtDictionaryBytesVTable => 'dictionary-bytes',
+    VtDictionaryByteEntriesVTable => 'dictionary-byte-entries',
     VtWfstVTable => 'wfst',
     VtLatticeVTable => 'lattice',
     VtSemiringVTable => 'semiring',
@@ -889,6 +908,8 @@ my %vtable-interface = (
     VtDictionaryGraphVTable => 'DICTIONARY_GRAPH',
     VtSnapshotIdentityVTable => 'SNAPSHOT_IDENTITY',
     VtDictionaryEntriesVTable => 'DICTIONARY_ENTRIES',
+    VtDictionaryBytesVTable => 'DICTIONARY_BYTES',
+    VtDictionaryByteEntriesVTable => 'DICTIONARY_BYTE_ENTRIES',
     VtWfstVTable => 'WFST',
     VtLatticeVTable => 'LATTICE',
     VtSemiringVTable => 'SEMIRING',
@@ -916,7 +937,7 @@ sub parameter-contract(%callable --> Str:D) {
             !! ((%callable<name> eq 'release_values' && $name eq 'values') ||
                     (%callable<owner> eq 'VtResourceVTable' &&
                         %callable<name> eq 'release' && $name eq 'context') ||
-                    (%callable<owner> eq 'VtDictionaryEntriesVTable' &&
+                    (%callable<owner> eq any(<VtDictionaryEntriesVTable VtDictionaryByteEntriesVTable>) &&
                         %callable<name> eq 'close' && $name eq 'cursor')
                 ?? 'consumed' !! 'borrowed');
         "$name:$direction:$ownership"
@@ -956,7 +977,9 @@ for %callback-typedefs.values.sort(*.<name>) -> %callable {
         ', julia_name=Symbol("@' ~ julia-macro-name(%callable) ~ '")' ~
         ', signature="' ~ julia-signature(%callable) ~
         '", parameter_contract="' ~ parameter-contract(%callable) ~
-        '", threading=:julia_owned_calling_thread_only, capability=:dictionary_entry_reducer),'
+        '", threading=:julia_owned_calling_thread_only, capability=:' ~
+        (%callable<name> eq 'VtDictionaryByteEntryReducer'
+            ?? 'dictionary_byte_entry_reducer' !! 'dictionary_entry_reducer') ~ '),'
     );
 }
 for @operations -> %callable {
@@ -1016,7 +1039,9 @@ for %callback-typedefs.values.sort(*.<name>) -> %callable {
         '@' ~ julia-macro-name(%callable), '-', '-',
         %callable<c_signature>, raku-signature(%callable), julia-signature(%callable),
         parameter-contract(%callable), 'host-runtime-attached-calling-thread-only',
-        'dictionary-entry-reducer', 'generated Julia and NativeCall callback signature',
+        %callable<name> eq 'VtDictionaryByteEntryReducer'
+            ?? 'dictionary-byte-entry-reducer' !! 'dictionary-entry-reducer',
+        'generated Julia and NativeCall callback signature',
     ].join("\t"));
 }
 for @operations -> %callable {
@@ -1105,6 +1130,28 @@ if $mode ne '--write' && @differences {
 }
 
 if $mode eq '--self-test' {
+    my $missing-v2-macro-rejected = False;
+    {
+        CATCH { default { $missing-v2-macro-rejected = True } }
+        require-exact-names(
+            'ABI macro negative control',
+            %macros.keys.grep(* ne 'VT_DICTIONARY_BYTES_INTERFACE_VERSION'),
+            (|@macro-spec.map({ $_[0] }), |@flag-spec.map({ $_[0] })),
+        );
+    }
+    die 'negative control did not reject an unmodeled v2 ABI macro'
+        unless $missing-v2-macro-rejected;
+    my $missing-v2-id-rejected = False;
+    {
+        CATCH { default { $missing-v2-id-rejected = True } }
+        require-exact-names(
+            'ABI interface ID negative control',
+            %interface-ids.keys.grep(* ne 'DICTIONARY_BYTE_ENTRIES'),
+            @interfaces.map({ $_[0] }),
+        );
+    }
+    die 'negative control did not reject an unmodeled v2 interface ID'
+        unless $missing-v2-id-rejected;
     my $needle =
         "our constant ABI-CALLABLE-COUNT is export(:abi) = {@operations.elems};";
     my $negative = %updated{$raku-key}.subst(
@@ -1129,7 +1176,7 @@ if $mode eq '--self-test' {
         %updated{$julia-key} ~ "\nccall(C_NULL, Cvoid, ())\n";
     die 'negative control did not detect a handwritten Julia ccall signature'
         unless julia-facade-has-handwritten-abi($handwritten-julia-drift);
-    say 'negative controls passed: generated Raku and Julia drift plus handwritten Julia ccall duplication are rejected';
+    say 'negative controls passed: v2 macro/interface omission, generated Raku and Julia drift, and handwritten Julia ccall duplication are rejected';
     exit 0;
 }
 
