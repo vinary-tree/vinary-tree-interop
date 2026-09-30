@@ -331,7 +331,7 @@ jobs:
           --source https://api.nuget.org/v3/index.json
 
   go-module-tag:
-    name: Verify Go v4 module tag
+    name: Verify immutable Go module tag and public proxy
     needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate]
     if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'go-module'
     runs-on: ubuntu-24.04
@@ -340,6 +340,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with: { persist-credentials: false }
+      - uses: actions/setup-go@v6
+        with: { go-version: "1.26.x", cache: false }
+      - name: Exercise offline immutable Go tag state machine
+        run: bash scripts/test-go-module-release.sh
       # Protected tag rules deliberately reject GITHUB_TOKEN tag creation.
       # An authorized maintainer creates the annotated tag after reviewing the
       # canonical source; this job proves that the immutable ref is annotated
@@ -347,14 +351,12 @@ jobs:
       - name: Verify the immutable subdirectory module tag
         shell: bash
         env:
-          VERSION: ${{ needs.contract.outputs.canonical }}
+          GO_MODULE_READBACK_CACHE: ${{ github.workspace }}/.go-proxy-readback-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          module_tag="bindings/go/v$VERSION"
-          git fetch --no-tags origin \
-            "refs/tags/$module_tag:refs/tags/$module_tag"
-          test "$(git cat-file -t "refs/tags/$module_tag")" = tag
-          test "$(git rev-parse "refs/tags/$module_tag^{}")" = "$GITHUB_SHA"
+          version=$(jq -er '.registries.goTag' release/version.json)
+          bash scripts/go-module-release.sh verify bindings/go "$version" "$GITHUB_SHA"
+          bash scripts/go-module-release.sh proxy bindings/go "$version" "$GITHUB_SHA"
 
   github-release:
     name: Publish checksummed GitHub release
