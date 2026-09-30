@@ -896,18 +896,26 @@ typedef struct VtDictionaryBytesVTable {
 non-NULL exactly when that same retained snapshot also advertises
 `vt.dict.graph.v1`; otherwise it is NULL. The base node ID and the graph
 `value_cursor` are different authority domains and must never be exchanged.
-The graph callback accepts only a cursor from a graph view minted by the
-**same snapshot resource context** on which the byte interface was
-discovered. Because the wire carries only one `uint64_t` token, a producer
-must assign byte-graph cursor words that are unique across its snapshots for
-the process lifetime (including after a snapshot is released), or decline
-to expose graph-backed byte lookup. It must check that the token lies in the
-receiving snapshot's issued set before dereferencing backend state. A cursor
-from another snapshot is then `InvalidArgument` even when both graphs have
-the same dense node index. Token-space exhaustion is `LimitExceeded` without
-publishing a partial graph. Retaining the source snapshot keeps the graph
-view and token authority alive; release ends both. New snapshots may reuse
-base node IDs, but never byte-graph token words within one producer process.
+The caller must pair a graph cursor with the **same retained snapshot resource
+context** from which it obtained the graph view and byte interface. Within
+one producer instance, byte-graph cursor words must be unique across its
+simultaneously live snapshots, and the callback must check membership in
+the receiving snapshot's issued set before dereferencing backend state.
+A cursor from another *live snapshot of that producer* is therefore
+`InvalidArgument` even when both graphs have the same dense node index.
+Token-space exhaustion is `LimitExceeded` without publishing a partial graph.
+Retaining the source snapshot keeps the graph view and token authority alive;
+release ends both. Providers may reuse token words only after all snapshots
+that issued them are released. A stale cursor after release is invalid caller
+input, but can alias a later reused word.
+
+The wire is only a `uint64_t`, not a cryptographic or cross-provider
+capability. Two independent providers can issue the same numeric word. If a
+foreign word is also valid in the receiving snapshot, the callback cannot
+distinguish its origin; it will interpret the word as its own. Consumers must
+not exchange tokens across resources, and must retain and pair the original
+snapshot. Exact rejection of such identical-bit foreign aliases would require
+a richer cursor containing explicit resource identity or a separate handle.
 
 Both callbacks operate only on final nodes. A nonfinal or invalid node or
 cursor is `InvalidArgument`. All three metadata output pointers are

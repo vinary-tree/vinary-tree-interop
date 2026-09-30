@@ -485,6 +485,28 @@ fn two_phase_copy_is_snapshot_pinned_and_budgeted() {
 }
 
 #[test]
+fn identical_bit_cross_provider_cursor_is_not_authenticatable() {
+    let first = SnapshotValue {
+        snapshot: 11,
+        graph_cursor: 91,
+        value: Some(vec![1]),
+    };
+    let foreign = SnapshotValue {
+        snapshot: 22,
+        graph_cursor: 91,
+        value: Some(vec![2]),
+    };
+    assert_eq!(first.graph_copy(11, 91, 1).unwrap().bytes, vec![1]);
+    // The foreign provider can issue the same u64. The receiving context has
+    // no provenance bits with which to reject that word, so it interprets it
+    // as its own cursor. Consumer-side snapshot pairing is authoritative.
+    assert_eq!(
+        foreign.graph_copy(22, first.graph_cursor, 1).unwrap().bytes,
+        vec![2]
+    );
+}
+
+#[test]
 fn changed_retry_and_unknown_status_are_provider_errors() {
     let mut calls = 0;
     assert_eq!(

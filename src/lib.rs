@@ -886,8 +886,9 @@ pub struct VtDictionaryBytesVTable {
             out_has_value: *mut u8,
         ) -> u32,
     >,
-    /// Copy using a graph cursor uniquely minted by this retained snapshot.
-    /// Byte-graph cursor words must not be reused across producer snapshots.
+    /// Copy using a graph cursor from this retained snapshot. Providers must
+    /// avoid token collisions across their simultaneously live snapshots;
+    /// identical-bit foreign-provider aliases cannot be authenticated here.
     pub graph_value_bytes: Option<
         unsafe extern "C" fn(
             context: *mut c_void,
