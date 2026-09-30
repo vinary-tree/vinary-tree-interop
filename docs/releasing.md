@@ -152,6 +152,10 @@ to be enabled for this repository **before** the RC.6 release is created.
 Provide a narrowly scoped `IMMUTABLE_RELEASES_READ_TOKEN` with repository
 Administration:read through the protected `github-release-interop` job; the
 publisher continues to use its short-lived Contents:write `GITHUB_TOKEN`.
+The organization-level secret must grant this repository access. Rotate its
+one-year fine-grained token before expiration; never place the token value in
+the repository, workflow, logs, or release assets. A missing or expired token
+must fail the preflight before any draft is created.
 The preflight checks the setting and rejects an existing release, then the job
 creates a draft with the complete asset set and `SHA256SUMS`, verifies every
 API-reported digest against staged bytes, publishes once, and reads back every
