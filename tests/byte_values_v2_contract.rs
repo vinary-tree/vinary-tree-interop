@@ -166,7 +166,7 @@ fn validate_view_shape(
     if view.entries.is_null()
         || view.units.is_null() != (view.unit_count == 0)
         || view.value_bytes.is_null() != (view.value_byte_count == 0)
-        || (view.units as usize) % unit_width != 0
+        || !(view.units as usize).is_multiple_of(unit_width)
     {
         return Err(ModelError::Provider);
     }
