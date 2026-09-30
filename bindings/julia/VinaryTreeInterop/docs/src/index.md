@@ -1,60 +1,58 @@
 # VinaryTreeInterop.jl
 
-`VinaryTreeInterop` is the shared Julia ownership and traversal layer for Vinary
-Tree resources. Native libraries supply the algorithms; this package supplies
-Julia's collections, exceptions, snapshots, bounded streams, scalar WFSTs, and
-immutable lattice values.
+`VinaryTreeInterop` is the shared Julia facade for Vinary Tree's versioned
+native resource ABI. It makes provider-owned dictionaries behave like
+`AbstractDict`s and exposes snapshots, bounded entry streams, scalar weighted
+finite-state transducers (WFSTs), and immutable lattice values. It does **not**
+construct automata or select a native library; a library-specific binding must
+create a compatible resource first.
 
-## Ownership
+## Start here
 
-Adopting a raw resource transfers one existing reference. Constructing a facade
-without `take=true` retains an independent reference. Always close the outermost
-facade deterministically:
+Install the package from its repository subdirectory until its General
+registration is public:
 
 ```julia
-function dictionary_size(native_resource)
-    dictionary = VinaryTreeInterop.dictionary(native_resource; take=true)
+using Pkg
+Pkg.add(url="https://github.com/vinary-tree/vinary-tree-interop",
+    subdir="bindings/julia/VinaryTreeInterop")
+using VinaryTreeInterop
+```
+
+Pin a tested Git revision with `Pkg.PackageSpec(url=..., rev="<full commit>",
+subdir=...)` for reproducible pre-registry consumers. A clean-environment
+installation check is run by CI; see [Installation and release](release.md).
+
+Given an *owned* `Resource` returned by a native provider, use:
+
+```julia
+function lookup(provider_resource::VinaryTreeInterop.Resource, term::String)
+    dictionary = VinaryTreeInterop.dictionary(provider_resource; take=true)
     try
-        length(dictionary)
+        return get(dictionary, term, nothing)
     finally
         close(dictionary)
     end
 end
 ```
 
-## Collections
+`take=true` transfers the caller's existing reference. Without it, the facade
+retains a second reference and the caller must close the original separately.
+The provider must keep its ABI code and vtables loaded until all related
+resources and snapshots are closed.
 
-`Dictionary` implements `AbstractDict`. Its key type follows the token domain:
+The [dictionary guide](dictionaries.md) covers collection behavior and bounded
+scans. [WFSTs and algebraic values](automata.md) covers the other public
+capabilities. [Ownership and safety](safety.md) explains concurrency rules;
+[performance](performance.md) reports measured boundary costs; the
+[API reference](api.md) lists every exported symbol.
 
-| Domain | Julia key |
-|---|---|
-| byte | `Vector{UInt8}` |
-| Unicode scalar | `String` |
-| unsigned 64-bit token | `Vector{UInt64}` |
+```jldoctest
+julia> using VinaryTreeInterop
 
-The entry iterator acquires bounded native pages, copies their contents, and
-releases each generation before yielding Julia-owned pairs.
+julia> Int(BatchLimits(2, 8, 2).max_entries)
+2
 
-## Safety
-
-Raw compact-graph slices remain valid only while their `DictionaryGraph` owner
-is open; public `graph_nodes` and `graph_edges` return Julia-owned copies that
-remain valid after closing it. Raw entry-batch pointers remain valid only until
-the matching generation is released. Prefer `with_batch` so exceptional control
-flow cannot leak a lease. A reducer callback may return `STOP_REDUCTION` to
-stop after its current page; use `cancel!` outside callbacks to cancel a cursor.
-
-Reducer callbacks are synchronous. Do not call the native reducer through
-`@threadcall`, because Julia's manual forbids callbacks from that worker pool.
-
-## Lattice values
-
-`LatticeValue` owns an immutable value implementing the negotiated
-`vt.lattice.val.1` capability. `lattice_join` and `lattice_meet` return new
-owned values; `join_many` and `meet_many` use one bounded callback when the
-producer advertises batching. `stable_bytes` returns the canonical value
-encoding, and `diagnostic` reports a contained provider failure.
-
-Close all providers and results in `finally` blocks. Domain identifiers must
-match before an operation; equality and encoding do not make values from
-different algebraic domains interchangeable.
+julia> VinaryTreeInterop.UNIT_UNICODE_SCALAR isa UnitDomain
+true
+```

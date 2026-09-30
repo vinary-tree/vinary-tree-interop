@@ -42,6 +42,18 @@ candidate identity remains in `release/version.json` and the release tag.
    the explicitly embargoed Hackage and fpm candidates.
 5. Install from the public coordinate and rerun its smoke test.
 
+The Julia subpackage is **not** an uploader lane in `release.yml`. Its
+[General/Registrator/TagBot contract](../bindings/julia/VinaryTreeInterop/docs/src/release.md)
+is a separately authorized promotion from the same reviewed immutable source.
+The package has a clean-Git-installed consumer gate and strict doctested
+Documenter build in CI. Do not infer that staging or publishing another RC.6
+artifact registers `VinaryTreeInterop` in General, creates its package-specific
+tag, or deploys Julia docs. Public `Pkg.add("VinaryTreeInterop")` readback is
+required after General merges its registration pull request. The manual,
+read-only `julia-general-readback.yml` workflow checks the exact General
+version and registered source tree against the reviewed commit; it cannot
+register, tag, or publish anything.
+
 ### Exact-tag dispatch protocol
 
 Pushing `v4.0.0-rc.6` creates only the immutable source ref. The release

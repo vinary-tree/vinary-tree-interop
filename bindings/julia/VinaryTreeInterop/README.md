@@ -19,6 +19,12 @@ Pkg.add(url="https://github.com/vinary-tree/vinary-tree-interop",
     subdir="bindings/julia/VinaryTreeInterop")
 ```
 
+Until General registration is public, pin a reviewed full commit SHA with
+`Pkg.PackageSpec(url=..., rev=..., subdir=...)` for repeatable installs. This
+package does not ship a native automaton provider; a library-specific binding
+must supply a compatible owned `Resource`. A fresh-installed consumer is
+exercised in CI, independently of a developed checkout.
+
 The library-specific Julia package supplies a native resource. Once a resource
 is available, the shared collection surface is conventional Julia:
 
@@ -85,6 +91,9 @@ terminal dictionary value is either valueless or optional `UInt64`; `nothing`
 is different from a present zero. `snapshot(dictionary)` retains an independent
 resource, while `snapshot_identity(dictionary)` identifies its immutable
 producer revision when the provider implements that optional capability.
+The ABI's `VALUE_BYTES` discriminant is not a supported dictionary value path
+in v1: node and entry-page byte-value accessors are absent, and indexing such
+a dictionary raises `STATUS_UNSUPPORTED`.
 
 For an immutable provider, `visit(dictionary, node)` obtains finality and an
 edge page in one native call when the fused-visit capability exists. A compact
@@ -136,5 +145,11 @@ The `LLattice.jl` package builds host-implemented Julia providers on this
 consumer surface. A 16-byte domain identifier binds each provider's laws and
 canonical encoding.
 
-See the [complete design, security, and performance guide](../../../docs/language-bindings/julia-raku.md)
-and the generated API reference in `docs/`.
+Read the [Julia guide](docs/src/index.md), [dictionaries and bounded
+streams](docs/src/dictionaries.md), [WFSTs and algebraic
+values](docs/src/automata.md), [ownership and safety](docs/src/safety.md),
+[measured boundary performance](docs/src/performance.md), and
+[installation/release contract](docs/src/release.md). The generated
+[API reference](docs/src/api.md) covers every exported symbol. The
+[shared ABI design guide](../../../docs/language-bindings/julia-raku.md)
+contains provider-side details.
