@@ -457,6 +457,15 @@ fn two_phase_copy_is_snapshot_pinned_and_budgeted() {
         snap.graph_copy(11, 92, 3).err(),
         Some(VtStatus::InvalidArgument)
     );
+    let next_revision = SnapshotValue {
+        snapshot: 12,
+        graph_cursor: 92,
+        value: Some(vec![4]),
+    };
+    assert_eq!(
+        next_revision.graph_copy(12, 91, 1).err(),
+        Some(VtStatus::InvalidArgument)
+    );
     let absent = SnapshotValue {
         value: None,
         ..snap.clone()

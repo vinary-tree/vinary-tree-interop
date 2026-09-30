@@ -898,11 +898,16 @@ non-NULL exactly when that same retained snapshot also advertises
 `value_cursor` are different authority domains and must never be exchanged.
 The graph callback accepts only a cursor from a graph view minted by the
 **same snapshot resource context** on which the byte interface was
-discovered. A cursor from another snapshot, even one with the same numeric
-token, is `InvalidArgument`; providers must validate its snapshot provenance
-before dereferencing backend state. Retaining the source snapshot keeps the
-graph view and token authority alive; release ends both. New snapshots may
-reuse node IDs or tokens without weakening this rule.
+discovered. Because the wire carries only one `uint64_t` token, a producer
+must assign byte-graph cursor words that are unique across its snapshots for
+the process lifetime (including after a snapshot is released), or decline
+to expose graph-backed byte lookup. It must check that the token lies in the
+receiving snapshot's issued set before dereferencing backend state. A cursor
+from another snapshot is then `InvalidArgument` even when both graphs have
+the same dense node index. Token-space exhaustion is `LimitExceeded` without
+publishing a partial graph. Retaining the source snapshot keeps the graph
+view and token authority alive; release ends both. New snapshots may reuse
+base node IDs, but never byte-graph token words within one producer process.
 
 Both callbacks operate only on final nodes. A nonfinal or invalid node or
 cursor is `InvalidArgument`. All three metadata output pointers are
