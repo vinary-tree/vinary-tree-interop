@@ -39,11 +39,11 @@ typedef struct QualificationCursor {
     bool leased;
     bool cancelled;
     uint64_t generation;
-    VtDictionaryEntry descriptor;
+    VtDictionaryEntry descriptors[2];
     union {
-        uint8_t bytes[1];
-        uint32_t scalars[1];
-        uint64_t tokens[1];
+        uint8_t bytes[2];
+        uint32_t scalars[2];
+        uint64_t tokens[2];
     } units;
     uint64_t values[1];
 } QualificationCursor;
@@ -346,33 +346,41 @@ static VtStatus qualification_entries_next(VtDictionaryEntriesCursor *raw,
         (cursor->dictionary->value_domain == VT_VALUE_DOMAIN_OPTIONAL_U64 &&
          cursor->next_index == 0 && limits->max_values < 1))
         return VT_STATUS_LIMIT_EXCEEDED;
-    const size_t index = cursor->next_index++;
-    const uint64_t label = label_at(cursor->dictionary, index);
+    const size_t first = cursor->next_index;
+    const size_t count = first == 0 && limits->max_entries >= 2 &&
+        limits->max_units >= 2 ? 2 : 1;
     const void *units;
-    if (cursor->dictionary->unit_domain == VT_UNIT_DOMAIN_BYTE) {
-        cursor->units.bytes[0] = (uint8_t)label;
-        units = cursor->units.bytes;
-    } else if (cursor->dictionary->unit_domain == VT_UNIT_DOMAIN_UNICODE_SCALAR) {
-        cursor->units.scalars[0] = (uint32_t)label;
-        units = cursor->units.scalars;
-    } else {
-        cursor->units.tokens[0] = label;
-        units = cursor->units.tokens;
+    for (size_t offset = 0; offset < count; ++offset) {
+        const size_t index = first + offset;
+        const uint64_t label = label_at(cursor->dictionary, index);
+        if (cursor->dictionary->unit_domain == VT_UNIT_DOMAIN_BYTE)
+            cursor->units.bytes[offset] = (uint8_t)label;
+        else if (cursor->dictionary->unit_domain == VT_UNIT_DOMAIN_UNICODE_SCALAR)
+            cursor->units.scalars[offset] = (uint32_t)label;
+        else
+            cursor->units.tokens[offset] = label;
+        cursor->descriptors[offset] = (VtDictionaryEntry){
+            .unit_offset = offset,
+            .unit_len = cursor->dictionary->hostile_mode == 2 ? 2 : 1,
+            .value_offset = 0,
+            .value_len = cursor->dictionary->hostile_mode == 3 ? 2 :
+                (cursor->dictionary->value_domain == VT_VALUE_DOMAIN_OPTIONAL_U64 && index == 0),
+        };
     }
+    if (cursor->dictionary->unit_domain == VT_UNIT_DOMAIN_BYTE)
+        units = cursor->units.bytes;
+    else if (cursor->dictionary->unit_domain == VT_UNIT_DOMAIN_UNICODE_SCALAR)
+        units = cursor->units.scalars;
+    else
+        units = cursor->units.tokens;
     cursor->values[0] = 0;
-    cursor->descriptor = (VtDictionaryEntry){
-        .unit_offset = 0,
-        .unit_len = cursor->dictionary->hostile_mode == 2 ? 2 : 1,
-        .value_offset = 0,
-        .value_len = cursor->dictionary->hostile_mode == 3 ? 2 :
-            (cursor->dictionary->value_domain == VT_VALUE_DOMAIN_OPTIONAL_U64 && index == 0),
-    };
+    cursor->next_index += count;
     cursor->leased = true;
     ++cursor->generation;
     *out = (VtDictionaryEntryBatchView){
-        .entries = &cursor->descriptor, .entry_count = 1,
-        .units = units, .unit_count = 1,
-        .values = cursor->values, .value_count = cursor->descriptor.value_len ? 1 : 0,
+        .entries = cursor->descriptors, .entry_count = count,
+        .units = units, .unit_count = count,
+        .values = cursor->values, .value_count = cursor->descriptors[0].value_len ? 1 : 0,
         .generation = cursor->generation,
     };
     return VT_STATUS_OK;
@@ -406,7 +414,7 @@ static VtStatus qualification_entries_reduce(VtDictionaryEntriesCursor *raw,
         status = reducer(reducer_context, &batch);
         VtStatus release_status = qualification_entries_release(raw, batch.generation);
         if (release_status != VT_STATUS_OK) return release_status;
-        ++*out_count;
+        *out_count += batch.entry_count;
         if (status == VT_STATUS_END) {
             cursor->cancelled = true;
             return VT_STATUS_OK;

@@ -2108,7 +2108,7 @@ lease is released.
 @doc """
     reduce_entries(callback, cursor, limits=BatchLimits())
 
-Run the provider's fused reducer and return its exact processed count. Julia
+Run the provider's fused reducer and return its exact processed entry count. Julia
 exceptions are caught inside the C callback, converted to provider failure, and
 re-thrown after native control returns; the callback must run on a Julia-owned
 calling thread. Return `STOP_REDUCTION` from the callback to stop after the

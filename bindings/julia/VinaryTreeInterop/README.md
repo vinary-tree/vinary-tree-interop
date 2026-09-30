@@ -70,7 +70,7 @@ callback is re-thrown after the provider settles its current batch lease; the
 cursor remains open and can be closed in `finally`. Call `cancel!(cursor)`
 outside a callback to stop before the next page, or return `STOP_REDUCTION`
 from the callback to stop after its current page. The latter returns the exact
-number of processed pages, including the stopping page.
+number of processed entries, including the stopping page's entries.
 
 The page limits are hard upper bounds. If the next complete entry cannot fit,
 `next_batch` raises `STATUS_LIMIT_EXCEEDED` without publishing a partial entry.

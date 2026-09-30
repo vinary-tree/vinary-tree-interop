@@ -537,6 +537,12 @@ end
             @test length(pages) == 2
             close(reduction)
 
+            multi_entry_page = VTI.entries(dictionary)
+            @test VTI.reduce_entries(multi_entry_page, VTI.BatchLimits(2, 2, 2)) do page
+                @test length(page) == 2
+            end == 2
+            close(multi_entry_page)
+
             stopped = VTI.entries(dictionary)
             @test VTI.reduce_entries(stopped, VTI.BatchLimits(1, 1, 1)) do _
                 VTI.STOP_REDUCTION
