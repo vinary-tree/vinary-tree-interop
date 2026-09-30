@@ -147,9 +147,17 @@ derives the submitted opam checksum from those public bytes. A missing release,
 duplicate or inconsistent metadata, or changed archive aborts the submission.
 Run `scripts/test-opam-archive-contract.sh target/opam-contract vinary-tree/vinary-tree-interop v4.0.0-rc.6`
 on disk-backed scratch to repeat the deterministic and negative controls.
-GitHub's [immutable release option](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)
-is not yet enforced by this lane: read-back establishes integrity at submission
-time, but cannot prevent a later replacement of a mutable release asset.
+The `validate-only` job requires GitHub [release immutability](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)
+to be enabled for this repository **before** the RC.6 release is created.
+Provide a narrowly scoped `IMMUTABLE_RELEASES_READ_TOKEN` with repository
+Administration:read through the protected `github-release-interop` job; the
+publisher continues to use its short-lived Contents:write `GITHUB_TOKEN`.
+The preflight checks the setting and rejects an existing release, then the job
+creates a draft with the complete asset set and `SHA256SUMS`, verifies every
+API-reported digest against staged bytes, publishes once, and reads back every
+immutable public asset. The later opam job refuses a release whose API
+`immutable` field is not `true`. If the setting or credential is absent,
+the workflow must stop before creating a release.
 
 The same corrective source prepares future crates.io publication for keyless
 authentication. Register the `vinary-tree-interop` crate's trusted publisher
