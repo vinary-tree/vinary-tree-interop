@@ -21,7 +21,7 @@ gates — and, as importantly, what it does **not**.
 | Counter | Today | Gates | Checked where | Does not gate |
 |---|---|---|---|---|
 | `VT_ABI_VERSION` | 1 | The **base resource protocol**: the layout and meaning of `VtResource` and `VtResourceVTable` — two words, retain/release semantics, the `query_interface` signature. | Written by every provider into `VtResourceVTable.abi_version`; the reference consumer checks **exact equality** (`validate_base` in liblevenshtein `src/bindings.rs` rejects any value other than 1). A bump is therefore a coordinated, family-wide flag day: every producer and consumer rebuilds together. | Interface contracts, project C surfaces, package versions. |
-| Interface versions (`VT_DICTIONARY_*`, `VT_SNAPSHOT_*`, `VT_WFST_*`, `VT_LATTICE_*`, and `VT_SEMIRING_*_INTERFACE_VERSION`) | 1 for every current interface | **One interface's contract** under one 16-byte identifier: its vtable's guaranteed prefix and operation semantics. | Negotiated per resource: the consumer passes its `minimum_version` to `query_interface`; the provider answers `Unsupported` if it cannot honor it. Consumers validate the discovered vtable with a **minimum** check (`interface_version >=`), never equality. The identifier string itself carries the *fork* counter for breaking revisions. | The base protocol; sibling interfaces; anything outside the named interface. |
+| Interface versions (`VT_DICTIONARY_*`, `VT_SNAPSHOT_*`, `VT_WFST_*`, `VT_LATTICE_*`, and `VT_SEMIRING_*_INTERFACE_VERSION`) | 1 for v1 interfaces; 2 for the optional byte-value interfaces | **One interface's contract** under one 16-byte identifier: its vtable's guaranteed prefix and operation semantics. | Negotiated per resource: the consumer passes its `minimum_version` to `query_interface`; the provider answers `Unsupported` if it cannot honor it. Consumers validate the discovered vtable with a **minimum** check (`interface_version >=`), never equality. The identifier string itself carries the *fork* counter for breaking revisions. | The base protocol; sibling interfaces; anything outside the named interface. |
 | Project API revision (llev 2 · ldict 6 · lling 1 · duallity 1) | see left | Each project's **own C surface** above the interop layer: an additive counter bumped when the project adds `llev_*` / `ldict_*` / `lling_*` / `duallity_*` functions. Declared as `apiRevision` in each repository's `bindings/api.json` and surfaced at runtime where the project exposes it (for example, `LDICT_API_REVISION` in libdictenstein). | Facade preflight checks in the language bindings: a facade built against revision $`n`$ refuses a library reporting less than $`n`$. | The interop structs — a project may add fifty functions without touching this crate. |
 | Package semver (family release candidate `4.0.0-rc.6`) | see left | **Distribution only**: crates.io, npm, PyPI, Maven, and the other registry coordinates and version pins between packages. | Package managers and each repository's release manifest enforce the registry-normalized form. | Any byte of the ABI. A patch release must not change layouts; conversely an additive interface version may ship in a minor package release. |
 
@@ -74,6 +74,10 @@ leave every byte and operation of `vt.dictionary.v1` unchanged, and a
 consumer independently negotiates or falls back from each capability. The
 evolution test additionally proves a dictionary-only legacy provider returns
 `Unsupported` for entries-v1 without touching the output slot.
+The optional `vt.dict.bytes.v2` and `vt.dict.entry.v2` contracts add byte
+value copying and byte-valued finite streaming without changing the v1
+dictionary/entries contracts. Their `v2` names denote new capability forks,
+not a base-ABI bump; they have no native provider in this contract change.
 (This is also the mechanism for breaking forks, § 3: `vt.dictionary.v2` is
 "a new optional interface" from the protocol's point of view.)
 
@@ -91,7 +95,7 @@ difference is the policy:
 |---|---|---|
 | `VtStatus` | 10 (`BatchInUse` = 9) | **Degrade**: receive as raw `uint32_t`, validate against the range known at build time, and map anything outside it to the project's provider-error class. Unknown statuses are always failures, so degrading is safe. |
 | `VtUnitDomain` | 4 | **Reject** the interface (incompatible): a consumer that cannot interpret the label encoding cannot traverse at all. |
-| `VtValueDomain` | 3 (`Bytes` = 2 is already declared-but-reserved) | **Reject** interfaces whose value domain the consumer does not implement — exactly what the reference consumer does with `Bytes` today. |
+| `VtValueDomain` | 3 (`Bytes` = 2) | **Reject** interfaces whose value domain the consumer does not implement. A byte-aware consumer must negotiate the optional v2 capability required for its operation; v1-only consumers continue to reject `Bytes`. |
 | `VtDictionaryEntryOrder` | 2 | **Reject** entries-v1: a consumer cannot preserve or expose an ordering it does not understand. The metadata field is raw `uint32_t` specifically so this rejection happens before enum conversion. |
 | `VtWeightDomain` | 8 | **Reject**: weights in an unknown semiring cannot be combined, compared, or validated. |
 
@@ -287,6 +291,7 @@ not quoted from memory.
 | `vt.dict.visit.v1` | interface version 1 | libdictenstein (all resource-backed dictionary variants through `SnapshotOps`) | liblevenshtein | `VT_DICTIONARY_VISIT_INTERFACE_VERSION` in `src/lib.rs` / header; layout pinned by `tests/layout_contract.rs` |
 | `vt.dict.graph.v1` | interface version 1 | libdictenstein immutable DynamicDawg snapshots in byte, Unicode-scalar, and `u64` domains | liblevenshtein | `VT_DICTIONARY_GRAPH_INTERFACE_VERSION` in `src/lib.rs` / header; POD and vtable layouts pinned by `tests/layout_contract.rs`; hostile graph views rejected by `src/bindings.rs` decode tests |
 | `vt.dict.entry.v1` | interface version 1 | No provider wired in this change; existing providers remain valid and answer `Unsupported` | No project consumer wired in this change | `VT_DICTIONARY_ENTRIES_INTERFACE_VERSION` and the exact ID in `src/lib.rs` / header; Rust/C layouts and discriminants pinned by the interop tests; optional legacy negotiation and a future trailing-vtable prefix pinned by `tests/vtable_evolution.rs` |
+| `vt.dict.bytes.v2` · `vt.dict.entry.v2` | interface version 2 each | No native provider wired by this contract leaf | No native consumer wired by this contract leaf | Exact IDs, C/Rust layouts, v1 fallback and hostile-provider negative controls in interop tests; normative semantics in [ABI reference § 6.4](abi-reference.md#optional-byte-values-and-entry-streaming-v2) |
 | `vt.scalar-wfst.1` | interface version 1 | lling-llang · duallity | lling-llang (composition) · duallity | `VT_WFST_INTERFACE_VERSION` in `src/lib.rs` / header |
 | liblevenshtein C surface | apiRevision 2 · package `4.0.0-rc.6` | — | 15 language facades | liblevenshtein's `bindings/api.json` |
 | libdictenstein C surface | apiRevision 6 · package `4.0.0-rc.6` | — | 13 language facades | libdictenstein's `bindings/api.json`; `LDICT_API_REVISION` in `src/ffi.rs` via `ldict_api_revision()` |
