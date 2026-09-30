@@ -381,25 +381,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           IMMUTABLE_RELEASES_READ_TOKEN: ${{ secrets.IMMUTABLE_RELEASES_READ_TOKEN }}
-        run: ./scripts/publish-immutable-release.sh --preflight "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GITHUB_SHA"
+        run: ./scripts/publish-immutable-release.sh --preflight "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$(git rev-parse HEAD)"
       - run: ./scripts/test-immutable-release-assets.sh "$RUNNER_TEMP/immutable-contract"
+      - run: bash scripts/test-flatten-release-assets.sh "$RUNNER_TEMP/flatten-assets-contract"
       - uses: actions/download-artifact@v7
-        with: { path: staged-assets, merge-multiple: true }
-      - name: Flatten release assets and create a directly verifiable checksum manifest
-        shell: bash
-        run: |
-          mkdir release-assets
-          while IFS= read -r -d '' source; do
-            name=${source##*/}
-            if [[ -e "release-assets/$name" ]]; then
-              echo "::error::release asset basename collision: $name" >&2
-              exit 1
-            fi
-            cp "$source" "release-assets/$name"
-          done < <(find staged-assets -type f -print0 | sort -z)
-          cd release-assets
-          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | \
-            sort -z | xargs -0 -r sha256sum > SHA256SUMS
+        with: { path: staged-assets, merge-multiple: false }
+      - name: Flatten release assets without basename collisions
+        run: bash scripts/flatten-release-assets.sh staged-assets release-assets
       - uses: softprops/action-gh-release@v3
         with:
           files: release-assets/*
@@ -412,7 +400,7 @@ jobs:
         run: |
           ./scripts/publish-immutable-release.sh --publish \
             "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" release-assets \
-            "$GITHUB_SHA" "$RUNNER_TEMP/immutable-readback"
+            "$(git rev-parse HEAD)" "$RUNNER_TEMP/immutable-readback"
 
   publish-opam-repository:
     name: Submit package to opam-repository
