@@ -16,6 +16,11 @@ makedocs(
     ),
     pages=[
         "Guide" => "index.md",
+        "Dictionaries and bounded streams" => "dictionaries.md",
+        "WFSTs and algebraic values" => "automata.md",
+        "Ownership, concurrency, and safety" => "safety.md",
+        "Performance and qualification" => "performance.md",
+        "Installation and release" => "release.md",
         "API reference" => "api.md",
     ],
     checkdocs=:exports,
@@ -23,3 +28,15 @@ makedocs(
     remotes=nothing,
     warnonly=false,
 )
+
+# Deployment is opt-in, after the exact General readback and a manual workflow
+# dispatch from the package-specific TagBot tag. Ordinary CI only builds docs.
+if get(ENV, "VTI_DOCS_DEPLOY", "false") == "true"
+    deploydocs(
+        repo="github.com/vinary-tree/vinary-tree-interop.git",
+        dirname="julia",
+        tag_prefix="VinaryTreeInterop-",
+        devbranch="master",
+        push_preview=false,
+    )
+end

@@ -42,6 +42,18 @@ candidate identity remains in `release/version.json` and the release tag.
    the explicitly embargoed Hackage and fpm candidates.
 5. Install from the public coordinate and rerun its smoke test.
 
+The Julia subpackage is **not** an uploader lane in `release.yml`. Its
+[General/Registrator/TagBot contract](../bindings/julia/VinaryTreeInterop/docs/src/release.md)
+is a separately authorized promotion from the same reviewed immutable source.
+The package has a clean-Git-installed consumer gate and strict doctested
+Documenter build in CI. Do not infer that staging or publishing another RC.6
+artifact registers `VinaryTreeInterop` in General, creates its package-specific
+tag, or deploys Julia docs. Public `Pkg.add("VinaryTreeInterop")` readback is
+required after General merges its registration pull request. The manual,
+read-only `julia-general-readback.yml` workflow checks the exact General
+version and registered source tree against the reviewed commit; it cannot
+register, tag, or publish anything.
+
 ### Exact-tag dispatch protocol
 
 Pushing `v4.0.0-rc.6` creates only the immutable source ref. The release
@@ -191,17 +203,22 @@ creates and reviews the local tag, requests explicit approval for the exact
 remote ref, and then pushes only that tag:
 
 ```bash
-git tag -a bindings/go/v4.0.0-rc.6 v4.0.0-rc.6 \
-  -m "Release Vinary Tree interop Go module 4.0.0-rc.6"
-git show --no-patch --decorate bindings/go/v4.0.0-rc.6
-git push origin refs/tags/bindings/go/v4.0.0-rc.6
+export GITHUB_REPOSITORY=vinary-tree/vinary-tree-interop
+version=$(jq -er '.registries.goTag' release/version.json)
+source_commit=$(git rev-parse 'v4.0.0-rc.6^{commit}')
+bash scripts/test-go-module-release.sh
+# Only after explicit approval to create this exact protected remote ref:
+bash scripts/go-module-release.sh create bindings/go "$version" "$source_commit"
+bash scripts/go-module-release.sh verify bindings/go "$version" "$source_commit"
 ```
 
-The `go-module` workflow no longer attempts to bypass protection. It fetches
-the public annotated tag and requires its peeled commit to equal the canonical
-workflow source before the Go module is considered published. Dispatch that
-lane from the canonical release tag, not a later packaging-only corrective
-tag:
+`create` is a maintainer-only, non-force operation: an already-correct tag is
+accepted without moving it; a lightweight tag, wrong object, or wrong commit
+fails. A concurrent identical creation is accepted after re-verification.
+The `go-module` workflow has read-only repository permission. It independently
+checks the remote annotated object and exact source commit, then resolves the
+module through the public Go proxy with a fresh cache. Dispatch that lane
+from the canonical release tag, not a later packaging-only corrective tag:
 
 ```bash
 gh workflow run release.yml \

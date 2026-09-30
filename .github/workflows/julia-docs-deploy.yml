@@ -1,0 +1,57 @@
+---
+name: Deploy Julia package documentation
+
+# No push or tag trigger: an authorized operator dispatches from the exact
+# package-specific tag only after General registration and public readback.
+"on":
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact registered VinaryTreeInterop version
+        required: true
+        type: string
+      source_sha:
+        description: Full reviewed source commit SHA
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Verify General tree and deploy only the julia/ Pages subtree
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      # yamllint disable-line rule:line-length
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32  # v3.0.2
+        with: {version: "1.12"}
+      - name: Require the exact package-specific immutable tag
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          test "$GITHUB_REF" = "refs/tags/VinaryTreeInterop-v$EXPECTED_VERSION"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Verify the public General package and native fixture
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          package="bindings/julia/VinaryTreeInterop"
+          scratch="$PWD/$package/test/target"
+          mkdir -p "$scratch"
+          TMPDIR="$scratch" julia --startup-file=no \
+            "$package/test/registry_readback.jl" \
+            "$EXPECTED_VERSION" "$SOURCE_SHA" "$scratch"
+      - name: Build and deploy strict Julia documentation
+        working-directory: bindings/julia/VinaryTreeInterop
+        env:
+          VTI_DOCS_DEPLOY: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          julia --startup-file=no --project=docs
+          -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate();
+          include("docs/make.jl")'

@@ -136,7 +136,9 @@ jobs:
         julia-version: ["1.10", "1.12"]
     steps:
       - uses: actions/checkout@v6
-        with: {persist-credentials: false}
+        # Julia 1.10's LibGit2 cannot clone a local shallow checkout when
+        # Pkg.add selects the checked-out commit as a Git dependency.
+        with: {persist-credentials: false, fetch-depth: 0}
       # yamllint disable-line rule:line-length
       - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32  # v3.0.2
         with: {version: "${{ matrix.julia-version }}"}
@@ -144,8 +146,14 @@ jobs:
         run: >-
           julia --startup-file=no --project=bindings/julia/VinaryTreeInterop
           -e 'using Pkg; Pkg.test()'
+      - name: Fresh Git-installed Julia consumer and native fixture
+        run: |
+          package="bindings/julia/VinaryTreeInterop"
+          scratch="$PWD/$package/test/target"
+          mkdir -p "$scratch"
+          TMPDIR="$scratch" julia --startup-file=no \
+            "$package/test/installed_consumer.jl" "$scratch"
       - name: Build strict doctested Julia API documentation
-        if: matrix.julia-version == '1.12'
         working-directory: bindings/julia/VinaryTreeInterop
         run: >-
           julia --startup-file=no --project=docs

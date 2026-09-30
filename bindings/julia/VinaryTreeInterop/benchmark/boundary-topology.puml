@@ -1,0 +1,22 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam rectangle {
+  BorderColor #263238
+  RoundCorner 12
+}
+skinparam ArrowColor #455A64
+title Matched Julia/native boundary measurement
+
+rectangle "One immutable ABI fixture\n(two-entry dictionary, WFST, lattice, semiring)" as provider #E8F5E9
+rectangle "Direct C vtable consumer\nmonotonic timer inside C loop" as native #E3F2FD
+rectangle "VinaryTreeInterop.jl consumer\nmonotonic timer around public wrappers" as julia #FFF3E0
+rectangle "Paired block record\nchecksums · allocated bytes · RSS\nload · scheduler wait · order" as record #F3E5F5
+rectangle "Clean-sample filter\nmedian ratio + bootstrap interval\nregression budgets" as analysis #E0F7FA
+
+provider -left-> native : same public ABI
+provider -right-> julia : same public ABI
+native -down-> record : native duration/checksum
+julia -down-> record : Julia duration/checksum
+record -down-> analysis : eleven alternating pairs
+@enduml

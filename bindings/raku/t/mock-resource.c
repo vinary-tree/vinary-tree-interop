@@ -430,12 +430,16 @@ static VtStatus test_entries_next(VtDictionaryEntriesCursor *raw_cursor,
     if (cursor->index >= 2) {
         return VT_STATUS_END;
     }
+    const size_t required_units = cursor->index == 0 ? 1 : 2;
+    if (limits->max_units < required_units || limits->max_values < 1) {
+        return VT_STATUS_LIMIT_EXCEEDED;
+    }
     memset(out_batch, 0, sizeof(*out_batch));
     memset(&cursor->entry, 0, sizeof(cursor->entry));
     cursor->units[0] = cursor->index == 0 ? 'a' : 'b';
     cursor->units[1] = 'c';
     cursor->value = (cursor->index + 1) * 10;
-    cursor->entry.unit_len = cursor->index == 0 ? 1 : 2;
+    cursor->entry.unit_len = required_units;
     cursor->entry.value_len = 1;
     cursor->generation += 1;
     cursor->batch_active = 1;
@@ -478,15 +482,15 @@ static VtStatus test_entries_reduce(VtDictionaryEntriesCursor *cursor,
         if (status != VT_STATUS_OK) {
             return status;
         }
-        status = reducer(reducer_context, &batch);
-        if (status != VT_STATUS_OK) {
-            return status;
-        }
+        VtStatus callback_status = reducer(reducer_context, &batch);
         status = test_entries_release(cursor, batch.generation);
-        if (status != VT_STATUS_OK) {
-            return status;
-        }
+        if (status != VT_STATUS_OK) return status;
         *out_count += batch.entry_count;
+        if (callback_status == VT_STATUS_END) {
+            ((TestEntriesCursor *)cursor->context)->index = 2;
+            return VT_STATUS_OK;
+        }
+        if (callback_status != VT_STATUS_OK) return callback_status;
     }
 }
 
@@ -495,6 +499,7 @@ static VtStatus test_entries_cancel(VtDictionaryEntriesCursor *raw_cursor) {
     if (cursor == NULL) {
         return VT_STATUS_CLOSED;
     }
+    if (cursor->batch_active) return VT_STATUS_BATCH_IN_USE;
     cursor->index = 2;
     return VT_STATUS_OK;
 }
@@ -504,6 +509,7 @@ static VtStatus test_entries_close(VtDictionaryEntriesCursor *raw_cursor) {
     if (cursor == NULL) {
         return VT_STATUS_CLOSED;
     }
+    if (cursor->batch_active) return VT_STATUS_BATCH_IN_USE;
     free(cursor);
     raw_cursor->context = NULL;
     raw_cursor->vtable = NULL;

@@ -1,0 +1,41 @@
+---
+name: Julia General public readback
+
+# Read-only: never invokes Registrator or TagBot.
+"on":
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact VinaryTreeInterop version already merged into General
+        required: true
+        type: string
+      source_sha:
+        description: Full reviewed source commit SHA for that General version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  readback:
+    name: Resolve General tree and exercise installed Julia consumer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      # yamllint disable-line rule:line-length
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32  # v3.0.2
+        with: {version: "1.12"}
+      - name: Read back exact General version and immutable source tree
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          scratch="$PWD/bindings/julia/VinaryTreeInterop/test/target"
+          mkdir -p "$scratch"
+          TMPDIR="$scratch" julia --startup-file=no \
+            bindings/julia/VinaryTreeInterop/test/registry_readback.jl \
+            "$EXPECTED_VERSION" "$SOURCE_SHA" "$scratch"

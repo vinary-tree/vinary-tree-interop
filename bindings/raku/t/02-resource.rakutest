@@ -79,7 +79,7 @@ my $reduction = entries($dictionary);
 my @reduced;
 my $reduced-count = $reduction.reduce(
     -> @page { @reduced.append(@page) },
-    BatchLimits.new(max-entries => 1, max-units => 1, max-values => 1),
+    BatchLimits.new(max-entries => 1, max-units => 2, max-values => 1),
 );
 is $reduced-count, 2, 'native reducer returns its exact processed count';
 is-deeply @reduced.map(*.value).Array, [10, 20],
