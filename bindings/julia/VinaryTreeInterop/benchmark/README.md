@@ -136,3 +136,8 @@ not claims that a particular absolute latency is portable. A contaminated
 or dissimilar-host run must be repeated rather than used to relax a budget.
 The source-data CSV is the evidence; any human summary must retain its
 revision, workload, exclusions, and uncertainty.
+
+The [2026-09-30 controlled baseline and independent replication](results/2026-09-30-analysis.md)
+include all raw paired blocks, machine/source manifests, absolute timings,
+allocated bytes, uncertainty, and limitations. They characterize this ABI
+fixture only; they are not product-level speed claims.
