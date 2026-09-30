@@ -135,6 +135,22 @@ the exact release tag in the archive URL so its checksum matches the asset on
 that same GitHub prerelease. This interop package must be merged and publicly
 resolvable before the libdictenstein and liblevenshtein opam submissions.
 
+For the RC.6 opam lane, first dispatch `validate-only` at the exact source tag:
+its protected GitHub-release job must publish the `.tbz` archive and
+`SHA256SUMS` before a separate `opam` dispatch. The source packer fixes tar
+member order, timestamp, ownership, permissions, and locale, so independent
+staging runs produce the same compressed bytes. Before opening the upstream
+pull request, the opam job verifies that the public tag resolves to its checked
+out commit; downloads the public archive and checksum manifest; checks the
+release API digest, manifest entry, and exact staged/public byte identity; and
+derives the submitted opam checksum from those public bytes. A missing release,
+duplicate or inconsistent metadata, or changed archive aborts the submission.
+Run `scripts/test-opam-archive-contract.sh target/opam-contract vinary-tree/vinary-tree-interop v4.0.0-rc.6`
+on disk-backed scratch to repeat the deterministic and negative controls.
+GitHub's [immutable release option](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)
+is not yet enforced by this lane: read-back establishes integrity at submission
+time, but cannot prevent a later replacement of a mutable release asset.
+
 The same corrective source prepares future crates.io publication for keyless
 authentication. Register the `vinary-tree-interop` crate's trusted publisher
 as repository `vinary-tree/vinary-tree-interop`, workflow `release.yml`, and

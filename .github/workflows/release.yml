@@ -194,6 +194,7 @@ jobs:
         with: { ocaml-compiler: "5.4.0" }
       - run: ./scripts/stage-ocaml-package.sh dist "$GITHUB_REF_NAME"
       - run: opam lint dist/opam
+      - run: ./scripts/test-opam-archive-contract.sh "$RUNNER_TEMP/opam-contract" "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
       - uses: actions/upload-artifact@v7
         with:
           name: opam-package
@@ -401,6 +402,15 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/download-artifact@v7
         with: { name: opam-package, path: dist }
+      - name: Bind opam checksum to the published source asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.OPAM_GITHUB_TOKEN }}
+          CANONICAL_VERSION: ${{ needs.contract.outputs.canonical }}
+        run: |
+          ./scripts/verify-opam-public-asset.sh "$GITHUB_REPOSITORY" \
+            "$GITHUB_REF_NAME" "vinary-tree-interop-$CANONICAL_VERSION" \
+            dist "$RUNNER_TEMP/opam-public"
       - name: Create the opam-repository pull request
         shell: bash
         env:
@@ -417,7 +427,7 @@ jobs:
           git -C opam-repository checkout -b "$branch" FETCH_HEAD
           package="opam-repository/packages/vinary-tree-interop/vinary-tree-interop.$version"
           mkdir -p "$package"
-          cp dist/opam "$package/opam"
+          cp "$RUNNER_TEMP/opam-public/opam" "$package/opam"
           git -C opam-repository config user.name "Vinary Tree release automation"
           git -C opam-repository config user.email "dylon.devo@gmail.com"
           git -C opam-repository add "packages/vinary-tree-interop/vinary-tree-interop.$version/opam"
