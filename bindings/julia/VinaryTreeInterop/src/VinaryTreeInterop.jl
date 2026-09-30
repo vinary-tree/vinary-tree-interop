@@ -127,6 +127,7 @@ export ABI_VERSION,
     release!,
     with_batch,
     reduce_entries,
+    STOP_REDUCTION,
     cancel!,
     start,
     state_count,
@@ -1118,11 +1119,11 @@ end
 function visit(dictionary::Dictionary, node::Integer;
     batch_size::Integer=RECOMMENDED_EDGE_BATCH)
     batch_size > 0 || throw(ArgumentError("batch_size must be positive"))
-    pointer = query_interface(dictionary.resource, DICTIONARY_VISIT_INTERFACE_ID,
+    interface_pointer = query_interface(dictionary.resource, DICTIONARY_VISIT_INTERFACE_ID,
         DICTIONARY_VISIT_INTERFACE_VERSION)
-    pointer === nothing && return (isfinal(dictionary, node), edges(dictionary, node;
+    interface_pointer === nothing && return (isfinal(dictionary, node), edges(dictionary, node;
         batch_size))
-    table = unsafe_load(Ptr{VtDictionaryVisitVTable}(pointer))
+    table = unsafe_load(Ptr{VtDictionaryVisitVTable}(interface_pointer))
     raw = raw_resource(dictionary.resource)
     output = VtDictionaryEdge[]
     finality = Ref{UInt8}(0)
@@ -1155,7 +1156,31 @@ mutable struct DictionaryGraph
     closed::Bool
 end
 
+function validate_graph_view(view::VtDictionaryGraphView)
+    (view.reserved == 0 && 0 < view.node_count <= typemax(Int) &&
+        view.edge_count <= typemax(Int) && view.nodes != C_NULL &&
+        (view.edge_count == 0 || view.edges != C_NULL) &&
+        view.root < view.node_count) ||
+        throw(InteropError(STATUS_PROVIDER_ERROR, :dictionary_graph))
+    nodes = unsafe_wrap(Vector{VtDictionaryGraphNode}, view.nodes,
+        Int(view.node_count); own=false)
+    edges = view.edge_count == 0 ? VtDictionaryGraphEdge[] :
+        unsafe_wrap(Vector{VtDictionaryGraphEdge}, view.edges,
+            Int(view.edge_count); own=false)
+    for node in nodes
+        (node.edge_start <= view.edge_count &&
+            node.edge_len <= view.edge_count - node.edge_start &&
+            node.is_final <= 1 && all(iszero, node.reserved)) ||
+            throw(InteropError(STATUS_PROVIDER_ERROR, :dictionary_graph))
+    end
+    all(edge -> edge.target < view.node_count, edges) ||
+        throw(InteropError(STATUS_PROVIDER_ERROR, :dictionary_graph))
+    nothing
+end
+
 function graph(dictionary::Dictionary)
+    flags(dictionary) & DICTIONARY_FLAG_IMMUTABLE != 0 ||
+        throw(InteropError(STATUS_UNSUPPORTED, :dictionary_graph))
     pointer = query_interface(dictionary.resource, DICTIONARY_GRAPH_INTERFACE_ID,
         DICTIONARY_GRAPH_INTERFACE_VERSION)
     pointer === nothing && return nothing
@@ -1167,6 +1192,7 @@ function graph(dictionary::Dictionary)
     status = abi_call_dictionary_graph_graph(
         require_pointer(table.graph, :dictionary_graph), raw.context, output)
     checked_status(status, :dictionary_graph)
+    validate_graph_view(output[])
     result = DictionaryGraph(retain(dictionary.resource), output[],
         table.node_value_u64, false)
     finalizer(finalize_close, result)
@@ -1184,14 +1210,15 @@ Base.isopen(graph::DictionaryGraph) = !graph.closed
 
 function graph_nodes(graph::DictionaryGraph)
     graph.closed && throw(InteropError(STATUS_CLOSED, :dictionary_graph))
-    unsafe_wrap(Vector{VtDictionaryGraphNode}, graph.view.nodes,
-        Int(graph.view.node_count); own=false)
+    copy(unsafe_wrap(Vector{VtDictionaryGraphNode}, graph.view.nodes,
+        Int(graph.view.node_count); own=false))
 end
 
 function graph_edges(graph::DictionaryGraph)
     graph.closed && throw(InteropError(STATUS_CLOSED, :dictionary_graph))
-    unsafe_wrap(Vector{VtDictionaryGraphEdge}, graph.view.edges,
-        Int(graph.view.edge_count); own=false)
+    graph.view.edge_count == 0 && return VtDictionaryGraphEdge[]
+    copy(unsafe_wrap(Vector{VtDictionaryGraphEdge}, graph.view.edges,
+        Int(graph.view.edge_count); own=false))
 end
 
 function value(graph::DictionaryGraph, cursor::Integer)
@@ -1232,7 +1259,25 @@ mutable struct DictionaryEntries
     info::VtDictionaryEntriesInfo
     batch_active::Bool
     active_generation::UInt64
+    reducer_active::Bool
     closed::Bool
+end
+
+function validate_entries_info(info::VtDictionaryEntriesInfo, dictionary::Dictionary)
+    (info.unit_domain in (UInt32(UNIT_BYTE), UInt32(UNIT_UNICODE_SCALAR),
+        UInt32(UNIT_U64)) &&
+        info.value_domain in (UInt32(VALUE_UNIT), UInt32(VALUE_OPTIONAL_U64)) &&
+        info.unit_domain == UInt32(unit_domain(dictionary)) &&
+        info.value_domain == UInt32(value_domain(dictionary)) &&
+        info.order == UInt32(ENTRY_LEXICOGRAPHIC) &&
+        info.reserved0 == 0 && all(iszero, info.reserved) &&
+        info.flags & ~(ENTRIES_INFO_FLAG_EXACT_LEN |
+            ENTRIES_INFO_FLAG_SNAPSHOT_IDENTITY) == 0 &&
+        (info.flags & ENTRIES_INFO_FLAG_EXACT_LEN != 0 || info.exact_len == 0) &&
+        (info.flags & ENTRIES_INFO_FLAG_SNAPSHOT_IDENTITY != 0 ||
+            info.identity == SnapshotIdentity(0, 0))) ||
+        throw(InteropError(STATUS_PROVIDER_ERROR, :dictionary_entries_open))
+    nothing
 end
 
 function entries(dictionary::Dictionary)
@@ -1245,16 +1290,28 @@ function entries(dictionary::Dictionary)
     info = Ref(VtDictionaryEntriesInfo(0, 0, 0, 0, 0, 0,
         SnapshotIdentity(0, 0), (0, 0)))
     raw = raw_resource(dictionary.resource)
-    status = abi_call_dictionary_entries_open(
-        require_pointer(table.open, :dictionary_entries_open), raw.context,
-        cursor, info)
-    checked_status(status, :dictionary_entries_open)
-    cursor[].context == C_NULL &&
-        throw(InteropError(STATUS_NULL_POINTER, :dictionary_entries_open))
-    result = DictionaryEntries(retain(dictionary.resource), cursor[], table_pointer,
-        info[], false, 0, false)
-    finalizer(finalize_close, result)
-    result
+    try
+        status = abi_call_dictionary_entries_open(
+            require_pointer(table.open, :dictionary_entries_open), raw.context,
+            cursor, info)
+        checked_status(status, :dictionary_entries_open)
+        (cursor[].context != C_NULL && cursor[].vtable != C_NULL) ||
+            throw(InteropError(STATUS_NULL_POINTER, :dictionary_entries_open))
+        validate_entries_info(info[], dictionary)
+        result = DictionaryEntries(retain(dictionary.resource), cursor[], table_pointer,
+            info[], false, 0, false, false)
+        finalizer(finalize_close, result)
+        result
+    catch
+        if cursor[].context != C_NULL && table.close != C_NULL
+            try
+                abi_call_dictionary_entries_close(table.close, cursor[])
+            catch
+                # Preserve the originating ABI failure; the provider owns close.
+            end
+        end
+        rethrow()
+    end
 end
 
 unit_domain(cursor::DictionaryEntries) = UnitDomain(cursor.info.unit_domain)
@@ -1272,6 +1329,8 @@ end
 
 function release!(cursor::DictionaryEntries, generation::Integer)
     cursor.closed && throw(InteropError(STATUS_CLOSED, :dictionary_entries_release))
+    cursor.reducer_active && throw(InteropError(STATUS_BATCH_IN_USE,
+        :dictionary_entries_release))
     cursor.batch_active || throw(ArgumentError("no dictionary-entry batch is active"))
     table = entries_table(cursor)
     status = abi_call_dictionary_entries_release_batch(
@@ -1289,8 +1348,37 @@ mutable struct EntryBatch
     released::Bool
 end
 
+function validate_entry_batch_view(view::VtDictionaryEntryBatchView,
+    cursor::DictionaryEntries, limits::Union{Nothing,BatchLimits})
+    valid = view.reserved == 0 && view.generation != 0 &&
+        0 < view.entry_count <= typemax(Int) &&
+        view.unit_count <= typemax(Int) && view.value_count <= typemax(Int) &&
+        view.entries != C_NULL &&
+        (view.unit_count == 0 || view.units != C_NULL) &&
+        (view.value_count == 0 || view.values != C_NULL)
+    if limits !== nothing
+        valid &= view.entry_count <= limits.max_entries &&
+            view.unit_count <= limits.max_units &&
+            view.value_count <= limits.max_values
+    end
+    valid || throw(InteropError(STATUS_PROVIDER_ERROR, :dictionary_entries_next_batch))
+    descriptors = unsafe_wrap(Vector{VtDictionaryEntryRaw}, view.entries,
+        Int(view.entry_count); own=false)
+    for descriptor in descriptors
+        (descriptor.reserved == 0 &&
+            descriptor.unit_offset <= view.unit_count &&
+            descriptor.unit_len <= view.unit_count - descriptor.unit_offset &&
+            descriptor.value_offset <= view.value_count &&
+            descriptor.value_len <= view.value_count - descriptor.value_offset &&
+            descriptor.value_len <= 1 &&
+            (value_domain(cursor) != VALUE_UNIT || descriptor.value_len == 0)) ||
+            throw(InteropError(STATUS_PROVIDER_ERROR, :dictionary_entries_next_batch))
+    end
+    nothing
+end
+
 function next_batch(cursor::DictionaryEntries, limits::BatchLimits=BatchLimits())
-    cursor.batch_active && throw(InteropError(STATUS_BATCH_IN_USE,
+    (cursor.batch_active || cursor.reducer_active) && throw(InteropError(STATUS_BATCH_IN_USE,
         :dictionary_entries_next_batch))
     table = entries_table(cursor)
     output = Ref(VtDictionaryEntryBatchView(
@@ -1301,6 +1389,18 @@ function next_batch(cursor::DictionaryEntries, limits::BatchLimits=BatchLimits()
         cursor.raw, Ref(limits), output)
     checked_status(status, :dictionary_entries_next_batch; allow_end=true)
     Status(status) == STATUS_END && return nothing
+    try
+        validate_entry_batch_view(output[], cursor, limits)
+    catch
+        try
+            abi_call_dictionary_entries_release_batch(
+                require_pointer(table.release_batch, :dictionary_entries_release),
+                cursor.raw, output[].generation)
+        catch
+            # Preserve the malformed-provider error after best-effort lease settlement.
+        end
+        rethrow()
+    end
     cursor.batch_active = true
     cursor.active_generation = output[].generation
     batch = EntryBatch(cursor, output[], false)
@@ -1310,16 +1410,24 @@ end
 
 function release!(batch::EntryBatch)
     batch.released && return nothing
-    batch.released = true
+    if batch.cursor.closed
+        batch.released = true
+        return nothing
+    end
     release!(batch.cursor, batch.view.generation)
+    batch.released = true
+    nothing
 end
 
 Base.close(batch::EntryBatch) = release!(batch)
 Base.isopen(batch::EntryBatch) = !batch.released
 
 function copied_entries(batch::EntryBatch)
-    batch.released && throw(InteropError(STATUS_CLOSED, :dictionary_entry_batch))
+    (batch.released || batch.cursor.closed || !batch.cursor.batch_active ||
+        batch.cursor.active_generation != batch.view.generation) &&
+        throw(InteropError(STATUS_CLOSED, :dictionary_entry_batch))
     view = batch.view
+    validate_entry_batch_view(view, batch.cursor, nothing)
     descriptors = unsafe_wrap(Vector{VtDictionaryEntryRaw}, view.entries,
         Int(view.entry_count); own=false)
     unit_type = if unit_domain(batch.cursor) == UNIT_BYTE
@@ -1368,6 +1476,9 @@ mutable struct ReducerContext
     failure::Any
 end
 
+struct StopReduction end
+const STOP_REDUCTION = StopReduction()
+
 function reducer_bridge(context_pointer::Ptr{Cvoid},
     view_pointer::Ptr{VtDictionaryEntryBatchView})::Cint
     context_pointer == C_NULL && return Cint(STATUS_NULL_POINTER)
@@ -1380,11 +1491,11 @@ function reducer_bridge(context_pointer::Ptr{Cvoid},
         Ptr{VtDictionaryEntriesVTable}(C_NULL),
         VtDictionaryEntriesInfo(UInt32(context.unit_domain),
             UInt32(context.value_domain), UInt32(ENTRY_LEXICOGRAPHIC), 0, 0, 0,
-            SnapshotIdentity(0, 0), (0, 0)), true, 0, true)
+            SnapshotIdentity(0, 0), (0, 0)), true, view.generation, false, false)
     batch = EntryBatch(fake_cursor, view, false)
     try
-        context.callback(copied_entries(batch))
-        Cint(STATUS_OK)
+        result = context.callback(copied_entries(batch))
+        Cint(result === STOP_REDUCTION ? STATUS_END : STATUS_OK)
     catch error
         context.failure = (error, catch_backtrace())
         Cint(STATUS_PROVIDER_ERROR)
@@ -1393,16 +1504,21 @@ end
 
 function reduce_entries(callback, cursor::DictionaryEntries,
     limits::BatchLimits=BatchLimits())
-    cursor.batch_active && throw(InteropError(STATUS_BATCH_IN_USE,
+    (cursor.batch_active || cursor.reducer_active) && throw(InteropError(STATUS_BATCH_IN_USE,
         :dictionary_entries_reduce))
     table = entries_table(cursor)
     context = ReducerContext(callback, unit_domain(cursor), value_domain(cursor), nothing)
     count = Ref{Csize_t}(0)
     context_pointer = pointer_from_objref(context)
     reducer_pointer = @abi_cfunction_dictionary_entry_reducer(reducer_bridge)
-    status = GC.@preserve context abi_call_dictionary_entries_reduce(
-        require_pointer(table.reduce, :dictionary_entries_reduce), cursor.raw,
-        Ref(limits), reducer_pointer, context_pointer, count)
+    cursor.reducer_active = true
+    status = try
+        GC.@preserve context abi_call_dictionary_entries_reduce(
+            require_pointer(table.reduce, :dictionary_entries_reduce), cursor.raw,
+            Ref(limits), reducer_pointer, context_pointer, count)
+    finally
+        cursor.reducer_active = false
+    end
     if context.failure !== nothing
         error, backtrace = context.failure
         throw(error)
@@ -1412,6 +1528,8 @@ function reduce_entries(callback, cursor::DictionaryEntries,
 end
 
 function cancel!(cursor::DictionaryEntries)
+    cursor.reducer_active && throw(InteropError(STATUS_BATCH_IN_USE,
+        :dictionary_entries_cancel))
     table = entries_table(cursor)
     status = abi_call_dictionary_entries_cancel(
         require_pointer(table.cancel, :dictionary_entries_cancel), cursor.raw)
@@ -1421,20 +1539,18 @@ end
 
 function close!(cursor::DictionaryEntries)
     cursor.closed && return nothing
+    cursor.reducer_active && throw(InteropError(STATUS_BATCH_IN_USE,
+        :dictionary_entries_close))
     if cursor.batch_active
-        try
-            release!(cursor, cursor.active_generation)
-        catch
-            # The close operation below is authoritative and must still run.
-        end
+        release!(cursor, cursor.active_generation)
     end
     table = unsafe_load(cursor.table)
-    cursor.closed = true
     status = abi_call_dictionary_entries_close(
         require_pointer(table.close, :dictionary_entries_close), cursor.raw)
+    checked_status(status, :dictionary_entries_close)
+    cursor.closed = true
     cursor.raw = VtDictionaryEntriesCursorRaw(C_NULL, C_NULL)
     close!(cursor.resource)
-    checked_status(status, :dictionary_entries_close)
     nothing
 end
 
@@ -1961,13 +2077,13 @@ use `Vector{UInt8}`, and vocabulary dictionaries use `Vector{UInt64}`.
 @doc """
     DictionaryGraph
 
-Retained zero-copy view of an immutable compact dictionary graph. Node and edge
-slices are borrowed from the snapshot and remain valid until this graph is closed.
+Retained view of an immutable compact dictionary graph. Its raw node and edge
+slices are borrowed from the snapshot until close; public accessors copy them.
 """ DictionaryGraph
 
 @doc "Open the optional immutable compact graph, or return `nothing`." graph
-@doc "Return the zero-copy compact-graph node slice retained by a `DictionaryGraph`." graph_nodes
-@doc "Return the zero-copy compact-graph edge slice retained by a `DictionaryGraph`." graph_edges
+@doc "Copy compact-graph nodes into a Julia-owned vector." graph_nodes
+@doc "Copy compact-graph edges into a Julia-owned vector." graph_edges
 @doc "Return the optional process-local producer/revision identity." snapshot_identity
 
 @doc "Hard upper bounds for one dictionary-entry batch." BatchLimits
@@ -1995,8 +2111,10 @@ lease is released.
 Run the provider's fused reducer and return its exact processed count. Julia
 exceptions are caught inside the C callback, converted to provider failure, and
 re-thrown after native control returns; the callback must run on a Julia-owned
-calling thread.
+calling thread. Return `STOP_REDUCTION` from the callback to stop after the
+current page; the provider releases its lease before returning.
 """ reduce_entries
+@doc "Return this sentinel from a reducer callback to stop after its current page." STOP_REDUCTION
 
 @doc """
     Wfst

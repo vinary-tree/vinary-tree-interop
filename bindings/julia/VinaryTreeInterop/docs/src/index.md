@@ -38,9 +38,11 @@ releases each generation before yielding Julia-owned pairs.
 ## Safety
 
 Raw compact-graph slices remain valid only while their `DictionaryGraph` owner
-is open. Raw entry-batch pointers remain valid only until the matching
-generation is released. Prefer `with_batch` so exceptional control flow cannot
-leak a lease.
+is open; public `graph_nodes` and `graph_edges` return Julia-owned copies that
+remain valid after closing it. Raw entry-batch pointers remain valid only until
+the matching generation is released. Prefer `with_batch` so exceptional control
+flow cannot leak a lease. A reducer callback may return `STOP_REDUCTION` to
+stop after its current page; use `cancel!` outside callbacks to cancel a cursor.
 
 Reducer callbacks are synchronous. Do not call the native reducer through
 `@threadcall`, because Julia's manual forbids callbacks from that worker pool.
