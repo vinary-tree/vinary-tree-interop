@@ -9,6 +9,9 @@ The package implements `AbstractDict`, deterministic `close`, retained snapshots
 bounded `do`-block batches, provider-side reducers, typed domains, and portable
 errors without reimplementing the native automata.
 
+The [published development guide and API reference](https://vinary-tree.github.io/vinary-tree-interop/julia/dev/)
+documents the current source; its URL is not a claim that RC.6 is registered.
+
 ## Installation
 
 From a repository checkout, add the package subdirectory:
