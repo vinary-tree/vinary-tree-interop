@@ -18,6 +18,11 @@ name: Deploy Julia package documentation
 permissions:
   contents: write
 
+concurrency:
+  # Serialize with the master-only development guide writer.
+  group: vti-julia-pages-publish
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Verify General tree and deploy only the julia/ Pages subtree
@@ -32,9 +37,18 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ inputs.version }}
           SOURCE_SHA: ${{ inputs.source_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          version_pattern='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          [[ "$EXPECTED_VERSION" =~ $version_pattern ]]
           test "$GITHUB_REF" = "refs/tags/VinaryTreeInterop-v$EXPECTED_VERSION"
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          release="$(gh api \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME")"
+          jq -e --arg tag "$GITHUB_REF_NAME" \
+            '.tag_name == $tag and .draft == false and .immutable == true' \
+            <<< "$release" >/dev/null
       - name: Verify the public General package and native fixture
         env:
           EXPECTED_VERSION: ${{ inputs.version }}
@@ -46,12 +60,63 @@ jobs:
           TMPDIR="$scratch" julia --startup-file=no \
             "$package/test/registry_readback.jl" \
             "$EXPECTED_VERSION" "$SOURCE_SHA" "$scratch"
-      - name: Build and deploy strict Julia documentation
+      - name: Detect an already-published immutable version
+        id: history
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin gh-pages
+          if git cat-file -e "FETCH_HEAD:julia/v$EXPECTED_VERSION"; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build strict Julia documentation and deploy only a new version
         working-directory: bindings/julia/VinaryTreeInterop
         env:
-          VTI_DOCS_DEPLOY: "true"
+          VTI_DOCS_DEPLOY: ${{ steps.history.outputs.exists != 'true' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-
           julia --startup-file=no --project=docs
           -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate();
           include("docs/make.jl")'
+      - name: Reject changed bytes for an already-published version
+        if: steps.history.outputs.exists == 'true'
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          scratch="$PWD/bindings/julia/VinaryTreeInterop/docs/target/history"
+          mkdir -p "$scratch"
+          git archive FETCH_HEAD "julia/v$EXPECTED_VERSION" |
+            tar -x -C "$scratch"
+          diff -qr \
+            bindings/julia/VinaryTreeInterop/docs/build \
+            "$scratch/julia/v$EXPECTED_VERSION"
+      - name: Read back the deployed branch and public version
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin gh-pages
+          scratch="$PWD/bindings/julia/VinaryTreeInterop/docs/target/readback"
+          mkdir -p "$scratch"
+          path="julia/v$EXPECTED_VERSION/index.html"
+          git show "FETCH_HEAD:$path" > "$scratch/branch.html"
+          cmp --silent \
+            bindings/julia/VinaryTreeInterop/docs/build/index.html \
+            "$scratch/branch.html"
+          site='https://vinary-tree.github.io/vinary-tree-interop'
+          for attempt in $(seq 1 36); do
+            if curl --fail --silent --location "$site/$path" \
+              --output "$scratch/public.html" && \
+              cmp --silent "$scratch/branch.html" "$scratch/public.html"; then
+              exit 0
+            fi
+            echo "Public Julia version $EXPECTED_VERSION unavailable "\
+              "(attempt $attempt)." >&2
+            sleep 10
+          done
+          echo "::error::Public Julia documentation differs at $path." >&2
+          exit 1
