@@ -29,8 +29,12 @@ makedocs(
     warnonly=false,
 )
 
+isfile(joinpath(@__DIR__, "build", "index.html")) ||
+    error("Documenter did not generate docs/build/index.html")
+
 # Deployment is opt-in, after the exact General readback and a manual workflow
-# dispatch from the package-specific TagBot tag. Ordinary CI only builds docs.
+# dispatch from the package-specific TagBot tag, or from the master-only
+# development-docs workflow. Ordinary CI only builds docs.
 if get(ENV, "VTI_DOCS_DEPLOY", "false") == "true"
     deploydocs(
         repo="github.com/vinary-tree/vinary-tree-interop.git",

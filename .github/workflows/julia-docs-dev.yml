@@ -1,0 +1,61 @@
+---
+name: Deploy Julia development documentation
+
+# This publishes only the development guide. Registered versioned guides
+# remain gated by julia-docs-deploy.yml and its General/source readback.
+"on":
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/julia-docs-dev.yml"
+      - "bindings/julia/VinaryTreeInterop/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: julia-docs-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, deploy, and read back Julia development docs
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      # yamllint disable-line rule:line-length
+      - uses: julia-actions/setup-julia@fa02766e078afaaf09b14210362cee14137e6a32  # v3.0.2
+        with: {version: "1.12"}
+      - name: Build and deploy strict Julia documentation
+        working-directory: bindings/julia/VinaryTreeInterop
+        env:
+          VTI_DOCS_DEPLOY: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          julia --startup-file=no --project=docs
+          -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate();
+          include("docs/make.jl")'
+      - name: Verify deployed gh-pages tree
+        run: |
+          git fetch --depth=1 origin gh-pages
+          scratch="$PWD/bindings/julia/VinaryTreeInterop/docs/target"
+          mkdir -p "$scratch"
+          git show FETCH_HEAD:julia/dev/index.html > "$scratch/deployed.html"
+          grep -Fq 'VinaryTreeInterop.jl' "$scratch/deployed.html"
+      - name: Verify public Pages URL
+        run: |
+          scratch="$PWD/bindings/julia/VinaryTreeInterop/docs/target"
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error --location \
+              https://vinary-tree.github.io/vinary-tree-interop/julia/dev/ \
+              -o "$scratch/public.html" && \
+              grep -Fq 'VinaryTreeInterop.jl' "$scratch/public.html"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Public Julia development docs were not readable' >&2
+          exit 1
