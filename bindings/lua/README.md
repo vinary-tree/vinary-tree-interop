@@ -2,6 +2,12 @@
 
 This package exposes the language-native representation of the stable Vinary Tree resource ABI. It is the neutral handoff layer used by dictionary, automaton, and WFST packages; it owns no algorithm-specific policy.
 
+The [resource header](vinary_tree_lua.h) remains usable without Lua development
+headers. Project Lua modules additionally include the
+[unsigned-integer adapter](vinary_tree_lua_u64.h): it accepts nonnegative Lua
+integers and exact decimal strings through $`2^{64}-1`$, returning a Lua
+integer when representable and a decimal string above `LUA_MAXINTEGER`.
+
 <!-- BEGIN GENERATED BINDING OPERATIONS; DO NOT EDIT -->
 
 ## Support and package contract
