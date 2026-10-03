@@ -4,6 +4,21 @@ The shared interop repository publishes one contract through several package
 registries. A release is a promotion of tested immutable artifacts, not a
 collection of unrelated builds.
 
+For Java, Kotlin, Scala, C#, F#, and Swift documentation, consult the
+[managed API reference map](api/README.md). The Java artifact already packages
+strict Javadoc; Kotlin and Scala consume that same Java API. The NuGet
+artifact packages the dedicated managed README and XML comments for both
+target frameworks; F# consumes that same assembly. CI builds DocFX and Swift
+DocC without publishing either site. On `validate-only`, DocFX is staged as
+the checksummed `vinary-tree-interop-dotnet-documentation-4.0.0-rc.6.tar.gz`
+asset **before** immutable release publication. Only after release review may
+the protected `dotnet-docs-release.yml` job deploy the exact archive to the
+versioned Pages subtree, preserving Julia docs and previous versions. After
+Maven Central, NuGet, and Swift Package Index are live, dispatch the
+read-only `managed-api-registry-readback.yml` job at the reviewed tag. A
+source-candidate build is not a public readback, and neither workflow may be
+used as a substitute for a package registry publication decision.
+
 ## Version authorities
 
 `release/version.json` contains the canonical family release candidate and its

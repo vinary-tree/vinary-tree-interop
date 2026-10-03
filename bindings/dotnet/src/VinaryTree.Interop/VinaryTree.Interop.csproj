@@ -13,6 +13,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="../../README.md" Pack="true" PackagePath="README.md" />
+    <None Include="../../NUGET.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 </Project>

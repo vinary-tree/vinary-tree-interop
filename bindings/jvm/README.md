@@ -87,6 +87,9 @@ The idiomatic facade groups the stable surface into these concepts:
 The [JVM host-provider guide](../../docs/language-bindings/jvm-host-providers.md)
 contains complete Java examples, Kotlin/Scala/Clojure idioms, ownership and
 threading rules, performance paths, and the executable verification contract.
+For language-first entry points, see [Kotlin](kotlin.md) and [Scala 3](scala.md).
+Both languages consume the same Java artifact and generated Javadoc; the
+repository publishes no separate Kotlin or Scala wrapper.
 
 Unit and value domains are explicit enum fields on the discovered interface; adapters must never infer them from host container types. Empty terms, embedded zero bytes, non-ASCII text, and the full
 unsigned 64-bit identifier range are represented explicitly; no facade may use

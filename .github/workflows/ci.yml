@@ -79,6 +79,10 @@ jobs:
           bindings/jvm/gradlew --no-daemon -p bindings/jvm
           -PjavaToolchain=${{ matrix.java }} check javadoc
         shell: bash
+      - name: Read back public Javadoc types and compiled Kotlin/Scala consumers
+        run: >-
+          python3 scripts/check-managed-api-docs.py jvm
+          bindings/jvm/build/docs/javadoc
 
   dotnet:
     name: .NET package
@@ -92,6 +96,12 @@ jobs:
           dotnet build
           bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj
           --configuration Release -p:NuGetAudit=false -m:1
+      - name: Compile F# provider fixture and generate strict browsable DocFX
+        run: |
+          dotnet build bindings/dotnet/tests/VinaryTree.Interop.FSharpProviders/VinaryTree.Interop.FSharpProviders.fsproj --configuration Release -p:NuGetAudit=false -m:1
+          dotnet tool restore
+          dotnet tool run docfx -- docs/api/dotnet/docfx.json --warningsAsErrors
+          python3 scripts/check-managed-api-docs.py dotnet target/managed-api-docs/dotnet
 
   native-languages:
     name: ${{ matrix.language }} package
@@ -126,6 +136,22 @@ jobs:
         if: matrix.language == 'ocaml'
       - run: swift build
         if: matrix.language == 'swift'
+      - name: Generate and read back strict Swift DocC
+        if: matrix.language == 'swift'
+        run: |
+          mkdir -p target/managed-api-docs
+          swift package \
+            --package-path bindings/swift/vinary-tree-interop \
+            --allow-writing-to-directory "$GITHUB_WORKSPACE/target/managed-api-docs/swift" \
+            generate-documentation \
+            --target VinaryTreeInterop \
+            --disable-indexing \
+            --warnings-as-errors \
+            --transform-for-static-hosting \
+            --hosting-base-path vinary-tree-interop \
+            --output-path "$GITHUB_WORKSPACE/target/managed-api-docs/swift"
+          python3 scripts/check-managed-api-docs.py swift \
+            target/managed-api-docs/swift --complete-toolchain-assets
 
   julia:
     name: Julia ${{ matrix.julia-version }} package

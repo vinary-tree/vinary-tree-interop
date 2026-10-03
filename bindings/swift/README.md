@@ -32,6 +32,12 @@ canonical C header as a system-library target:
 swift build
 ```
 
+The [DocC overview](vinary-tree-interop/Sources/VinaryTreeInterop/VinaryTreeInterop.docc/VinaryTreeInterop.md)
+documents both actual public types, their borrowing rule, and an example.
+The `Swift-DocC` plugin is pinned to 1.5.0 for nonpublishing API-render gates;
+the public Swift Package Index page is checked only after a reviewed tag is
+published.
+
 Project-specific constructors live in their own Swift packages; this neutral
 module only models the shared resource handoff.
 

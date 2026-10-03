@@ -177,6 +177,12 @@ jobs:
       - run: >-
           dotnet pack bindings/dotnet/src/VinaryTree.Interop/VinaryTree.Interop.csproj
           --configuration Release --output dist -p:NuGetAudit=false -m:1
+      - name: Verify the exact staged NuGet README and both target-framework XML references
+        run: |
+          version="$(jq -r '.canonical' release/version.json)"
+          python3 scripts/check_managed_registry_docs.py \
+            --version "$version" \
+            --local-nuget "dist/VinaryTree.Interop.$version.nupkg"
       - uses: actions/upload-artifact@v7
         with:
           name: nuget-package
@@ -237,6 +243,31 @@ jobs:
           path: |
             bindings/fortran/fpm.toml
             bindings/fortran/src
+          if-no-files-found: error
+
+  managed-documentation-package:
+    name: Stage immutable versioned .NET API documentation (no publication)
+    needs: contract
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && inputs.registry == 'validate-only'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: actions/setup-dotnet@v5
+        with: { dotnet-version: 10.0.x }
+      - name: Generate DocFX and verify source-derived API inventory
+        run: |
+          dotnet tool restore
+          dotnet tool run docfx -- docs/api/dotnet/docfx.json --warningsAsErrors
+          python3 scripts/check-managed-api-docs.py dotnet target/managed-api-docs/dotnet
+      - name: Stage reproducible archive and verify extracted bytes
+        run: |
+          python3 scripts/managed_docs_archive.py build
+          python3 scripts/managed_docs_archive.py verify
+      - uses: actions/upload-artifact@v7
+        with:
+          name: managed-documentation-package
+          path: target/managed-api-docs-artifacts/*.tar.gz
           if-no-files-found: error
 
   publish-crates-io:
@@ -366,7 +397,7 @@ jobs:
 
   github-release:
     name: Publish checksummed GitHub release
-    needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate]
+    needs: [contract, rust-package, native-package, python-package, npm-package, jvm-package, nuget-package, opam-package, hackage-candidate, fpm-candidate, managed-documentation-package]
     if: >-
       github.event_name == 'workflow_dispatch' &&
       github.ref_type == 'tag' &&
