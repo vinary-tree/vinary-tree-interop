@@ -419,7 +419,7 @@ def actual_versions() -> dict[str, str]:
 def validate(expected: dict[str, str], model: dict[str, object]) -> list[str]:
     failures: list[str] = []
     expected_metadata = {
-        "summary": "Share live dictionaries and weighted automata safely across languages",
+        "summary": "Cross-language resource interfaces for dictionaries and weighted automata",
         "description": "A stable, dependency-free resource ABI for sharing live dictionaries, weighted automata, and host-defined algebra safely across Vinary Tree libraries and languages.",
     }
     if model.get("metadata") != expected_metadata:
