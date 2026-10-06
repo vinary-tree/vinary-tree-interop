@@ -26,6 +26,23 @@ jobs:
       - run: shellcheck scripts/verify.sh scripts/verify-python-package.sh
       - run: ./scripts/verify.sh
 
+  byte-values-formal:
+    name: Byte-value v2 finite model and invariant mutations
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: "21"}
+      - name: Fetch exact TLA+ tools artifact
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" \
+            | sha256sum -c -
+      - run: python3 scripts/generate-byte-values-v2-properties.py --check
+      - run: python3 scripts/verify-byte-values-v2-formal.py --tlc-jar "$RUNNER_TEMP/tla2tools.jar"
+
   python:
     name: Python ${{ matrix.python-version }} hosted providers
     runs-on: ubuntu-24.04

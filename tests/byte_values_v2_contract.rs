@@ -350,7 +350,7 @@ fn absent_and_present_empty_are_distinct_with_no_arena_bytes() {
     assert_ne!(entries[0].has_value, entries[1].has_value);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 struct CopyReply {
     raw_status: u32,
     required: usize,
@@ -402,6 +402,7 @@ struct SnapshotValue {
     snapshot: u64,
     graph_cursor: u64,
     value: Option<Vec<u8>>,
+    live: bool,
 }
 
 impl SnapshotValue {
@@ -411,6 +412,9 @@ impl SnapshotValue {
         cursor: u64,
         capacity: usize,
     ) -> Result<CopyReply, VtStatus> {
+        if !self.live {
+            return Err(VtStatus::Closed);
+        }
         if requested_snapshot != self.snapshot || cursor != self.graph_cursor {
             return Err(VtStatus::InvalidArgument);
         }
@@ -442,6 +446,7 @@ fn two_phase_copy_is_snapshot_pinned_and_budgeted() {
         snapshot: 11,
         graph_cursor: 91,
         value: Some(vec![1, 2, 3]),
+        live: true,
     };
     let result = consume_two_phase(|cap| snap.graph_copy(11, 91, cap).unwrap(), 3);
     assert_eq!(result, Ok(Some(vec![1, 2, 3])));
@@ -461,6 +466,7 @@ fn two_phase_copy_is_snapshot_pinned_and_budgeted() {
         snapshot: 12,
         graph_cursor: 92,
         value: Some(vec![4]),
+        live: true,
     };
     assert_eq!(
         next_revision.graph_copy(12, 91, 1).err(),
@@ -490,11 +496,13 @@ fn identical_bit_cross_provider_cursor_is_not_authenticatable() {
         snapshot: 11,
         graph_cursor: 91,
         value: Some(vec![1]),
+        live: true,
     };
     let foreign = SnapshotValue {
         snapshot: 22,
         graph_cursor: 91,
         value: Some(vec![2]),
+        live: true,
     };
     assert_eq!(first.graph_copy(11, 91, 1).unwrap().bytes, vec![1]);
     // The foreign provider can issue the same u64. The receiving context has
@@ -639,3 +647,244 @@ fn byte_limit_failure_is_atomic_and_lease_is_unique() {
     assert_eq!(stream.release(1), Ok(()));
     assert_eq!(stream.next(&sizes, limits), Err(VtStatus::End));
 }
+
+// Each call is emitted by scripts/generate-byte-values-v2-properties.py from
+// the invariant ledger. The bounded seeds vary host-visible ABI inputs; the
+// expected results are independent of the model's transition implementation.
+fn check_generated_property(invariant: &str, seed: u8) {
+    match invariant {
+        "TypeOK" => {
+            let units = [seed];
+            let bytes = [seed];
+            let entry = VtDictionaryByteEntry {
+                unit_offset: 0,
+                unit_len: 1,
+                value_offset: 0,
+                value_len: 1,
+                has_value: 1,
+                reserved: [0; 7],
+            };
+            let limits = VtDictionaryByteBatchLimits {
+                max_entries: 1,
+                max_units: 1,
+                max_value_bytes: 1,
+                reserved: 0,
+            };
+            let mut view = basic_view(
+                core::slice::from_ref(&entry),
+                units.as_ptr().cast(),
+                1,
+                bytes.as_ptr(),
+                1,
+            );
+            assert_eq!(validate_view_shape(&view, &[entry], &limits, 1), Ok(()));
+            match seed % 4 {
+                0 => view.entry_count = usize::MAX,
+                1 => view.units = core::ptr::null(),
+                2 => view.value_byte_count = usize::MAX,
+                _ => view.generation = 0,
+            }
+            assert_eq!(
+                validate_view_shape(&view, &[entry], &limits, 1),
+                Err(ModelError::Provider)
+            );
+        }
+        "CapabilitySound" => {
+            let domain = match seed % 3 {
+                0 => VtValueDomain::Unit,
+                1 => VtValueDomain::OptionalU64,
+                _ => VtValueDomain::Bytes,
+            };
+            let v1 = seed & 4 != 0;
+            let v2 = seed & 8 != 0;
+            let expected = if (domain == VtValueDomain::Bytes && v2)
+                || (domain != VtValueDomain::Bytes && v1)
+            {
+                Ok(())
+            } else {
+                Err(ModelError::Unsupported)
+            };
+            assert_eq!(value_stream_available(domain, v1, v2), expected);
+        }
+        "NoByteValueErasure" => {
+            let v2 = seed & 1 != 0;
+            assert_eq!(
+                value_stream_available(VtValueDomain::Bytes, true, v2),
+                if v2 {
+                    Ok(())
+                } else {
+                    Err(ModelError::Unsupported)
+                }
+            );
+        }
+        "SnapshotPinned" | "TokenAuthority" => {
+            let mut snap = SnapshotValue {
+                snapshot: u64::from(seed) + 1,
+                graph_cursor: u64::from(seed) + 101,
+                value: Some(vec![seed]),
+                live: true,
+            };
+            assert_eq!(
+                snap.graph_copy(snap.snapshot, snap.graph_cursor, 1)
+                    .unwrap()
+                    .bytes,
+                vec![seed]
+            );
+            assert_eq!(
+                snap.graph_copy(snap.snapshot + 1, snap.graph_cursor, 1),
+                Err(VtStatus::InvalidArgument)
+            );
+            assert_eq!(
+                snap.graph_copy(snap.snapshot, snap.graph_cursor + 1, 1),
+                Err(VtStatus::InvalidArgument)
+            );
+            if invariant == "SnapshotPinned" {
+                snap.live = false;
+                assert_eq!(
+                    snap.graph_copy(snap.snapshot, snap.graph_cursor, 1),
+                    Err(VtStatus::Closed)
+                );
+            } else {
+                let second = SnapshotValue {
+                    snapshot: snap.snapshot + 1,
+                    graph_cursor: snap.graph_cursor + 1,
+                    value: Some(vec![seed.wrapping_add(1)]),
+                    live: true,
+                };
+                assert_eq!(
+                    snap.graph_copy(snap.snapshot, second.graph_cursor, 1),
+                    Err(VtStatus::InvalidArgument)
+                );
+                assert_eq!(
+                    second.graph_copy(second.snapshot, snap.graph_cursor, 1),
+                    Err(VtStatus::InvalidArgument)
+                );
+                assert_eq!(
+                    second
+                        .graph_copy(second.snapshot, second.graph_cursor, 1)
+                        .unwrap()
+                        .bytes,
+                    vec![seed.wrapping_add(1)]
+                );
+            }
+        }
+        "CopyAtomic" => {
+            let value = match seed % 3 {
+                0 => None,
+                1 => Some(vec![]),
+                _ => Some(vec![seed]),
+            };
+            let capacity = usize::from((seed / 3) & 1);
+            let snap = SnapshotValue {
+                snapshot: 1,
+                graph_cursor: 2,
+                value: value.clone(),
+                live: true,
+            };
+            let reply = snap.graph_copy(1, 2, capacity).unwrap();
+            let len = value.as_ref().map_or(0, Vec::len);
+            assert_eq!(reply.required, len);
+            assert_eq!(reply.has_value, u8::from(value.is_some()));
+            if capacity < len {
+                assert_eq!(reply.raw_status, VtStatus::LimitExceeded.to_raw());
+                assert_eq!(reply.written, 0);
+                assert!(reply.bytes.is_empty());
+            } else {
+                assert_eq!(reply.raw_status, VtStatus::Ok.to_raw());
+                assert_eq!(reply.written, len);
+                assert_eq!(reply.bytes, value.clone().unwrap_or_default());
+            }
+            assert_eq!(
+                consume_two_phase(|cap| snap.graph_copy(1, 2, cap).unwrap(), len),
+                Ok(value)
+            );
+        }
+        "PageBounded" => {
+            let sizes = [
+                (1, usize::from(seed & 1)),
+                (1, usize::from((seed >> 1) & 1)),
+            ];
+            let limits = VtDictionaryByteBatchLimits {
+                max_entries: usize::from((seed % 2) + 1),
+                max_units: usize::from(((seed >> 2) % 2) + 1),
+                max_value_bytes: usize::from((seed >> 4) % 3),
+                reserved: 0,
+            };
+            let expected = if sizes[0].1 > limits.max_value_bytes {
+                Err(VtStatus::LimitExceeded)
+            } else if limits.max_entries >= 2
+                && limits.max_units >= 2
+                && sizes[0].1 + sizes[1].1 <= limits.max_value_bytes
+            {
+                Ok(2)
+            } else {
+                Ok(1)
+            };
+            let mut stream = StreamModel::default();
+            assert_eq!(stream.next(&sizes, limits), expected);
+            assert_eq!(stream.pending, expected.unwrap_or(0));
+            if let Ok(count) = expected {
+                assert!(count <= limits.max_entries && count <= limits.max_units);
+                assert!(
+                    sizes[..count].iter().map(|x| x.1).sum::<usize>() <= limits.max_value_bytes
+                );
+            }
+        }
+        "LeaseGenerationSound" => {
+            let mut stream = StreamModel::default();
+            let limits = VtDictionaryByteBatchLimits {
+                max_entries: 1,
+                max_units: 1,
+                max_value_bytes: usize::from(seed & 1),
+                reserved: 0,
+            };
+            assert_eq!(stream.next(&[(1, 0)], limits), Ok(1));
+            assert_eq!(stream.lease, Some(stream.generation));
+            assert_eq!(
+                stream.release(stream.generation + 1),
+                Err(VtStatus::InvalidArgument)
+            );
+            assert_eq!(stream.next(&[(1, 0)], limits), Err(VtStatus::BatchInUse));
+            assert_eq!(stream.release(stream.generation), Ok(()));
+            assert_eq!(stream.lease, None);
+        }
+        "CancellationSticky" => {
+            let mut stream = StreamModel::default();
+            let limits = VtDictionaryByteBatchLimits {
+                max_entries: 1,
+                max_units: 1,
+                max_value_bytes: 1,
+                reserved: 0,
+            };
+            let sizes = [(1, 0), (1, usize::from(seed & 1))];
+            if seed & 2 != 0 {
+                assert_eq!(stream.next(&sizes, limits), Ok(1));
+            }
+            stream.cancelled = true;
+            if let Some(generation) = stream.lease {
+                assert_eq!(stream.release(generation), Ok(()));
+            }
+            assert_eq!(stream.next(&sizes, limits), Err(VtStatus::End));
+        }
+        "NoPerKeyDispatch" => {
+            let count = usize::from(seed % 3 + 1);
+            let sizes = vec![(1, 1); count];
+            let limits = VtDictionaryByteBatchLimits {
+                max_entries: count,
+                max_units: count,
+                max_value_bytes: count,
+                reserved: 0,
+            };
+            let mut stream = StreamModel::default();
+            assert_eq!(stream.next(&sizes, limits), Ok(count));
+            assert_eq!(stream.pending, count);
+            assert_eq!(
+                size_of::<VtDictionaryByteEntriesVTable>(),
+                7 * size_of::<usize>() + 8
+            );
+        }
+        _ => panic!("unmapped formal invariant: {invariant}"),
+    }
+}
+
+include!("generated/byte_values_v2_properties.rs");

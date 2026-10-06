@@ -1,0 +1,16 @@
+{
+  "model": "formal/ByteValueDictionaryV2.tla",
+  "seed_count": 64,
+  "invariants": [
+    {"name": "TypeOK", "property": "property_type_ok", "mutation": "type_out_of_range"},
+    {"name": "CapabilitySound", "property": "property_capability_sound", "mutation": "offer_missing_point_capability"},
+    {"name": "NoByteValueErasure", "property": "property_no_byte_value_erasure", "mutation": "fall_back_bytes_to_v1"},
+    {"name": "SnapshotPinned", "property": "property_snapshot_pinned", "mutation": "drop_snapshot_retain"},
+    {"name": "TokenAuthority", "property": "property_token_authority", "mutation": "reuse_live_token"},
+    {"name": "CopyAtomic", "property": "property_copy_atomic", "mutation": "publish_failed_copy"},
+    {"name": "PageBounded", "property": "property_page_bounded", "mutation": "understate_byte_capacity"},
+    {"name": "LeaseGenerationSound", "property": "property_lease_generation_sound", "mutation": "lose_live_lease"},
+    {"name": "CancellationSticky", "property": "property_cancellation_sticky", "mutation": "reopen_cancelled_cursor"},
+    {"name": "NoPerKeyDispatch", "property": "property_no_per_key_dispatch", "mutation": "dispatch_per_key"}
+  ]
+}

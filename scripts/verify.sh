@@ -7,6 +7,7 @@ export GOTMPDIR="${GOTMPDIR:-$PWD/target/go-tmp}"
 mkdir -p "$TMPDIR" "$GOCACHE" "$GOTMPDIR"
 
 python3 scripts/sync-release-version.py
+python3 scripts/generate-byte-values-v2-properties.py --check
 python3 scripts/check-release-ref.py --self-test
 cmp LICENSE bindings/python/LICENSE
 git ls-files --eol | awk '
@@ -20,7 +21,9 @@ cargo fmt --all -- --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 
+cc -std=c11 -Wall -Wextra -Werror -Iinclude -x c -fsyntax-only include/vinary_tree_interop.h
 cc -std=c17 -Wall -Wextra -Werror -Iinclude -x c -fsyntax-only include/vinary_tree_interop.h
+c++ -std=c++17 -Wall -Wextra -Werror -Iinclude -x c++ -fsyntax-only include/vinary_tree_interop.h
 c++ -std=c++23 -Wall -Wextra -Werror -Iinclude -x c++ -fsyntax-only include/vinary_tree_interop.h
 cpp_work=$(mktemp -d "$TMPDIR/vinary-tree-interop-cpp.XXXXXX")
 trap 'rm -rf "$cpp_work"' EXIT

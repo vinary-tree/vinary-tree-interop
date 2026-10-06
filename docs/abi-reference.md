@@ -1039,6 +1039,12 @@ This specification adds wire contracts and negative controls only. It does
 not assert that any current native producer or consumer implements these
 optional v2 capabilities.
 
+The [finite byte-value contract](byte-values-v2-formal-contract.md) checks
+capability negotiation, value presence, snapshot and graph-token authority,
+copy publication, bounded page leases, cancellation, and v1 compatibility.
+It maps each invariant to generated ABI-model properties and an expected
+failing transition mutation; CI and release validation run those checks.
+
 ### 6.5 The dictionary laws
 
 **(P) The paging law.** Fix a node $`v`$ of a retained snapshot and let its

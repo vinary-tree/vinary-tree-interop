@@ -1,0 +1,35 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam state {
+  BorderColor #174B6D
+  FontColor #14283A
+  ArrowColor #174B6D
+}
+title Byte-value v2 snapshot and batch lifetime
+
+state "Not acquired" as Missing #E8EDF3
+state "Retained snapshot" as Live #D9F1FF {
+  state "No entry cursor" as Idle #E7F8E9
+  state "Open cursor" as Open #D9F1FF
+  state "Leased batch" as Leased #FFF0C5
+  state "Ended" as Ended #E9DEF9
+  state "Closed cursor" as Closed #E8EDF3
+
+  [*] --> Idle
+  Idle --> Open : negotiate entry v2 / open
+  Open --> Leased : next_batch within all budgets
+  Leased --> Open : release_batch(generation)
+  Open --> Ended : cancel or exhaust
+  Leased --> Ended : cancel, then release_batch
+  Ended --> Closed : close
+  Open --> Closed : close
+}
+state "Released" as Released #E8EDF3
+
+[*] --> Missing
+Missing --> Live : acquire immutable revision
+Live --> Released : release after no cursor or close
+Live --> Live : point v2 probe/copy by valid token
+Released --> [*]
+@enduml

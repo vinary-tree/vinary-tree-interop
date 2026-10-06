@@ -36,6 +36,8 @@ jobs:
         with: { node-version: "24", package-manager-cache: false }
       - uses: actions/setup-go@v6
         with: { go-version: "1.26.x", cache: false }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "21" }
       # yamllint disable-line rule:line-length
       - uses: Raku/setup-raku@b8b1a4ebe85ef112edfc65e9edc8c57735367e3f  # v1
       - id: version
@@ -51,6 +53,14 @@ jobs:
             --registry "$REGISTRY")
           echo "canonical=$canonical" >> "$GITHUB_OUTPUT"
       - run: ./scripts/verify.sh
+      - name: Prove byte-value v2 finite contract and negative controls
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" \
+            | sha256sum -c -
+          python3 scripts/verify-byte-values-v2-formal.py \
+            --tlc-jar "$RUNNER_TEMP/tla2tools.jar"
       - name: Reject generated Raku ABI drift and prove the negative control
         run: |
           raku scripts/generate-bindings.raku --check
